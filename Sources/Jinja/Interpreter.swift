@@ -2,11 +2,12 @@ import Foundation
 
 /// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
+    /// Buffer for accumulating rendered output.
     private struct Buffer: TextOutputStream {
         var parts: [String] = []
 
         init() {
-            parts.reserveCapacity(64)  // Typical template has many small parts
+            parts.reserveCapacity(128)
         }
 
         mutating func write(_ string: String) {
@@ -18,7 +19,7 @@ public enum Interpreter {
         }
     }
 
-    // Built-in filters
+    /// Built-in filters
     private static let filters: [String: @Sendable ([Value]) async throws -> Value] = [
         "upper": { values in
             guard case let .string(str) = values.first else {
@@ -82,7 +83,7 @@ public enum Interpreter {
         },
     ]
 
-    // Built-in tests
+    /// Built-in tests
     private static let tests: [String: @Sendable ([Value]) async throws -> Bool] = [
         "defined": { values in
             guard let value = values.first else { return false }
@@ -123,13 +124,12 @@ public enum Interpreter {
     /// Interprets nodes and renders them to a string using the given environment.
     public static func interpret(_ nodes: [Node], environment: Environment) throws -> String {
         // Use the fast path with synchronous environment
-        let env = environment.snapshot()
+        let env = Environment(initial: environment.variables)
         var buffer = Buffer()
         try interpret(nodes, env: env, into: &buffer)
         return buffer.build()
     }
 
-    /// High-performance synchronous interpreter using Environment
     private static func interpret(_ nodes: [Node], env: Environment, into buffer: inout Buffer)
         throws
     {
@@ -138,7 +138,6 @@ public enum Interpreter {
         }
     }
 
-    /// High-performance synchronous node interpretation
     private static func interpretNode(_ node: Node, env: Environment, into buffer: inout Buffer)
         throws
     {
@@ -155,8 +154,7 @@ public enum Interpreter {
         }
     }
 
-    /// Evaluates an expression in the given environment and returns its value.
-    static func evaluateExpression(_ expr: Expression, env: Environment) throws -> Value {
+    private static func evaluateExpression(_ expr: Expression, env: Environment) throws -> Value {
         switch expr {
         case let .string(value):
             return .string(value)
@@ -602,10 +600,4 @@ public enum Interpreter {
             throw JinjaError.runtime("'in' operator requires iterable on right side")
         }
     }
-}
-
-// MARK: - Value Extensions
-
-extension Value {
-
 }

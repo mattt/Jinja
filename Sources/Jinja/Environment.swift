@@ -35,7 +35,7 @@ private let builtinValues: [String: Value] = [
 
 /// Execution environment that stores variables and provides context for template rendering.
 public final class Environment: @unchecked Sendable {
-    private var variables: [String: Value] = [:]
+    private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
 
     /// Creates a new environment with optional parent and initial variables.
@@ -71,7 +71,7 @@ public final class Environment: @unchecked Sendable {
     /// Sets multiple variables from a dictionary of Any values.
     public func setAll(_ values: [String: Any]) throws {
         for (key, value) in values {
-            let jinjaValue = try convertToValue(value)
+            let jinjaValue = try Value(any: value)
             variables[key] = jinjaValue
         }
     }
@@ -79,38 +79,5 @@ public final class Environment: @unchecked Sendable {
     /// Sets multiple variables from a dictionary of Value objects.
     public func setAllValues(_ values: [String: Value]) {
         variables.merge(values) { _, new in new }
-    }
-
-    /// Creates a snapshot environment for template rendering.
-    public func snapshot() -> Environment {
-        // For performance, just copy current variables directly
-        // Most template rendering doesn't use nested environments
-        return Environment(initial: variables)
-    }
-
-    private func convertToValue(_ value: Any) throws -> Value {
-        switch value {
-        case let str as String:
-            return .string(str)
-        case let int as Int:
-            return .integer(int)
-        case let double as Double:
-            return .number(double)
-        case let bool as Bool:
-            return .boolean(bool)
-        case let array as [Any]:
-            let values = try array.map { try convertToValue($0) }
-            return .array(values)
-        case let dict as [String: Any]:
-            var orderedDict: OrderedDictionary<String, Value> = [:]
-            for (k, v) in dict {
-                orderedDict[k] = try convertToValue(v)
-            }
-            return .object(orderedDict)
-        case Optional<Any>.none:
-            return .null
-        default:
-            throw JinjaError.runtime("Cannot convert value of type \(type(of: value))")
-        }
     }
 }
