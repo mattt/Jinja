@@ -49,11 +49,6 @@ public final class Environment: @unchecked Sendable {
         }
     }
 
-    /// Sets a variable to the given value.
-    public func set(_ name: String, value: Value) {
-        variables[name] = value
-    }
-
     /// Gets the value of a variable, returning undefined if not found.
     public func get(_ name: String) -> Value {
         if let value = variables[name] {
@@ -68,16 +63,8 @@ public final class Environment: @unchecked Sendable {
         return .undefined
     }
 
-    /// Sets multiple variables from a dictionary of Any values.
-    public func setAll(_ values: [String: Any]) throws {
-        for (key, value) in values {
-            let jinjaValue = try Value(any: value)
-            variables[key] = jinjaValue
-        }
-    }
-
-    /// Sets multiple variables from a dictionary of Value objects.
-    public func setAllValues(_ values: [String: Value]) {
-        variables.merge(values) { _, new in new }
+    /// Sets a variable to the given value.
+    public func set(_ name: String, value: Value) {
+        variables[name] = value
     }
 }
