@@ -75,18 +75,65 @@ public enum LoopVar: Sendable {
 
 /// Binary operators for expressions.
 public enum BinaryOp: String, Sendable {
-    /// Arithmetic operators.
-    case add = "+", subtract = "-", multiply = "*", divide = "/", modulo = "%"
-    /// String concatenation operator.
+    // MARK: Arithmetic Operators
+
+    /// Addition operator (`+`)
+    case add = "+"
+
+    /// Subtraction operator (`-`)
+    case subtract = "-"
+
+    /// Multiplication operator (`*`)
+    case multiply = "*"
+
+    /// Division operator (`/`)
+    case divide = "/"
+
+    /// Modulo operator (`%`)
+    case modulo = "%"
+
+    // MARK: String Operators
+
+    /// String concatenation operator (`~`)
     case concat = "~"
-    /// Equality comparison operators.
-    case equal = "==", notEqual = "!="
-    /// Relational comparison operators.
-    case less = "<", lessEqual = "<=", greater = ">", greaterEqual = ">="
-    /// Logical operators.
-    case and = "and", or = "or"
-    /// Membership test operators.
-    case `in` = "in", notIn = "not in"
+
+    // MARK: Equality Comparison Operators
+
+    /// Equality operator (`==`)
+    case equal = "=="
+
+    /// Inequality operator (`!=`)
+    case notEqual = "!="
+
+    // MARK: Relational Comparison Operators
+
+    /// Less than operator (`<`)
+    case less = "<"
+
+    /// Less than or equal to operator (`<=`)
+    case lessEqual = "<="
+
+    /// Greater than operator (`>`)
+    case greater = ">"
+
+    /// Greater than or equal to operator (`>=`)
+    case greaterEqual = ">="
+
+    // MARK: Logical Operators
+
+    /// Logical AND operator (`and`)
+    case and = "and"
+
+    /// Logical OR operator (`or`)
+    case or = "or"
+
+    // MARK: Membership Test Operators
+
+    /// Membership test operator (`in`)
+    case `in` = "in"
+
+    /// Negated membership test operator (`not in`)
+    case notIn = "not in"
 }
 
 /// Unary operators for expressions.
