@@ -104,39 +104,36 @@ struct PerformanceTests {
 
         // interpret
         let env = Environment()
-        env.set("true", value: .boolean(true))
-        env.set("false", value: .boolean(false))
-        env.set("none", value: .null)
-        env.set(
-            "range",
-            value: .function { values in
-                guard !values.isEmpty else { return .array([]) }
-                switch values.count {
-                case 1:
-                    if case let .integer(end) = values[0] {
-                        return .array((0..<end).map { .integer($0) })
-                    }
-                case 2:
-                    if case let .integer(start) = values[0],
-                        case let .integer(end) = values[1]
-                    {
-                        return .array((start..<end).map { .integer($0) })
-                    }
-                case 3:
-                    if case let .integer(start) = values[0],
-                        case let .integer(end) = values[1],
-                        case let .integer(step) = values[2]
-                    {
-                        return .array(stride(from: start, to: end, by: step).map { .integer($0) })
-                    }
-                default:
-                    break
+        env["true"] = .boolean(true)
+        env["false"] = .boolean(false)
+        env["none"] = .null
+        env["range"] = .function { values in
+            guard !values.isEmpty else { return .array([]) }
+            switch values.count {
+            case 1:
+                if case let .integer(end) = values[0] {
+                    return .array((0..<end).map { .integer($0) })
                 }
-                throw JinjaError.runtime("Invalid arguments to range function")
+            case 2:
+                if case let .integer(start) = values[0],
+                    case let .integer(end) = values[1]
+                {
+                    return .array((start..<end).map { .integer($0) })
+                }
+            case 3:
+                if case let .integer(start) = values[0],
+                    case let .integer(end) = values[1],
+                    case let .integer(step) = values[2]
+                {
+                    return .array(stride(from: start, to: end, by: step).map { .integer($0) })
+                }
+            default:
+                break
             }
-        )
-        env.set("messages", value: Self.weatherQueryMessages["messages"]!)
-        env.set("add_generation_prompt", value: .boolean(false))
+            throw JinjaError.runtime("Invalid arguments to range function")
+        }
+        env["messages"] = Self.weatherQueryMessages["messages"]!
+        env["add_generation_prompt"] = .boolean(false)
 
         let runMs = try measureMs {
             _ = try Interpreter.interpret(program, environment: env)

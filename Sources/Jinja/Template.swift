@@ -24,7 +24,7 @@ public struct Template: Sendable {
 
         // Set context values directly
         for (key, value) in context {
-            env.set(key, value: value)
+            env[key] = value
         }
 
         return try Interpreter.interpret(nodes, environment: env)

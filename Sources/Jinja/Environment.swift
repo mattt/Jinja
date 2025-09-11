@@ -39,6 +39,9 @@ public final class Environment: @unchecked Sendable {
     private let parent: Environment?
 
     /// Creates a new environment with optional parent and initial variables.
+    /// - Parameters:
+    ///   - parent: The parent environment
+    ///   - initial: The initial variables
     public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
         self.parent = parent
         self.variables = initial
@@ -49,22 +52,22 @@ public final class Environment: @unchecked Sendable {
         }
     }
 
-    /// Gets the value of a variable, returning undefined if not found.
-    public func get(_ name: String) -> Value {
-        if let value = variables[name] {
-            return value
+    /// A subscript to get and set variables in the environment.
+    public subscript(name: String) -> Value {
+        get {
+            if let value = variables[name] {
+                return value
+            }
+
+            // Check parent environment
+            if let parent = parent {
+                return parent[name]
+            }
+
+            return .undefined
         }
-
-        // Check parent environment
-        if let parent = parent {
-            return parent.get(name)
+        set {
+            variables[name] = newValue
         }
-
-        return .undefined
-    }
-
-    /// Sets a variable to the given value.
-    public func set(_ name: String, value: Value) {
-        variables[name] = value
     }
 }

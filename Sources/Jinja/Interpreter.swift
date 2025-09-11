@@ -189,7 +189,7 @@ public enum Interpreter {
             return .object(dict)
 
         case let .identifier(name):
-            return env.get(name)
+            return env[name]
 
         case let .binary(op, left, right):
             let leftValue = try evaluateExpression(left, env: env)
@@ -268,27 +268,24 @@ public enum Interpreter {
                         // Set loop variables
                         switch loopVar {
                         case let .single(varName):
-                            childEnv.set(varName, value: item)
+                            childEnv[varName] = item
                         case let .tuple(varNames):
                             if case let .array(tupleItems) = item {
                                 for (i, varName) in varNames.enumerated() {
                                     let value = i < tupleItems.count ? tupleItems[i] : .undefined
-                                    childEnv.set(varName, value: value)
+                                    childEnv[varName] = value
                                 }
                             }
                         }
 
                         // Set loop context variables
-                        childEnv.set(
-                            "loop",
-                            value: .object([
-                                "index": .integer(index + 1),
-                                "index0": .integer(index),
-                                "first": .boolean(index == 0),
-                                "last": .boolean(index == items.count - 1),
-                                "length": .integer(items.count),
-                            ])
-                        )
+                        childEnv["loop"] = .object([
+                            "index": .integer(index + 1),
+                            "index0": .integer(index),
+                            "first": .boolean(index == 0),
+                            "last": .boolean(index == items.count - 1),
+                            "length": .integer(items.count),
+                        ])
 
                         // Execute body
                         for node in body {
