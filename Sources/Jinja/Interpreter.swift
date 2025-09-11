@@ -265,7 +265,7 @@ public enum Interpreter {
                         try interpretNode(node, env: env, into: &buffer)
                     }
                 } else {
-                    let childEnv = env.childEnv()
+                    let childEnv = Environment(parent: env)
                     for (index, item) in items.enumerated() {
                         // Set loop variables
                         switch loopVar {

@@ -10,13 +10,13 @@ private let builtinValues: [String: Value] = [
         switch values.count {
         case 1:
             if case let .integer(end) = values[0] {
-                return .array((0 ..< end).map { .integer($0) })
+                return .array((0..<end).map { .integer($0) })
             }
         case 2:
             if case let .integer(start) = values[0],
                 case let .integer(end) = values[1]
             {
-                return .array((start ..< end).map { .integer($0) })
+                return .array((start..<end).map { .integer($0) })
             }
         case 3:
             if case let .integer(start) = values[0],
@@ -79,11 +79,6 @@ public final class Environment: @unchecked Sendable {
     /// Sets multiple variables from a dictionary of Value objects.
     public func setAllValues(_ values: [String: Value]) {
         variables.merge(values) { _, new in new }
-    }
-
-    /// Creates a child environment for scope isolation.
-    public func childEnv() -> Environment {
-        Environment(parent: self)
     }
 
     /// Creates a snapshot environment for template rendering.
