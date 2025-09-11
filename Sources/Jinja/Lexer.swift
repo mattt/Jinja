@@ -307,11 +307,3 @@ public enum Lexer: Sendable {
     }
 
 }
-
-// MARK: -
-
-private func isWhitespace(_ byte: UInt8) -> Bool {
-    // ASCII whitespace: space, tab, newline, carriage return, form feed, vertical tab
-    return byte == 0x20 || byte == 0x09 || byte == 0x0A || byte == 0x0D || byte == 0x0C
-        || byte == 0x0B
-}
