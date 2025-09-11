@@ -1,5 +1,6 @@
 import Foundation
 
+/// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
     private struct Buffer: TextOutputStream {
         var parts: [String] = []
@@ -119,6 +120,7 @@ public enum Interpreter {
         },
     ]
 
+    /// Interprets nodes and renders them to a string using the given environment.
     public static func interpret(_ nodes: [Node], environment: Environment) throws -> String {
         // Use the fast path with synchronous environment
         let env = environment.snapshot()
@@ -153,7 +155,7 @@ public enum Interpreter {
         }
     }
 
-    /// High-performance synchronous expression evaluation
+    /// Evaluates an expression in the given environment and returns its value.
     static func evaluateExpression(_ expr: Expression, env: Environment) throws -> Value {
         switch expr {
         case let .string(value):

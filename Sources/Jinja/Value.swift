@@ -1,16 +1,27 @@
 @_exported import OrderedCollections
 
+/// Represents values in Jinja template expressions and variables.
 public enum Value: Sendable {
+    /// String value containing text data.
     case string(String)
+    /// Floating-point numeric value.
     case number(Double)
+    /// Integer numeric value.
     case integer(Int)
+    /// Boolean value (`true` or `false`).
     case boolean(Bool)
+    /// Null value representing absence of data.
     case null
+    /// Undefined value for uninitialized variables.
     case undefined
+    /// Array containing ordered collection of values.
     case array([Value])
+    /// Object containing key-value pairs with preserved insertion order.
     case object(OrderedDictionary<String, Value>)
+    /// Function value that can be called with arguments.
     case function(@Sendable ([Value]) async throws -> Value)
 
+    /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {
         switch value {
         case nil:
@@ -39,11 +50,13 @@ public enum Value: Sendable {
         }
     }
 
+    /// Returns `true` if this value is a boolean.
     public var isBoolean: Bool {
         if case .boolean = self { return true }
         return false
     }
 
+    /// Returns `true` if this value is a number (integer or floating-point).
     public var isNumber: Bool {
         switch self {
         case .number, .integer: return true
@@ -51,6 +64,7 @@ public enum Value: Sendable {
         }
     }
 
+    /// Returns `true` if this value can be iterated over (array, object, or string).
     public var isIterable: Bool {
         switch self {
         case .array, .object, .string: return true
@@ -58,11 +72,13 @@ public enum Value: Sendable {
         }
     }
 
+    /// Returns `true` if this value is a string.
     public var isString: Bool {
         if case .string = self { return true }
         return false
     }
 
+    /// Returns `true` if this value is truthy in boolean context.
     public var isTruthy: Bool {
         switch self {
         case .null, .undefined: false
@@ -80,6 +96,7 @@ public enum Value: Sendable {
 // MARK: - CustomStringConvertible
 
 extension Value: CustomStringConvertible {
+    /// String representation of the value for template output.
     public var description: String {
         switch self {
         case .string(let s): s
@@ -98,6 +115,7 @@ extension Value: CustomStringConvertible {
 // MARK: - Equatable
 
 extension Value: Equatable {
+    /// Compares two values for equality.
     public static func == (lhs: Value, rhs: Value) -> Bool {
         switch (lhs, rhs) {
         case let (.string(lhs), .string(rhs)): return lhs == rhs
@@ -117,6 +135,7 @@ extension Value: Equatable {
 // MARK: - Hashable
 
 extension Value: Hashable {
+    /// Hashes the value into the given hasher.
     public func hash(into hasher: inout Hasher) {
         switch self {
         case let .string(value): hasher.combine(value)

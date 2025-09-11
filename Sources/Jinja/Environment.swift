@@ -33,10 +33,12 @@ private let builtinValues: [String: Value] = [
     },
 ]
 
+/// Execution environment that stores variables and provides context for template rendering.
 public final class Environment: @unchecked Sendable {
     private var variables: [String: Value] = [:]
     private let parent: Environment?
 
+    /// Creates a new environment with optional parent and initial variables.
     public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
         self.parent = parent
         self.variables = initial
@@ -47,10 +49,12 @@ public final class Environment: @unchecked Sendable {
         }
     }
 
+    /// Sets a variable to the given value.
     public func set(_ name: String, value: Value) {
         variables[name] = value
     }
 
+    /// Gets the value of a variable, returning undefined if not found.
     public func get(_ name: String) -> Value {
         if let value = variables[name] {
             return value
@@ -64,6 +68,7 @@ public final class Environment: @unchecked Sendable {
         return .undefined
     }
 
+    /// Sets multiple variables from a dictionary of Any values.
     public func setAll(_ values: [String: Any]) throws {
         for (key, value) in values {
             let jinjaValue = try convertToValue(value)
@@ -71,17 +76,17 @@ public final class Environment: @unchecked Sendable {
         }
     }
 
-    /// Batch set all context values (optimized for Value types)
+    /// Sets multiple variables from a dictionary of Value objects.
     public func setAllValues(_ values: [String: Value]) {
         variables.merge(values) { _, new in new }
     }
 
-    /// Create a child environment for scope isolation
+    /// Creates a child environment for scope isolation.
     public func childEnv() -> Environment {
         Environment(parent: self)
     }
 
-    /// Create a fast snapshot for high-performance template rendering
+    /// Creates a snapshot environment for template rendering.
     public func snapshot() -> Environment {
         // For performance, just copy current variables directly
         // Most template rendering doesn't use nested environments

@@ -1,5 +1,6 @@
 import Foundation
 
+/// Tokenizes Jinja template source code into a sequence of tokens.
 public enum Lexer: Sendable {
     private static let keywords: [String: Token.Kind] = [
         "if": .`if`, "else": .`else`, "elif": .elif, "endif": .endif,
@@ -15,6 +16,7 @@ public enum Lexer: Sendable {
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]
 
+    /// Tokenizes a template source string into an array of tokens.
     public static func tokenize(_ source: String) throws -> [Token] {
         let preprocessed = preprocess(source)
 

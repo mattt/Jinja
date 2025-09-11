@@ -1,6 +1,7 @@
 import Foundation
 import OrderedCollections
 
+/// Parses tokens into an abstract syntax tree for Jinja templates.
 public struct Parser: Sendable {
     private let tokens: [Token]
     private var current: Int = 0
@@ -9,7 +10,7 @@ public struct Parser: Sendable {
         self.tokens = tokens
     }
 
-    /// Convenience method to parse tokens into AST nodes
+    /// Parses tokens into an abstract syntax tree of nodes.
     public static func parse(_ tokens: [Token]) throws -> [Node] {
         var parser = Parser(tokens: tokens)
         var nodes: [Node] = []
