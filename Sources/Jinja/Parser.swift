@@ -311,6 +311,53 @@ public struct Parser: Sendable {
         return .statement(.for(.single(loopVarName), iterableExpr, forBody, [], test: nil))
     }
 
+    // Parse a complete macro/endmacro structure
+    private mutating func parseMacroStatement() throws -> Node {
+        // Parse the initial macro statement
+        let macroToken = advance()  // consume the macro statement token
+        let macroContent = macroToken.value.trimmingCharacters(in: .whitespaces)
+
+        // Extract macro name and parameters from "macro name(param1, param2)"
+        let parts = macroContent.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        guard parts.count >= 2 && parts[0] == "macro" else {
+            throw JinjaError.parser("Invalid macro syntax: \(macroContent)")
+        }
+
+        let nameAndParams = parts[1...].joined(separator: " ")
+        let macroName: String
+        var parameters: [String] = []
+
+        // Parse macro name and parameters
+        if let parenIndex = nameAndParams.firstIndex(of: "(") {
+            macroName = String(nameAndParams[..<parenIndex])
+            let paramString = String(nameAndParams[nameAndParams.index(after: parenIndex)...])
+            if let endParenIndex = paramString.lastIndex(of: ")") {
+                let paramContent = String(paramString[..<endParenIndex])
+                if !paramContent.isEmpty {
+                    parameters = paramContent.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                }
+            }
+        } else {
+            macroName = nameAndParams
+        }
+
+        // Parse the body until we hit endmacro
+        let macroBody = try parseNodesUntil(["endmacro"])
+
+        // Consume the endmacro token
+        if !isAtEnd {
+            let token = peek()
+            if case .statement = token.kind {
+                let content = token.value.trimmingCharacters(in: .whitespaces)
+                if content == "endmacro" {
+                    advance()  // consume endmacro
+                }
+            }
+        }
+
+        return .statement(.macro(macroName, parameters, macroBody))
+    }
+
     // MARK: -
 
     private var isAtEnd: Bool {
@@ -378,6 +425,8 @@ public struct Parser: Sendable {
                 return try parseIfStatement()
             } else if firstWord == "for" {
                 return try parseForStatement()
+            } else if firstWord == "macro" {
+                return try parseMacroStatement()
             } else {
                 return try parseStatementNode(token.value)
             }
@@ -415,8 +464,74 @@ private struct ExpressionParser {
 
     init(_ content: String) {
         self.content = content.trimmingCharacters(in: .whitespaces)
-        self.tokens = self.content.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        self.tokens = Self.tokenizeExpression(self.content)
         self.current = 0
+    }
+    
+    private static func tokenizeExpression(_ content: String) -> [String] {
+        var tokens: [String] = []
+        var currentToken = ""
+        var inString = false
+        var stringChar: Character = "'"
+        
+        for char in content {
+            switch char {
+            case "'" where !inString:
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+                inString = true
+                stringChar = "'"
+                currentToken.append(char)
+            case "\"" where !inString:
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+                inString = true
+                stringChar = "\""
+                currentToken.append(char)
+            case let c where inString && c == stringChar:
+                currentToken.append(char)
+                tokens.append(currentToken)
+                currentToken = ""
+                inString = false
+            case _ where inString:
+                currentToken.append(char)
+            case "(", "[", "{":
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+                tokens.append(String(char))
+            case ")", "]", "}":
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+                tokens.append(String(char))
+            case ",", ".", "|", "+", "-", "*", "/", "%", "~", "=", "<", ">", "!":
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+                tokens.append(String(char))
+            case " ", "\t", "\n":
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+            default:
+                currentToken.append(char)
+            }
+        }
+        
+        if !currentToken.isEmpty {
+            tokens.append(currentToken)
+        }
+        
+        return tokens.filter { !$0.isEmpty }
     }
 
     static func parse(_ content: String) throws -> Expression {

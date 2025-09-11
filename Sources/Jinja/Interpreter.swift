@@ -232,6 +232,57 @@ public enum Interpreter {
                 return .null
             }
 
+        case let .test(operand, testName, negated):
+            let operandValue = try evaluateExpression(operand, env: env)
+            let result = try evaluateTest(testName, [operandValue])
+            return .boolean(negated ? !result : result)
+
+        case let .call(function, args, kwargs):
+            let functionValue = try evaluateExpression(function, env: env)
+            guard case let .function(fn) = functionValue else {
+                throw JinjaError.runtime("Cannot call non-function value")
+            }
+            
+            var argValues: [Value] = []
+            for arg in args {
+                argValues.append(try evaluateExpression(arg, env: env))
+            }
+            
+            // For now, temporarily disable function calls to avoid async complexity
+            // This needs to be properly implemented with async support
+            throw JinjaError.runtime("Function calls need async support - not yet implemented")
+
+        case let .slice(array, start, stop, step):
+            let arrayValue = try evaluateExpression(array, env: env)
+            guard case let .array(items) = arrayValue else {
+                throw JinjaError.runtime("Slice requires array")
+            }
+            
+            let startIdx: Value? = try start.map { try evaluateExpression($0, env: env) }
+            let stopIdx: Value? = try stop.map { try evaluateExpression($0, env: env) }
+            let stepVal: Value? = try step.map { try evaluateExpression($0, env: env) }
+            
+            // Simple slice implementation
+            var sliceStart = 0
+            var sliceEnd = items.count
+            var sliceStep = 1
+            
+            if let startValue = startIdx, case let .integer(s) = startValue {
+                sliceStart = s
+            }
+            if let stopValue = stopIdx, case let .integer(e) = stopValue {
+                sliceEnd = e
+            }
+            if let stepValue = stepVal, case let .integer(st) = stepValue {
+                sliceStep = st
+            }
+            
+            let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap { idx in
+                idx >= 0 && idx < items.count ? items[idx] : nil
+            }
+            
+            return .array(result)
+
         default:
             throw JinjaError.runtime("Unimplemented expression type")
         }
@@ -279,13 +330,26 @@ public enum Interpreter {
                         }
 
                         // Set loop context variables
-                        childEnv["loop"] = .object([
+                        let loopContext: OrderedDictionary<String, Value> = [
                             "index": .integer(index + 1),
                             "index0": .integer(index),
                             "first": .boolean(index == 0),
                             "last": .boolean(index == items.count - 1),
                             "length": .integer(items.count),
-                        ])
+                            "revindex": .integer(items.count - index),
+                            "revindex0": .integer(items.count - index - 1),
+                        ]
+                        
+                        // Add cycle function
+                        let cycleFunction: @Sendable ([Value]) async throws -> Value = { cycleArgs in
+                            guard !cycleArgs.isEmpty else { return .string("") }
+                            let cycleIndex = index % cycleArgs.count
+                            return cycleArgs[cycleIndex]
+                        }
+                        
+                        var loopObj = loopContext
+                        loopObj["cycle"] = .function(cycleFunction)
+                        childEnv["loop"] = .object(loopObj)
 
                         // Execute body
                         for node in body {
@@ -297,6 +361,38 @@ public enum Interpreter {
             default:
                 throw JinjaError.runtime("Cannot iterate over non-iterable value")
             }
+
+        case let .set(identifier, expression):
+            let value = try evaluateExpression(expression, env: env)
+            env[identifier] = value
+
+        case let .macro(name, parameters, body):
+            // Store macro definition as a special macro value (not async function)
+            // We'll handle macro calls differently
+            env["\(name)__macro"] = .object([
+                "parameters": .array(parameters.map { .string($0) }),
+                "body": .array(body.map { _ in .string("node") }) // Simplified for now
+            ])
+            
+            // Also store as a function for backwards compatibility
+            env[name] = .function { args in
+                // Create new environment for macro execution
+                let macroEnv = Environment(parent: env)
+                
+                // Bind parameters to arguments
+                for (index, paramName) in parameters.enumerated() {
+                    let argValue = index < args.count ? args[index] : .undefined
+                    macroEnv[paramName] = argValue
+                }
+                
+                // Execute macro body and collect output
+                var macroBuffer = Buffer()
+                try interpret(body, env: macroEnv, into: &macroBuffer)
+                return .string(macroBuffer.build())
+            }
+
+        case let .program(nodes):
+            try interpret(nodes, env: env, into: &buffer)
 
         default:
             throw JinjaError.runtime("Unimplemented statement type")
@@ -403,6 +499,78 @@ public enum Interpreter {
         }
     }
 
+    private static func evaluateTest(_ testName: String, _ argValues: [Value]) throws -> Bool {
+        switch testName {
+        case "defined":
+            guard let value = argValues.first else { return false }
+            return value != .undefined
+
+        case "undefined":
+            guard let value = argValues.first else { return true }
+            return value == .undefined
+
+        case "none":
+            guard let value = argValues.first else { return false }
+            return value == .null
+
+        case "string":
+            guard let value = argValues.first else { return false }
+            return value.isString
+
+        case "number":
+            guard let value = argValues.first else { return false }
+            return value.isNumber
+
+        case "boolean":
+            guard let value = argValues.first else { return false }
+            return value.isBoolean
+
+        case "iterable":
+            guard let value = argValues.first else { return false }
+            return value.isIterable
+
+        case "even":
+            guard let value = argValues.first else { return false }
+            switch value {
+            case let .integer(num):
+                return num % 2 == 0
+            case let .number(num):
+                return Int(num) % 2 == 0
+            default:
+                return false
+            }
+
+        case "odd":
+            guard let value = argValues.first else { return false }
+            switch value {
+            case let .integer(num):
+                return num % 2 != 0
+            case let .number(num):
+                return Int(num) % 2 != 0
+            default:
+                return false
+            }
+
+        case "divisibleby":
+            guard argValues.count >= 2 else { return false }
+            switch (argValues[0], argValues[1]) {
+            case let (.integer(a), .integer(b)):
+                return b != 0 && a % b == 0
+            case let (.number(a), .number(b)):
+                return b != 0.0 && Int(a) % Int(b) == 0
+            default:
+                return false
+            }
+
+        case "equalto":
+            guard argValues.count >= 2 else { return false }
+            return valuesEqual(argValues[0], argValues[1])
+
+        default:
+            throw JinjaError.runtime("Unknown test: \(testName)")
+        }
+    }
+
     private static func evaluateFilter(_ filterName: String, _ argValues: [Value]) throws -> Value {
         // Inline the most common filters for performance
         switch filterName {
@@ -418,7 +586,7 @@ public enum Interpreter {
             }
             return .string(str.lowercased())
 
-        case "length":
+        case "length", "count":
             switch argValues.first {
             case let .string(str):
                 return .integer(str.count)
@@ -427,7 +595,7 @@ public enum Interpreter {
             case let .object(obj):
                 return .integer(obj.count)
             default:
-                throw JinjaError.runtime("length filter requires string, array, or object")
+                throw JinjaError.runtime("length/count filter requires string, array, or object")
             }
 
         case "join":
@@ -440,6 +608,38 @@ public enum Interpreter {
 
             let strings = array.map { $0.description }
             return .string(strings.joined(separator: separator))
+
+        case "trim":
+            guard case let .string(str) = argValues.first else {
+                throw JinjaError.runtime("trim filter requires string")
+            }
+            return .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        case "escape", "e":
+            guard case let .string(str) = argValues.first else {
+                throw JinjaError.runtime("escape filter requires string")
+            }
+            let escaped = str
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\"", with: "&quot;")
+                .replacingOccurrences(of: "'", with: "&#39;")
+            return .string(escaped)
+
+        case "tojson":
+            guard let value = argValues.first else { return .string("null") }
+            return .string(toJsonString(value))
+
+        case "dictsort":
+            guard case let .object(dict) = argValues.first else {
+                return .array([])
+            }
+            let sortedPairs = dict.sorted { $0.key < $1.key }
+            let resultArray = sortedPairs.map { key, value in
+                Value.array([.string(key), value])
+            }
+            return .array(resultArray)
 
         case "default":
             guard argValues.count >= 2 else {
@@ -464,6 +664,39 @@ public enum Interpreter {
 
         default:
             throw JinjaError.runtime("Unknown filter: \(filterName)")
+        }
+    }
+
+    private static func toJsonString(_ value: Value) -> String {
+        switch value {
+        case .string(let str):
+            let escaped = str
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\r", with: "\\r")
+                .replacingOccurrences(of: "\t", with: "\\t")
+            return "\"\(escaped)\""
+        case .integer(let num):
+            return String(num)
+        case .number(let num):
+            return String(num)
+        case .boolean(let bool):
+            return bool ? "true" : "false"
+        case .null, .undefined:
+            return "null"
+        case .array(let items):
+            let jsonItems = items.map { toJsonString($0) }
+            return "[\(jsonItems.joined(separator: ", "))]"
+        case .object(let dict):
+            let jsonPairs = dict.map { key, value -> String in
+                let keyJson = "\"\(key)\""
+                let valueJson = toJsonString(value)
+                return "\(keyJson): \(valueJson)"
+            }
+            return "{\(jsonPairs.joined(separator: ", "))}"
+        default:
+            return "null"
         }
     }
 

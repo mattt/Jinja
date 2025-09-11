@@ -74,41 +74,40 @@ struct FilterTests {
         env["tojson"] = .function { values in
             guard let first = values.first else { return .string("null") }
             
-            switch first {
-            case .string(let str):
-                // Basic JSON string escaping
-                let escaped = str
-                    .replacingOccurrences(of: "\\", with: "\\\\")
-                    .replacingOccurrences(of: "\"", with: "\\\"")
-                    .replacingOccurrences(of: "\n", with: "\\n")
-                    .replacingOccurrences(of: "\r", with: "\\r")
-                    .replacingOccurrences(of: "\t", with: "\\t")
-                return .string("\"\(escaped)\"")
-            case .integer(let num):
-                return .string(String(num))
-            case .number(let num):
-                return .string(String(num))
-            case .boolean(let bool):
-                return .string(bool ? "true" : "false")
-            case .null, .undefined:
-                return .string("null")
-            case .array(let items):
-                let jsonItems = items.map { item -> String in
-                    let result = try? env["tojson"]!.function!([item])
-                    return result?.description ?? "null"
+            func toJsonString(_ value: Value) -> String {
+                switch value {
+                case .string(let str):
+                    let escaped = str
+                        .replacingOccurrences(of: "\\", with: "\\\\")
+                        .replacingOccurrences(of: "\"", with: "\\\"")
+                        .replacingOccurrences(of: "\n", with: "\\n")
+                        .replacingOccurrences(of: "\r", with: "\\r")
+                        .replacingOccurrences(of: "\t", with: "\\t")
+                    return "\"\(escaped)\""
+                case .integer(let num):
+                    return String(num)
+                case .number(let num):
+                    return String(num)
+                case .boolean(let bool):
+                    return bool ? "true" : "false"
+                case .null, .undefined:
+                    return "null"
+                case .array(let items):
+                    let jsonItems = items.map { toJsonString($0) }
+                    return "[\(jsonItems.joined(separator: ", "))]"
+                case .object(let dict):
+                    let jsonPairs = dict.map { key, value -> String in
+                        let keyJson = "\"\(key)\""
+                        let valueJson = toJsonString(value)
+                        return "\(keyJson): \(valueJson)"
+                    }
+                    return "{\(jsonPairs.joined(separator: ", "))}"
+                default:
+                    return "null"
                 }
-                return .string("[\(jsonItems.joined(separator: ", "))]")
-            case .object(let dict):
-                let jsonPairs = dict.map { key, value -> String in
-                    let keyJson = "\"\(key)\""
-                    let result = try? env["tojson"]!.function!([value])
-                    let valueJson = result?.description ?? "null"
-                    return "\(keyJson): \(valueJson)"
-                }
-                return .string("{\(jsonPairs.joined(separator: ", "))}")
-            default:
-                return .string("null")
             }
+            
+            return .string(toJsonString(first))
         }
         
         env["dictsort"] = .function { values in
