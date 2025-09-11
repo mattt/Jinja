@@ -311,7 +311,7 @@ public struct Parser: Sendable {
         return .statement(.for(.single(loopVarName), iterableExpr, forBody, [], test: nil))
     }
 
-    // MARK: - Utility Methods
+    // MARK: -
 
     private var isAtEnd: Bool {
         current >= tokens.count || peek().kind == .eof
@@ -714,7 +714,7 @@ private struct ExpressionParser {
         return (args, kwargs)
     }
 
-    // MARK: - Utility Methods
+    // MARK: -
 
     private var isAtEnd: Bool {
         current >= tokens.count
@@ -901,7 +901,7 @@ private struct StatementParser {
         return .macro(name, params, [])
     }
 
-    // MARK: - Utility Methods
+    // MARK: -
 
     private var isAtEnd: Bool {
         current >= tokens.count
