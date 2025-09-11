@@ -586,11 +586,11 @@ private struct ExpressionParser {
                 expr = .member(expr, .identifier(name), computed: false)
             } else if match("[") {
                 let index = try parseTernary()
-                consume("]")
+                try consume("]")
                 expr = .member(expr, index, computed: true)
             } else if match("(") {
                 let (args, kwargs) = try parseArguments()
-                consume(")")
+                try consume(")")
                 expr = .call(expr, args, kwargs)
             } else if match("|") {
                 let filterName = consumeIdentifier()
@@ -599,7 +599,7 @@ private struct ExpressionParser {
 
                 if match("(") {
                     (args, kwargs) = try parseArguments()
-                    consume(")")
+                    try consume(")")
                 }
 
                 expr = .filter(expr, filterName, args, kwargs)
@@ -654,7 +654,7 @@ private struct ExpressionParser {
                 } while match(",")
             }
 
-            consume("]")
+            try consume("]")
             return .array(elements)
         }
 
@@ -665,20 +665,20 @@ private struct ExpressionParser {
             if !peek("}") {
                 repeat {
                     let key = consumeString()
-                    consume(":")
+                    try consume(":")
                     let value = try parseTernary()
                     pairs[key] = value
                 } while match(",")
             }
 
-            consume("}")
+            try consume("}")
             return .object(pairs)
         }
 
         // Grouped expression
         if match("(") {
             let expr = try parseTernary()
-            consume(")")
+            try consume(")")
             return expr
         }
 
@@ -701,7 +701,7 @@ private struct ExpressionParser {
                 // Check for keyword argument
                 if current + 1 < tokens.count && tokens[current + 1] == "=" {
                     let key = consumeIdentifier()
-                    consume("=")
+                    try consume("=")
                     let value = try parseTernary()
                     kwargs[key] = value
                 } else {
@@ -745,9 +745,10 @@ private struct ExpressionParser {
         peek(keyword)
     }
 
-    private mutating func consume(_ value: String) {
+    private mutating func consume(_ value: String) throws {
         if !match(value) {
-            // Handle error - for now just continue
+            throw JinjaError.parser(
+                "Expected '\(value)' but got '\(current < tokens.count ? tokens[current] : "EOF")'")
         }
     }
 
@@ -832,18 +833,19 @@ private struct StatementParser {
         case "if":
             return try parseIf()
         case "elif":
-            // For now, treat elif like if (this is a simplified approach)
-            return try parseIf()
+            // elif statements should be handled by parseIfStatement, not here
+            throw JinjaError.parser(
+                "Unexpected elif statement - should be handled in if block parsing")
         case "else", "endif":
-            // These should be handled as part of if statement parsing
-            // For now, return an empty if statement as placeholder
-            return .if(.boolean(false), [], [])
+            // else and endif statements should be handled as part of if statement parsing
+            throw JinjaError.parser(
+                "Unexpected \(keyword) statement - should be handled in if block parsing")
         case "for":
             return try parseFor()
         case "endfor":
-            // This should be handled as part of for statement parsing
-            // For now, return an empty for statement as placeholder
-            return .for(.single("_"), .string(""), [], [], test: nil)
+            // endfor statements should be handled by parseForStatement, not here
+            throw JinjaError.parser(
+                "Unexpected endfor statement - should be handled in for block parsing")
         case "macro":
             return try parseMacro()
         default:
@@ -853,7 +855,7 @@ private struct StatementParser {
 
     private mutating func parseSet() throws -> Statement {
         let identifier = consumeIdentifier()
-        consume("=")
+        try consume("=")
 
         // Parse the rest as expression
         let exprContent = tokens[current...].joined(separator: " ")
@@ -868,14 +870,14 @@ private struct StatementParser {
         let conditionContent = conditionTokens.joined(separator: " ")
         let condition = try ExpressionParser.parse(conditionContent)
 
-        // For now, return a basic if statement
-        // In a complete implementation, you'd parse the body and alternate
+        // This creates a simple conditional statement for inline usage
+        // For structured if/elif/else blocks with bodies, parseIfStatement() is used instead
         return .`if`(condition, [], [])
     }
 
     private mutating func parseFor() throws -> Statement {
         let loopVar = consumeIdentifier()
-        consume("in")
+        try consume("in")
 
         let iterableTokens = collectUntilKeyword(["endfor", "if"])
         let iterableContent = iterableTokens.joined(separator: " ")
@@ -895,7 +897,7 @@ private struct StatementParser {
                     params.append(consumeIdentifier())
                 } while match(",")
             }
-            consume(")")
+            try consume(")")
         }
 
         return .macro(name, params, [])
@@ -924,9 +926,10 @@ private struct StatementParser {
         return false
     }
 
-    private mutating func consume(_ value: String) {
+    private mutating func consume(_ value: String) throws {
         if !match(value) {
-            // Handle error - for now just continue
+            throw JinjaError.parser(
+                "Expected '\(value)' but got '\(current < tokens.count ? tokens[current] : "EOF")'")
         }
     }
 
