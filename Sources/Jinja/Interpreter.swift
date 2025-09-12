@@ -1776,7 +1776,28 @@ public enum Filters {
         guard case let .object(dict) = values.first else {
             return .array([])
         }
-        let sortedPairs = dict.sorted { $0.key < $1.key }
+        
+        let caseSensitive = kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
+        let by = kwargs["by"]?.string ?? (values.count > 2 ? values[2].string : "key") ?? "key"
+        let reverse = kwargs["reverse"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
+        
+        let sortedPairs: [(key: String, value: Value)]
+        if by == "value" {
+            sortedPairs = dict.sorted { a, b in
+                let comparison = caseSensitive 
+                    ? a.value.description.compare(b.value.description)
+                    : a.value.description.localizedCaseInsensitiveCompare(b.value.description)
+                return reverse ? comparison == .orderedDescending : comparison == .orderedAscending
+            }
+        } else {
+            sortedPairs = dict.sorted { a, b in
+                let comparison = caseSensitive 
+                    ? a.key.compare(b.key)
+                    : a.key.localizedCaseInsensitiveCompare(b.key)
+                return reverse ? comparison == .orderedDescending : comparison == .orderedAscending
+            }
+        }
+        
         let resultArray = sortedPairs.map { key, value in
             Value.array([.string(key), value])
         }
@@ -1920,40 +1941,25 @@ public enum Filters {
         guard let value = values.first, case let .object(dict) = value else {
             return .string("")
         }
-        let autocapitalize = values.count > 1 ? values[1].isTruthy : false
+        let autospace = kwargs["autospace"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : true)
         var result = ""
         for (key, value) in dict {
-            if key.starts(with: "_") { continue }
-            let finalKey = autocapitalize ? key.capitalized : key
-            result += " \(finalKey)=\"\(value.description)\""
+            if value == .null || value == .undefined { continue }
+            // Validate key doesn't contain invalid characters
+            if key.contains(" ") || key.contains("/") || key.contains(">") || key.contains("=") {
+                throw JinjaError.runtime("Invalid character in XML attribute key: '\(key)'")
+            }
+            let escapedValue = value.description
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\"", with: "&quot;")
+            result += "\(key)=\"\(escapedValue)\""
+        }
+        if autospace && !result.isEmpty {
+            result = " " + result
         }
         return .string(result)
-    }
-
-    // MARK: - Test Filters (return boolean values)
-
-    /// Tests if a value is defined (not undefined).
-    @Sendable public static func defined(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value != .undefined)
-    }
-
-    /// Tests if a value is undefined.
-    @Sendable public static func undefined(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(true) }
-        return .boolean(value == .undefined)
-    }
-
-    /// Tests if a value is none/null.
-    @Sendable public static func none(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value == .null)
     }
 
     /// Converts a value to a string.
@@ -1962,30 +1968,6 @@ public enum Filters {
     ) throws -> Value {
         guard let value = values.first else { return .string("") }
         return .string(value.description)
-    }
-
-    /// Tests if a value is a number.
-    @Sendable public static func number(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value.isNumber)
-    }
-
-    /// Tests if a value is a boolean.
-    @Sendable public static func boolean(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value.isBoolean)
-    }
-
-    /// Tests if a value is iterable.
-    @Sendable public static func iterable(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value.isIterable)
     }
 
     // MARK: - Additional Filters
@@ -2311,9 +2293,21 @@ public enum Filters {
         guard let value = values.first, let items = value.array else {
             return .integer(0)
         }
-        let start = values.count > 1 ? values[1] : .integer(0)
-        let sum = items.reduce(start) { acc, next in
-            try! Interpreter.addValues(acc, next)  // Should handle errors
+        
+        let attribute = kwargs["attribute"]?.string ?? (values.count > 1 ? values[1].string : nil)
+        let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .integer(0))
+        
+        let valuesToSum: [Value]
+        if let attr = attribute {
+            valuesToSum = try items.map { item in
+                try Interpreter.evaluatePropertyMember(item, attr)
+            }
+        } else {
+            valuesToSum = items
+        }
+        
+        let sum = try valuesToSum.reduce(start) { acc, next in
+            try Interpreter.addValues(acc, next)
         }
         return sum
     }
@@ -2370,17 +2364,37 @@ public enum Filters {
         guard case let .string(str) = values.first else {
             return .string("")
         }
-        let width = values.count > 1 ? (values[1].integer ?? 4) : 4
-        let indentFirst = values.count > 2 ? (values[2].isTruthy) : true
-        let indentChar = String(repeating: " ", count: width)
-        let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(
-            String.init)
+        
+        let width: String
+        if let widthValue = kwargs["width"] {
+            if let intWidth = widthValue.integer {
+                width = String(repeating: " ", count: intWidth)
+            } else {
+                width = widthValue.string ?? "    "
+            }
+        } else if values.count > 1 {
+            if let intWidth = values[1].integer {
+                width = String(repeating: " ", count: intWidth)
+            } else {
+                width = values[1].string ?? "    "
+            }
+        } else {
+            width = "    "
+        }
+        
+        let first = kwargs["first"]?.isTruthy ?? (values.count > 2 ? values[2].isTruthy : false)
+        let blank = kwargs["blank"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
+        
+        let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var result = ""
+        
         for (i, line) in lines.enumerated() {
-            if i == 0 && !indentFirst {
+            if i == 0 && !first {
                 result += line
-            } else if !line.isEmpty {
-                result += indentChar + line
+            } else if line.isEmpty && !blank {
+                result += line
+            } else {
+                result += width + line
             }
             if i < lines.count - 1 {
                 result += "\n"
@@ -2405,6 +2419,73 @@ public enum Filters {
         }
 
         return .array([])
+    }
+
+    /// Pretty prints a variable (useful for debugging).
+    @Sendable public static func pprint(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Value {
+        guard let value = values.first else { return .string("") }
+        
+        func prettyPrint(_ val: Value, indent: Int = 0) -> String {
+            let indentString = String(repeating: "  ", count: indent)
+            switch val {
+            case let .array(arr):
+                if arr.isEmpty { return "[]" }
+                let items = arr.map { prettyPrint($0, indent: indent + 1) }
+                return "[\n" + items.map { "\(indentString)  \($0)" }.joined(separator: ",\n") + "\n\(indentString)]"
+            case let .object(dict):
+                if dict.isEmpty { return "{}" }
+                let items = dict.map { key, value in
+                    "\(indentString)  \"\(key)\": \(prettyPrint(value, indent: indent + 1))"
+                }
+                return "{\n" + items.joined(separator: ",\n") + "\n\(indentString)}"
+            case let .string(str):
+                return "\"\(str)\""
+            default:
+                return val.description
+            }
+        }
+        
+        return .string(prettyPrint(value))
+    }
+
+    /// Converts URLs in text into clickable links.
+    @Sendable public static func urlize(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Value {
+        guard case let .string(text) = values.first else {
+            return .string("")
+        }
+        
+        let trimUrlLimit = kwargs["trim_url_limit"]?.integer
+        let nofollow = kwargs["nofollow"]?.isTruthy ?? false
+        let target = kwargs["target"]?.string
+        let rel = kwargs["rel"]?.string
+        
+        func buildAttributes() -> String {
+            var attributes = ""
+            if nofollow { attributes += " rel=\"nofollow\"" }
+            if let target = target { attributes += " target=\"\(target)\"" }
+            if let rel = rel { attributes += " rel=\"\(rel)\"" }
+            return attributes
+        }
+        
+        // Basic implementation - just detect simple http/https URLs
+        let httpRegex = try! NSRegularExpression(pattern: "https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+", options: [])
+        let range = NSRange(location: 0, length: text.utf16.count)
+        
+        var result = text
+        let matches = httpRegex.matches(in: text, options: [], range: range).reversed()
+        
+        for match in matches {
+            let url = (text as NSString).substring(with: match.range)
+            let displayUrl = trimUrlLimit != nil && url.count > trimUrlLimit! ? String(url.prefix(trimUrlLimit!)) + "..." : url
+            let replacement = "<a href=\"\(url)\"\(buildAttributes())>\(displayUrl)</a>"
+            result = (result as NSString).replacingCharacters(in: match.range, with: replacement)
+        }
+        
+        return .string(result)
     }
 
     /// Dictionary of all available filters.
@@ -2437,13 +2518,7 @@ public enum Filters {
             "wordwrap": wordwrap,
             "filesizeformat": filesizeformat,
             "xmlattr": xmlattr,
-            "defined": defined,
-            "undefined": undefined,
-            "none": none,
             "string": string,
-            "number": number,
-            "boolean": boolean,
-            "iterable": iterable,
             "trim": trim,
             "escape": escape,
             "e": escape,  // alias for escape
@@ -2467,5 +2542,7 @@ public enum Filters {
             "unique": unique,
             "indent": indent,
             "items": items,
+            "pprint": pprint,
+            "urlize": urlize,
         ]
 }

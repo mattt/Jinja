@@ -120,22 +120,93 @@ struct InterpreterTests {
             #expect(result == expected)
         }
         
-        @Test("defined test filter")
-        func testDefinedFilter() throws {
-            let result1 = try Filters.defined([.string("hello")], kwargs: [:], env: env)
-            #expect(result1 == .boolean(true))
-            
-            let result2 = try Filters.defined([.undefined], kwargs: [:], env: env)
-            #expect(result2 == .boolean(false))
+        @Test("dictsort filter")
+        func testDictsortFilter() throws {
+            let dict = Value.object(["c": .integer(3), "a": .integer(1), "b": .integer(2)])
+            let result = try Filters.dictsort([dict], kwargs: [:], env: env)
+            let expected = Value.array([
+                .array([.string("a"), .integer(1)]),
+                .array([.string("b"), .integer(2)]),
+                .array([.string("c"), .integer(3)])
+            ])
+            #expect(result == expected)
         }
         
-        @Test("undefined test filter")
-        func testUndefinedFilter() throws {
-            let result1 = try Filters.undefined([.string("hello")], kwargs: [:], env: env)
-            #expect(result1 == .boolean(false))
-            
-            let result2 = try Filters.undefined([.undefined], kwargs: [:], env: env)
-            #expect(result2 == .boolean(true))
+        @Test("dictsort filter with reverse")
+        func testDictsortFilterWithReverse() throws {
+            let dict = Value.object(["b": .integer(2), "a": .integer(1)])
+            let result = try Filters.dictsort([dict, .boolean(false), .string("key"), .boolean(true)], kwargs: [:], env: env)
+            let expected = Value.array([
+                .array([.string("b"), .integer(2)]),
+                .array([.string("a"), .integer(1)])
+            ])
+            #expect(result == expected)
+        }
+        
+        @Test("pprint filter")
+        func testPprintFilter() throws {
+            let dict = Value.object(["name": .string("test"), "value": .integer(42)])
+            let result = try Filters.pprint([dict], kwargs: [:], env: env)
+            // Just check it's a string (exact format may vary)
+            if case .string(let str) = result {
+                #expect(str.contains("name"))
+                #expect(str.contains("test"))
+                #expect(str.contains("value"))
+                #expect(str.contains("42"))
+            } else {
+                Issue.record("Expected string result")
+            }
+        }
+        
+        @Test("urlize filter")
+        func testUrlizeFilter() throws {
+            let text = "Visit https://example.com for more info"
+            let result = try Filters.urlize([.string(text)], kwargs: [:], env: env)
+            if case .string(let str) = result {
+                #expect(str.contains("<a href=\"https://example.com\">"))
+                #expect(str.contains("</a>"))
+            } else {
+                Issue.record("Expected string result")
+            }
+        }
+        
+        @Test("sum filter with attribute")
+        func testSumFilterWithAttribute() throws {
+            let items = Value.array([
+                .object(["price": .number(10.5)]),
+                .object(["price": .number(20.0)]),
+                .object(["price": .number(15.5)])
+            ])
+            let result = try Filters.sum([items, .string("price")], kwargs: [:], env: env)
+            #expect(result == .number(46.0))
+        }
+        
+        @Test("indent filter")
+        func testIndentFilter() throws {
+            let text = "line1\nline2\nline3"
+            let result = try Filters.indent([.string(text), .integer(2)], kwargs: [:], env: env)
+            if case .string(let str) = result {
+                // First line is NOT indented by default
+                #expect(str.hasPrefix("line1"))
+                #expect(str.contains("  line2"))
+                #expect(str.contains("  line3"))
+            } else {
+                Issue.record("Expected string result")
+            }
+        }
+        
+        @Test("indent filter with first")
+        func testIndentFilterWithFirst() throws {
+            let text = "line1\nline2\nline3"
+            let result = try Filters.indent([.string(text), .integer(2), .boolean(true)], kwargs: [:], env: env)
+            if case .string(let str) = result {
+                // All lines should be indented when first=true
+                #expect(str.contains("  line1"))
+                #expect(str.contains("  line2"))
+                #expect(str.contains("  line3"))
+            } else {
+                Issue.record("Expected string result")
+            }
         }
     }
     
