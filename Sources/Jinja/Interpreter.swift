@@ -1,4 +1,94 @@
 import Foundation
+@_exported import OrderedCollections
+
+// MARK: - Context
+
+/// A context is a dictionary of variables and their values.
+public typealias Context = [String: Value]
+
+private let builtinValues: Context = [
+    "true": .boolean(true),
+    "false": .boolean(false),
+    "none": .null,
+    "range": .function { values in
+        guard !values.isEmpty else { return .array([]) }
+
+        switch values.count {
+        case 1:
+            if case let .integer(end) = values[0] {
+                return .array((0..<end).map { .integer($0) })
+            }
+        case 2:
+            if case let .integer(start) = values[0],
+                case let .integer(end) = values[1]
+            {
+                return .array((start..<end).map { .integer($0) })
+            }
+        case 3:
+            if case let .integer(start) = values[0],
+                case let .integer(end) = values[1],
+                case let .integer(step) = values[2]
+            {
+                return .array(stride(from: start, to: end, by: step).map { .integer($0) })
+            }
+        default:
+            break
+        }
+
+        throw JinjaError.runtime("Invalid arguments to range function")
+    },
+]
+
+// MARK: - Environment
+
+/// Execution environment that stores variables and provides context for template rendering.
+public final class Environment: @unchecked Sendable {
+    private(set) var variables: [String: Value] = [:]
+    private let parent: Environment?
+    // Store macro definitions by name for invocation
+    struct MacroDef {
+        let name: String
+        let parameters: [String]
+        let defaults: OrderedDictionary<String, Expression>
+        let body: [Node]
+    }
+    var macros: [String: MacroDef] = [:]
+
+    /// Creates a new environment with optional parent and initial variables.
+    /// - Parameters:
+    ///   - parent: The parent environment
+    ///   - initial: The initial variables
+    public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
+        self.parent = parent
+        self.variables = initial
+
+        // Initialize built-in variables if this is a root environment
+        if parent == nil {
+            variables.merge(builtinValues) { _, new in new }
+        }
+    }
+
+    /// A subscript to get and set variables in the environment.
+    public subscript(name: String) -> Value {
+        get {
+            if let value = variables[name] {
+                return value
+            }
+
+            // Check parent environment
+            if let parent = parent {
+                return parent[name]
+            }
+
+            return .undefined
+        }
+        set {
+            variables[name] = newValue
+        }
+    }
+}
+
+// MARK: - Interpreter
 
 /// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
