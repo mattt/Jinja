@@ -186,6 +186,15 @@ public enum Interpreter {
             }
             return .array(values)
 
+        case let .tuple(elements):
+            var values: [Value] = []
+            values.reserveCapacity(elements.count)
+            for element in elements {
+                let value = try evaluateExpression(element, env: env)
+                values.append(value)
+            }
+            return .array(values)  // Tuples are represented as arrays in the runtime
+
         case let .object(pairs):
             var dict: OrderedDictionary<String, Value> = [:]
             for (key, expr) in pairs {

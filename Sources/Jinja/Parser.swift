@@ -454,10 +454,10 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseTernary() throws -> Expression {
-        let expr = try parseFilter()
+        let expr = try parseTest()
 
         if match(.if) {
-            let test = try parseFilter()
+            let test = try parseTest()
             var alternate: Expression?
 
             if match(.else) {
@@ -471,7 +471,7 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseFilter() throws -> Expression {
-        var expr = try parseTest()
+        var expr = try parseFactor()
         while match(.pipe) {
             let filterName = try consumeIdentifier()
             var args: [Expression] = []
@@ -568,22 +568,22 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseTerm() throws -> Expression {
-        var expr = try parseFactor()
+        var expr = try parseFilter()
         while true {
             if match(.plus) {
-                let right = try parseFactor()
+                let right = try parseFilter()
                 expr = .binary(.add, expr, right)
             } else if match(.minus) {
-                let right = try parseFactor()
+                let right = try parseFilter()
                 expr = .binary(.subtract, expr, right)
             } else if match(.concat) {
-                let right = try parseFactor()
+                let right = try parseFilter()
                 expr = .binary(.concat, expr, right)
             } else if check(.string) || check(.identifier) || check(.number) || check(.boolean)
                 || check(.openParen) || check(.openBracket) || check(.openBrace)
             {
                 // Implicit string concatenation - if we see another primary expression, concatenate it
-                let right = try parseFactor()
+                let right = try parseFilter()
                 expr = .binary(.concat, expr, right)
             } else {
                 break
