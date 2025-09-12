@@ -208,8 +208,17 @@ public enum Interpreter {
 
         case let .binary(op, left, right):
             let leftValue = try evaluateExpression(left, env: env)
-            let rightValue = try evaluateExpression(right, env: env)
-            return try evaluateBinaryValues(op, leftValue, rightValue)
+            
+            // Handle short-circuiting operators
+            switch op {
+            case .and:
+                return leftValue.isTruthy ? try evaluateExpression(right, env: env) : leftValue
+            case .or:
+                return leftValue.isTruthy ? leftValue : try evaluateExpression(right, env: env)
+            default:
+                let rightValue = try evaluateExpression(right, env: env)
+                return try evaluateBinaryValues(op, leftValue, rightValue)
+            }
 
         case let .unary(op, operand):
             let value = try evaluateExpression(operand, env: env)
@@ -925,6 +934,27 @@ public enum Interpreter {
                     _, _, _ in
                     let pairs = obj.map { key, value in Value.array([.string(key), value]) }
                     return .array(pairs)
+                }
+                return .function(fn)
+            }
+            // Support Python-like dict.get(key, default) method
+            if propertyName == "get" {
+                let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+                    args, _, _ in
+                    guard !args.isEmpty else {
+                        throw JinjaError.runtime("get() requires at least 1 argument")
+                    }
+                    
+                    let key: String
+                    switch args[0] {
+                    case let .string(s):
+                        key = s
+                    default:
+                        key = args[0].description
+                    }
+                    
+                    let defaultValue = args.count > 1 ? args[1] : .null
+                    return obj[key] ?? defaultValue
                 }
                 return .function(fn)
             }

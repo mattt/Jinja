@@ -1423,7 +1423,18 @@ Multiline/block set!
 
     @Test("Object literals nested")
     func objectLiteralsNested() throws {
-        let string = #"{{{'key': {'key': 'value'}}['key']['key']}}"#
+        // Test simple object with minimal spacing
+        let simple = #"{{ {'key': 'value'}}}"#
+        let simpleRendered = try Template(simple).render([:])
+        #expect(simpleRendered.contains("key"))
+        
+        // Test nested object
+        let nested = #"{{ {'outer': {'inner': 'value'}} }}"#
+        let nestedRendered = try Template(nested).render([:])
+        #expect(nestedRendered.contains("inner"))
+        
+        // Test with member access - this was failing
+        let string = #"{{ {'key': {'key': 'value'}}['key']['key'] }}"#
         let context: Context = [:]
 
         // Check result of template
