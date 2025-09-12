@@ -7,8 +7,10 @@ import Foundation
 public typealias Context = [String: Value]
 
 private let builtinValues: Context = [
-    "true": .boolean(true),
-    "false": .boolean(false),
+    "true": true,
+    "false": false,
+    "True": true,
+    "False": false,
     "none": .null,
     "range": .function { values in
         guard !values.isEmpty else { return .array([]) }
