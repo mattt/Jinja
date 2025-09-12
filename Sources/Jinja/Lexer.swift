@@ -8,10 +8,14 @@ public struct Token: Sendable, Hashable {
     public enum Kind: Sendable, Hashable, CaseIterable {
         /// Plain text content outside of Jinja template constructs.
         case text
-        /// Expression content within `{{ }}` delimiters.
-        case expression
-        /// Statement content within `{% %}` delimiters.
-        case statement
+        /// `{{` delimiter.
+        case openExpression
+        /// `}}` delimiter.
+        case closeExpression
+        /// `{%` delimiter.
+        case openStatement
+        /// `%}` delimiter.
+        case closeStatement
         /// String literal value enclosed in quotes.
         case string
         /// Numeric literal value.
@@ -130,61 +134,74 @@ public enum Lexer: Sendable {
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]
 
+    private static let whitespaceChars: [UInt8] = [0x20, 0x09, 0x0A, 0x0D]
+
+    private static func isWhitespace(_ char: UInt8) -> Bool {
+        whitespaceChars.contains(char)
+    }
+
+    private static func skipWhitespace(
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
+    ) -> Int {
+        var pos = position
+        while pos < buffer.count, isWhitespace(buffer[pos]) {
+            pos += 1
+        }
+        return pos
+    }
+
     /// Tokenizes a template source string into an array of tokens.
     public static func tokenize(_ source: String) throws -> [Token] {
         let preprocessed = preprocess(source)
-
-        // Rough estimate for better array allocation
         let estimatedCapacity = preprocessed.count / 4
 
-        // Use UTF-8 view for efficient scanning
-        return try preprocessed.utf8.withContiguousStorageIfAvailable { buffer in
-            try tokenize(
-                from: buffer,
-                count: buffer.count,
-                estimatedCapacity: estimatedCapacity,
-                tokenExtractor: extractTokenFromBuffer
-            )
-        }
-            ?? {
-                let utf8Array = Array(preprocessed.utf8)
-                return try utf8Array.withUnsafeBufferPointer { buffer in
-                    try tokenize(
-                        from: buffer,
-                        count: buffer.count,
-                        estimatedCapacity: estimatedCapacity,
-                        tokenExtractor: extractTokenFromBuffer
-                    )
+        let utf8 = Array(preprocessed.utf8)
+        return try utf8.withUnsafeBufferPointer { buffer in
+            var tokens: [Token] = []
+            tokens.reserveCapacity(estimatedCapacity)
+
+            var position = 0
+            var inTag = false
+
+            while position < buffer.count {
+                if inTag {
+                    position = skipWhitespace(buffer, at: position)
+                    if position >= buffer.count {
+                        break
+                    }
                 }
-            }()
-    }
 
-    private static func tokenize<S>(
-        from source: S,
-        count: Int,
-        estimatedCapacity: Int,
-        tokenExtractor: (S, Int) throws -> (Token, Int)
-    ) throws -> [Token] {
-        var tokens: [Token] = []
-        tokens.reserveCapacity(estimatedCapacity)
+                let (token, newPosition) = try extractTokenFromBuffer(
+                    buffer, at: position, inTag: inTag)
 
-        var position = 0
-        while position < count {
-            let (token, newPosition) = try tokenExtractor(source, position)
-            tokens.append(token)
-            position = newPosition
+                switch token.kind {
+                case .openExpression, .openStatement:
+                    inTag = true
+                case .closeExpression, .closeStatement:
+                    inTag = false
+                default:
+                    break
+                }
 
-            if token.kind == .eof {
-                break
+                if token.kind == .text, token.value.isEmpty {
+                    position = newPosition
+                    continue
+                }
+
+                tokens.append(token)
+                position = newPosition
+
+                if token.kind == .eof {
+                    break
+                }
             }
-        }
 
-        // Always add EOF token if not already present
-        if tokens.isEmpty || tokens.last?.kind != .eof {
-            tokens.append(Token(kind: .eof, value: "", position: position))
-        }
+            if tokens.isEmpty || tokens.last?.kind != .eof {
+                tokens.append(Token(kind: .eof, value: "", position: position))
+            }
 
-        return tokens
+            return tokens
+        }
     }
 
     private static func preprocess(_ template: String) -> String {
@@ -204,7 +221,7 @@ public enum Lexer: Sendable {
     }
 
     private static func extractTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool
     ) throws -> (
         Token, Int
     ) {
@@ -215,17 +232,32 @@ public enum Lexer: Sendable {
         let char = buffer[position]
 
         // Template delimiters - check for {{ and {%
-        if char == 0x7B && position + 1 < buffer.count {  // '{'
+        if char == 0x7B, position + 1 < buffer.count {  // '{'
             let nextChar = buffer[position + 1]
             if nextChar == 0x7B {  // '{' -> "{{"
-                return try extractExpressionTokenFromBuffer(buffer, at: position)
+                return (Token(kind: .openExpression, value: "{{", position: position), position + 2)
             } else if nextChar == 0x25 {  // '%' -> "{%"
-                return try extractStatementTokenFromBuffer(buffer, at: position)
+                return (Token(kind: .openStatement, value: "{%", position: position), position + 2)
             }
         }
 
-        // Text content - scan until template delimiter
-        if char != 0x7B {  // not '{'
+        // Check for closing delimiters
+        if char == 0x7D, position + 1 < buffer.count {  // '}'
+            let nextChar = buffer[position + 1]
+            if nextChar == 0x7D {  // '}' -> "}}"
+                return (
+                    Token(kind: .closeExpression, value: "}}", position: position), position + 2
+                )
+            }
+        }
+        if char == 0x25, position + 1 < buffer.count {  // '%'
+            let nextChar = buffer[position + 1]
+            if nextChar == 0x7D {  // '}' -> "%}"
+                return (Token(kind: .closeStatement, value: "%}", position: position), position + 2)
+            }
+        }
+
+        if !inTag {
             return extractTextTokenFromBuffer(buffer, at: position)
         }
 
@@ -279,84 +311,6 @@ public enum Lexer: Sendable {
         )
     }
 
-    private static func extractExpressionTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) throws
-        -> (
-            Token, Int
-        )
-    {
-        // Find closing "}}" while respecting string literals
-        var pos = position + 2
-        var inString = false
-        var stringChar: UInt8 = 0
-
-        while pos < buffer.count - 1 {
-            let char = buffer[pos]
-
-            // Handle string literals
-            if !inString && (char == 0x27 || char == 0x22) {  // ' or "
-                inString = true
-                stringChar = char
-            } else if inString && char == stringChar {
-                // Check for escaped quotes
-                if pos > 0 && buffer[pos - 1] == 0x5C {  // backslash
-                    // This is an escaped quote, continue
-                } else {
-                    inString = false
-                }
-            } else if !inString && char == 0x7D && buffer[pos + 1] == 0x7D {  // "}}"
-                let contentBytes = buffer[(position + 2)..<pos]
-                let content = String(decoding: contentBytes, as: UTF8.self).trimmingCharacters(
-                    in: .whitespaces)
-                return (Token(kind: .expression, value: content, position: position), pos + 2)
-            }
-
-            pos += 1
-        }
-
-        throw JinjaError.lexer("Unclosed expression at position \(position)")
-    }
-
-    private static func extractStatementTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) throws
-        -> (
-            Token, Int
-        )
-    {
-        // Find closing "%}" while respecting string literals
-        var pos = position + 2
-        var inString = false
-        var stringChar: UInt8 = 0
-
-        while pos < buffer.count - 1 {
-            let char = buffer[pos]
-
-            // Handle string literals
-            if !inString && (char == 0x27 || char == 0x22) {  // ' or "
-                inString = true
-                stringChar = char
-            } else if inString && char == stringChar {
-                // Check for escaped quotes
-                if pos > 0 && buffer[pos - 1] == 0x5C {  // backslash
-                    // This is an escaped quote, continue
-                } else {
-                    inString = false
-                }
-            } else if !inString && char == 0x25 && buffer[pos + 1] == 0x7D {  // "%}"
-                let contentBytes = buffer[(position + 2)..<pos]
-                let content = String(decoding: contentBytes, as: UTF8.self).trimmingCharacters(
-                    in: .whitespaces)
-                return (Token(kind: .statement, value: content, position: position), pos + 2)
-            }
-
-            pos += 1
-        }
-
-        throw JinjaError.lexer("Unclosed statement at position \(position)")
-    }
-
     private static func extractTextTokenFromBuffer(
         _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
     ) -> (
@@ -365,10 +319,16 @@ public enum Lexer: Sendable {
         var pos = position
 
         while pos < buffer.count {
-            if pos < buffer.count - 1 && buffer[pos] == 0x7B
-                && (buffer[pos + 1] == 0x7B || buffer[pos + 1] == 0x25)
-            {
-                break
+            if pos < buffer.count - 1 {
+                if buffer[pos] == 0x7B && (buffer[pos + 1] == 0x7B || buffer[pos + 1] == 0x25) {  // `{{` or `{%`
+                    break
+                }
+                if buffer[pos] == 0x7D && buffer[pos + 1] == 0x7D {  // `}}`
+                    break
+                }
+                if buffer[pos] == 0x25 && buffer[pos + 1] == 0x7D {  // `%}`
+                    break
+                }
             }
             pos += 1
         }

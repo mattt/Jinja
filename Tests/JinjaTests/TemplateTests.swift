@@ -45,12 +45,20 @@ struct TemplateTests {
         #expect(
             tokens == [
                 Token(kind: .text, value: "0", position: 0),
-                Token(kind: .expression, value: "'A'", position: 1),
+                Token(kind: .openExpression, value: "{{", position: 1),
+                Token(kind: .string, value: "A", position: 4),
+                Token(kind: .closeExpression, value: "}}", position: 8),
                 Token(kind: .text, value: "1", position: 10),
-                Token(kind: .expression, value: "'B'", position: 11),
-                Token(kind: .expression, value: "'C'", position: 20),
+                Token(kind: .openExpression, value: "{{", position: 11),
+                Token(kind: .string, value: "B", position: 14),
+                Token(kind: .closeExpression, value: "}}", position: 18),
+                Token(kind: .openExpression, value: "{{", position: 20),
+                Token(kind: .string, value: "C", position: 23),
+                Token(kind: .closeExpression, value: "}}", position: 27),
                 Token(kind: .text, value: "2", position: 29),
-                Token(kind: .expression, value: "'D'", position: 30),
+                Token(kind: .openExpression, value: "{{", position: 30),
+                Token(kind: .string, value: "D", position: 33),
+                Token(kind: .closeExpression, value: "}}", position: 37),
                 Token(kind: .text, value: "3", position: 39),
                 Token(kind: .eof, value: "", position: 40),
             ]
@@ -89,13 +97,21 @@ struct TemplateTests {
         #expect(
             tokens == [
                 Token(kind: .text, value: "|", position: 0),
-                Token(kind: .expression, value: "true", position: 1),
+                Token(kind: .openExpression, value: "{{", position: 1),
+                Token(kind: .boolean, value: "true", position: 4),
+                Token(kind: .closeExpression, value: "}}", position: 9),
                 Token(kind: .text, value: "|", position: 11),
-                Token(kind: .expression, value: "false", position: 12),
+                Token(kind: .openExpression, value: "{{", position: 12),
+                Token(kind: .boolean, value: "false", position: 15),
+                Token(kind: .closeExpression, value: "}}", position: 21),
                 Token(kind: .text, value: "|", position: 23),
-                Token(kind: .expression, value: "True", position: 24),
+                Token(kind: .openExpression, value: "{{", position: 24),
+                Token(kind: .identifier, value: "True", position: 27),
+                Token(kind: .closeExpression, value: "}}", position: 32),
                 Token(kind: .text, value: "|", position: 34),
-                Token(kind: .expression, value: "False", position: 35),
+                Token(kind: .openExpression, value: "{{", position: 35),
+                Token(kind: .identifier, value: "False", position: 38),
+                Token(kind: .closeExpression, value: "}}", position: 44),
                 Token(kind: .text, value: "|", position: 46),
                 Token(kind: .eof, value: "", position: 47),
             ]
@@ -135,10 +151,26 @@ struct TemplateTests {
         let tokens = try Lexer.tokenize(string)
         #expect(
             tokens == [
-                Token(kind: .expression, value: "true and true", position: 0),
-                Token(kind: .expression, value: "true and false", position: 19),
-                Token(kind: .expression, value: "false and true", position: 39),
-                Token(kind: .expression, value: "false and false", position: 59),
+                Token(kind: .openExpression, value: "{{", position: 0),
+                Token(kind: .boolean, value: "true", position: 3),
+                Token(kind: .and, value: "and", position: 8),
+                Token(kind: .boolean, value: "true", position: 12),
+                Token(kind: .closeExpression, value: "}}", position: 17),
+                Token(kind: .openExpression, value: "{{", position: 19),
+                Token(kind: .boolean, value: "true", position: 22),
+                Token(kind: .and, value: "and", position: 27),
+                Token(kind: .boolean, value: "false", position: 31),
+                Token(kind: .closeExpression, value: "}}", position: 37),
+                Token(kind: .openExpression, value: "{{", position: 39),
+                Token(kind: .boolean, value: "false", position: 42),
+                Token(kind: .and, value: "and", position: 48),
+                Token(kind: .boolean, value: "true", position: 52),
+                Token(kind: .closeExpression, value: "}}", position: 57),
+                Token(kind: .openExpression, value: "{{", position: 59),
+                Token(kind: .boolean, value: "false", position: 62),
+                Token(kind: .and, value: "and", position: 68),
+                Token(kind: .boolean, value: "false", position: 72),
+                Token(kind: .closeExpression, value: "}}", position: 78),
                 Token(kind: .eof, value: "", position: 80),
             ]
         )
@@ -169,10 +201,26 @@ struct TemplateTests {
         let tokens = try Lexer.tokenize(string)
         #expect(
             tokens == [
-                Token(kind: .expression, value: "true or true", position: 0),
-                Token(kind: .expression, value: "true or false", position: 18),
-                Token(kind: .expression, value: "false or true", position: 37),
-                Token(kind: .expression, value: "false or false", position: 56),
+                Token(kind: .openExpression, value: "{{", position: 0),
+                Token(kind: .boolean, value: "true", position: 3),
+                Token(kind: .or, value: "or", position: 8),
+                Token(kind: .boolean, value: "true", position: 11),
+                Token(kind: .closeExpression, value: "}}", position: 16),
+                Token(kind: .openExpression, value: "{{", position: 18),
+                Token(kind: .boolean, value: "true", position: 21),
+                Token(kind: .or, value: "or", position: 26),
+                Token(kind: .boolean, value: "false", position: 29),
+                Token(kind: .closeExpression, value: "}}", position: 35),
+                Token(kind: .openExpression, value: "{{", position: 37),
+                Token(kind: .boolean, value: "false", position: 40),
+                Token(kind: .or, value: "or", position: 46),
+                Token(kind: .boolean, value: "true", position: 49),
+                Token(kind: .closeExpression, value: "}}", position: 54),
+                Token(kind: .openExpression, value: "{{", position: 56),
+                Token(kind: .boolean, value: "false", position: 59),
+                Token(kind: .or, value: "or", position: 65),
+                Token(kind: .boolean, value: "false", position: 68),
+                Token(kind: .closeExpression, value: "}}", position: 74),
                 Token(kind: .eof, value: "", position: 76),
             ]
         )
@@ -202,8 +250,14 @@ struct TemplateTests {
         let tokens = try Lexer.tokenize(string)
         #expect(
             tokens == [
-                Token(kind: .expression, value: "not true", position: 0),
-                Token(kind: .expression, value: "not false", position: 14),
+                Token(kind: .openExpression, value: "{{", position: 0),
+                Token(kind: .not, value: "not", position: 3),
+                Token(kind: .boolean, value: "true", position: 7),
+                Token(kind: .closeExpression, value: "}}", position: 12),
+                Token(kind: .openExpression, value: "{{", position: 14),
+                Token(kind: .not, value: "not", position: 17),
+                Token(kind: .boolean, value: "false", position: 21),
+                Token(kind: .closeExpression, value: "}}", position: 27),
                 Token(kind: .eof, value: "", position: 29),
             ]
         )
@@ -284,10 +338,21 @@ struct TemplateTests {
         let tokens = try Lexer.tokenize(string)
         #expect(
             tokens == [
-                Token(kind: .statement, value: "if 1 == 1", position: 0),
-                Token(kind: .expression, value: "'A'", position: 15),
-                Token(kind: .statement, value: "endif", position: 24),
-                Token(kind: .expression, value: "'B'", position: 35),
+                Token(kind: .openStatement, value: "{%", position: 0),
+                Token(kind: .if, value: "if", position: 3),
+                Token(kind: .number, value: "1", position: 6),
+                Token(kind: .equal, value: "==", position: 8),
+                Token(kind: .number, value: "1", position: 11),
+                Token(kind: .closeStatement, value: "%}", position: 13),
+                Token(kind: .openExpression, value: "{{", position: 15),
+                Token(kind: .string, value: "A", position: 18),
+                Token(kind: .closeExpression, value: "}}", position: 22),
+                Token(kind: .openStatement, value: "{%", position: 24),
+                Token(kind: .endif, value: "endif", position: 27),
+                Token(kind: .closeStatement, value: "%}", position: 33),
+                Token(kind: .openExpression, value: "{{", position: 35),
+                Token(kind: .string, value: "B", position: 38),
+                Token(kind: .closeExpression, value: "}}", position: 42),
                 Token(kind: .eof, value: "", position: 44),
             ]
         )
@@ -567,9 +632,13 @@ struct TemplateTests {
         #expect(
             tokens == [
                 Token(kind: .text, value: "|", position: 0),
-                Token(kind: .expression, value: " '{{ \"hi\" }}' ", position: 1),
+                Token(kind: .openExpression, value: "{{", position: 1),
+                Token(kind: .string, value: "{{ \"hi\" }}", position: 4),
+                Token(kind: .closeExpression, value: "}}", position: 17),
                 Token(kind: .text, value: "|", position: 19),
-                Token(kind: .expression, value: " '{% if true %}{% endif %}' ", position: 20),
+                Token(kind: .openExpression, value: "{{", position: 20),
+                Token(kind: .string, value: "{% if true %}{% endif %}", position: 23),
+                Token(kind: .closeExpression, value: "}}", position: 50),
                 Token(kind: .text, value: "|", position: 52),
                 Token(kind: .eof, value: "", position: 53),
             ]
@@ -580,9 +649,9 @@ struct TemplateTests {
         #expect(
             nodes == [
                 .text("|"),
-                .expression(.string(" '{{ \"hi\" }}' ")),
+                .expression(.string("{{ \"hi\" }}")),
                 .text("|"),
-                .expression(.string(" '{% if true %}{% endif %}' ")),
+                .expression(.string("{% if true %}{% endif %}")),
                 .text("|"),
             ]
         )
@@ -604,7 +673,12 @@ struct TemplateTests {
         let tokens = try Lexer.tokenize(string)
         #expect(
             tokens == [
-                Token(kind: .expression, value: "\'a\' + \'b\' \'c\'", position: 0),
+                Token(kind: .openExpression, value: "{{", position: 0),
+                Token(kind: .string, value: "a", position: 3),
+                Token(kind: .plus, value: "+", position: 7),
+                Token(kind: .string, value: "b", position: 9),
+                Token(kind: .string, value: "c", position: 13),
+                Token(kind: .closeExpression, value: "}}", position: 17),
                 Token(kind: .eof, value: "", position: 19),
             ]
         )
