@@ -139,7 +139,7 @@ public enum Lexer: Sendable {
         "for": .`for`, "endfor": .endfor, "in": .`in`, "not": .not,
         "and": .and, "or": .or, "is": .`is`, "set": .set, "endset": .endset,
         "macro": .macro, "endmacro": .endmacro,
-        "true": .boolean, "false": .boolean, "none": .null,
+        "true": .boolean, "false": .boolean, "True": .boolean, "False": .boolean, "none": .null,
         "break": .`break`, "continue": .`continue`,
         "call": .call, "endcall": .endcall,
         "filter": .filter, "endfilter": .endfilter,
@@ -369,10 +369,15 @@ public enum Lexer: Sendable {
                 case 0x6E: value += "\n"  // 'n'
                 case 0x74: value += "\t"  // 't'
                 case 0x72: value += "\r"  // 'r'
+                case 0x62: value += "\u{8}"  // 'b' (backspace)
+                case 0x66: value += "\u{C}"  // 'f' (form feed)
+                case 0x76: value += "\u{B}"  // 'v' (vertical tab)
                 case 0x5C: value += "\\"  // '\'
                 case 0x22: value += "\""  // '"'
                 case 0x27: value += "'"  // "'"
-                default: value += String(decoding: [escaped], as: UTF8.self)
+                default: 
+                    // Treat backslash as escape for any character (like TS implementation)
+                    value += String(decoding: [escaped], as: UTF8.self)
                 }
             } else {
                 value += String(decoding: [char], as: UTF8.self)

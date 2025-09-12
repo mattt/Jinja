@@ -568,6 +568,10 @@ public struct Parser: Sendable {
             } else if match(.concat) {
                 let right = try parseFactor()
                 expr = .binary(.concat, expr, right)
+            } else if check(.string) || check(.identifier) || check(.number) || check(.boolean) || check(.openParen) || check(.openBracket) || check(.openBrace) {
+                // Implicit string concatenation - if we see another primary expression, concatenate it
+                let right = try parseFactor()
+                expr = .binary(.concat, expr, right)
             } else {
                 break
             }
@@ -657,7 +661,7 @@ public struct Parser: Sendable {
             }
         case .boolean:
             advance()
-            return .boolean(token.value == "true")
+            return .boolean(token.value == "true" || token.value == "True")
         case .null:
             advance()
             return .null
@@ -667,7 +671,10 @@ public struct Parser: Sendable {
             if !check(.closeBracket) {
                 repeat {
                     elements.append(try parseExpression())
-                } while match(.comma)
+                    if !check(.closeBracket) && !match(.comma) {
+                        break
+                    }
+                } while !check(.closeBracket)
             }
             try consume(.closeBracket, message: "Expected ']' after array literal.")
             return .array(elements)
@@ -676,12 +683,21 @@ public struct Parser: Sendable {
             var pairs: OrderedDictionary<String, Expression> = [:]
             if !check(.closeBrace) {
                 repeat {
-                    let keyToken = try consume(
-                        .string, message: "Expected string literal for object key.")
+                    let keyToken: Token
+                    if check(.string) {
+                        keyToken = try consume(.string, message: "Expected string literal for object key.")
+                    } else if check(.identifier) {
+                        keyToken = try consume(.identifier, message: "Expected identifier for object key.")
+                    } else {
+                        throw JinjaError.parser("Expected string literal or identifier for object key. Got \(peek().kind) instead")
+                    }
                     try consume(.colon, message: "Expected ':' after object key.")
                     let value = try parseExpression()
                     pairs[keyToken.value] = value
-                } while match(.comma)
+                    if !check(.closeBrace) && !match(.comma) {
+                        break
+                    }
+                } while !check(.closeBrace)
             }
             try consume(.closeBrace, message: "Expected '}' after object literal.")
             return .object(pairs)
