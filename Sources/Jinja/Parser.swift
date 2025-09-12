@@ -330,7 +330,7 @@ public struct Parser: Sendable {
 
         try consume(.in, message: "Expected 'in' in for loop.")
 
-        let iterableExpr = try parseExpression()
+        let iterableExpr = try parseFilter()
         var testExpr: Expression?
 
         if match(.if) {
@@ -725,27 +725,27 @@ public struct Parser: Sendable {
                 advance()
                 return .tuple([])
             }
-            
+
             let firstExpr = try parseExpression()
-            
+
             // Check if this is a tuple (has comma) or just a parenthesized expression
             if match(.comma) {
                 var expressions = [firstExpr]
-                
+
                 // Handle trailing comma case like (a,)
                 if !check(.closeParen) {
                     repeat {
                         expressions.append(try parseExpression())
                     } while match(.comma) && !check(.closeParen)
                 }
-                
+
                 try consume(.closeParen, message: "Expected ')' after tuple.")
                 return .tuple(expressions)
             } else {
                 try consume(.closeParen, message: "Expected ')' after expression.")
                 return firstExpr
             }
-        
+
         case .identifier:
             advance()
             return .identifier(token.value)
@@ -843,9 +843,9 @@ public struct Parser: Sendable {
     private mutating func consumeIdentifier(_ name: String? = nil) throws -> String {
         let token = peek()
         let allowedAsIdentifier: Set<Token.Kind> = [
-            .identifier, .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue
+            .identifier, .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue,
         ]
-        
+
         if allowedAsIdentifier.contains(token.kind) {
             if let name = name, token.value != name {
                 throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")

@@ -610,8 +610,8 @@ struct TemplateTests {
         #expect(rendered == "B")
     }
 
-    @Test("For loop with select")
-    func forLoopSelect() throws {
+    @Test("For loop with if filter")
+    func forLoopIfFilter() throws {
         let string = #"{% for x in [1, 2, 3, 4] if x > 2 %}{{ x }}{% endfor %}"#
         let context: Context = [:]
 
@@ -623,11 +623,12 @@ struct TemplateTests {
                 .statement(
                     .for(
                         .single("x"),
-                        .ternary(
-                            .array([.integer(1), .integer(2), .integer(3), .integer(4)]),
-                            test: .binary(.greater, .identifier("x"), .integer(2)), alternate: nil),
+                        .array([.integer(1), .integer(2), .integer(3), .integer(4)]),
                         [.expression(.identifier("x"))],
-                        [], test: nil))
+                        [],
+                        test: .binary(.greater, .identifier("x"), .integer(2))
+                    )
+                )
             ]
         )
 
