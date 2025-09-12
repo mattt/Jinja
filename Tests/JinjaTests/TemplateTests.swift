@@ -106,11 +106,11 @@ struct TemplateTests {
                 Token(kind: .closeExpression, value: "}}", position: 21),
                 Token(kind: .text, value: "|", position: 23),
                 Token(kind: .openExpression, value: "{{", position: 24),
-                Token(kind: .identifier, value: "True", position: 27),
+                Token(kind: .boolean, value: "True", position: 27),
                 Token(kind: .closeExpression, value: "}}", position: 32),
                 Token(kind: .text, value: "|", position: 34),
                 Token(kind: .openExpression, value: "{{", position: 35),
-                Token(kind: .identifier, value: "False", position: 38),
+                Token(kind: .boolean, value: "False", position: 38),
                 Token(kind: .closeExpression, value: "}}", position: 44),
                 Token(kind: .text, value: "|", position: 46),
                 Token(kind: .eof, value: "", position: 47),
@@ -126,9 +126,9 @@ struct TemplateTests {
                 .text("|"),
                 .expression(.boolean(false)),
                 .text("|"),
-                .expression(.identifier("True")),
+                .expression(.boolean(true)),
                 .text("|"),
-                .expression(.identifier("False")),
+                .expression(.boolean(false)),
                 .text("|"),
             ]
         )
@@ -281,6 +281,16 @@ struct TemplateTests {
         let string = #"{{ not not true }}{{ not not false }}"#
         let context: Context = [:]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(.unary(.not, .unary(.not, .boolean(true)))),
+                .expression(.unary(.not, .unary(.not, .boolean(false)))),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "truefalse")
@@ -291,6 +301,24 @@ struct TemplateTests {
         let string =
             #"{{ true and true or false }}{{ true and false or true }}{{ false and true or true }}{{ false and false or true }}{{ false and false or false }}"#
         let context: Context = [:]
+
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(
+                    .binary(.or, .binary(.and, .boolean(true), .boolean(true)), .boolean(false))),
+                .expression(
+                    .binary(.or, .binary(.and, .boolean(true), .boolean(false)), .boolean(true))),
+                .expression(
+                    .binary(.or, .binary(.and, .boolean(false), .boolean(true)), .boolean(true))),
+                .expression(
+                    .binary(.or, .binary(.and, .boolean(false), .boolean(false)), .boolean(true))),
+                .expression(
+                    .binary(.or, .binary(.and, .boolean(false), .boolean(false)), .boolean(false))),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -303,6 +331,18 @@ struct TemplateTests {
             #"{{ true and not true }}{{ true and not false }}{{ false and not true }}{{ false and not false }}"#
         let context: Context = [:]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(.binary(.and, .boolean(true), .unary(.not, .boolean(true)))),
+                .expression(.binary(.and, .boolean(true), .unary(.not, .boolean(false)))),
+                .expression(.binary(.and, .boolean(false), .unary(.not, .boolean(true)))),
+                .expression(.binary(.and, .boolean(false), .unary(.not, .boolean(false)))),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "falsetruefalsefalse")
@@ -314,6 +354,18 @@ struct TemplateTests {
             #"{{ true or not true }}{{ true or not false }}{{ false or not true }}{{ false or not false }}"#
         let context: Context = [:]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(.binary(.or, .boolean(true), .unary(.not, .boolean(true)))),
+                .expression(.binary(.or, .boolean(true), .unary(.not, .boolean(false)))),
+                .expression(.binary(.or, .boolean(false), .unary(.not, .boolean(true)))),
+                .expression(.binary(.or, .boolean(false), .unary(.not, .boolean(false)))),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "truetruefalsetrue")
@@ -323,6 +375,22 @@ struct TemplateTests {
     func logicalCombined() throws {
         let string = #"{{ 1 == 2 and 2 == 2 }}{{ 1 == 2 or 2 == 2}}"#
         let context: Context = [:]
+
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(
+                    .binary(
+                        .and, .binary(.equal, .integer(1), .integer(2)),
+                        .binary(.equal, .integer(2), .integer(2)))),
+                .expression(
+                    .binary(
+                        .or, .binary(.equal, .integer(1), .integer(2)),
+                        .binary(.equal, .integer(2), .integer(2)))),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -377,6 +445,19 @@ struct TemplateTests {
         let string = #"{% if 1 == 2 %}{{ 'A' }}{% else %}{{ 'B' }}{% endif %}{{ 'C' }}"#
         let context: Context = [:]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .if(
+                        .binary(.equal, .integer(1), .integer(2)), [.expression(.string("A"))],
+                        [.expression(.string("B"))])),
+                .expression(.string("C")),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "BC")
@@ -387,6 +468,42 @@ struct TemplateTests {
         let string =
             #"{% if 1 == 2 %}{{ 'A' }}{{ 'B' }}{{ 'C' }}{% elif 1 == 2 %}{{ 'D' }}{% elif 1 == 3 %}{{ 'E' }}{{ 'F' }}{% else %}{{ 'G' }}{{ 'H' }}{{ 'I' }}{% endif %}{{ 'J' }}"#
         let context: Context = [:]
+
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .if(
+                        .binary(.equal, .integer(1), .integer(2)),
+                        [
+                            .expression(.string("A")), .expression(.string("B")),
+                            .expression(.string("C")),
+                        ],
+                        [
+                            .statement(
+                                .if(
+                                    .binary(.equal, .integer(1), .integer(2)),
+                                    [.expression(.string("D"))],
+                                    [
+                                        .statement(
+                                            .if(
+                                                .binary(.equal, .integer(1), .integer(3)),
+                                                [
+                                                    .expression(.string("E")),
+                                                    .expression(.string("F")),
+                                                ],
+                                                [
+                                                    .expression(.string("G")),
+                                                    .expression(.string("H")),
+                                                    .expression(.string("I")),
+                                                ]))
+                                    ]))
+                        ])),
+                .expression(.string("J")),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -415,6 +532,22 @@ struct TemplateTests {
             ]
         ]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .for(
+                        .single("message"), .identifier("messages"),
+                        [
+                            .expression(
+                                .member(.identifier("message"), .string("content"), computed: true))
+                        ],
+                        [], test: nil))
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "ABC")
@@ -424,6 +557,30 @@ struct TemplateTests {
     func forLoopUnpacking() throws {
         let string = #"|{% for x, y in [ [1, 2], [3, 4] ] %}|{{ x + ' ' + y }}|{% endfor %}|"#
         let context: Context = [:]
+
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .text("|"),
+                .statement(
+                    .for(
+                        .tuple(["x", "y"]),
+                        .array([
+                            .array([.integer(1), .integer(2)]), .array([.integer(3), .integer(4)]),
+                        ]),
+                        [
+                            .text("|"),
+                            .expression(
+                                .binary(
+                                    .add, .binary(.add, .identifier("x"), .string(" ")),
+                                    .identifier("y"))), .text("|"),
+                        ],
+                        [], test: nil)),
+                .text("|"),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -435,6 +592,19 @@ struct TemplateTests {
         let string = #"{% for x in [] %}{{ 'A' }}{% else %}{{'B'}}{% endfor %}"#
         let context: Context = [:]
 
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .for(
+                        .single("x"), .array([]),
+                        [.expression(.string("A"))],
+                        [.expression(.string("B"))], test: nil))
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "B")
@@ -444,6 +614,22 @@ struct TemplateTests {
     func forLoopSelect() throws {
         let string = #"{% for x in [1, 2, 3, 4] if x > 2 %}{{ x }}{% endfor %}"#
         let context: Context = [:]
+
+        // Check result of parser
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .for(
+                        .single("x"),
+                        .ternary(
+                            .array([.integer(1), .integer(2), .integer(3), .integer(4)]),
+                            test: .binary(.greater, .identifier("x"), .integer(2)), alternate: nil),
+                        [.expression(.identifier("x"))],
+                        [], test: nil))
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -906,58 +1092,8 @@ struct TemplateTests {
             "arr": [0, true, "a"]
         ]
 
-        // Check result of lexer
-        let tokens = try Lexer.tokenize(string)
-        #expect(
-            tokens == [
-                Token(kind: .text, value: "|", position: 0),
-                Token(kind: .openExpression, value: "{{", position: 1),
-                Token(kind: .number, value: "0", position: 4),
-                Token(kind: .not, value: "not", position: 6),
-                Token(kind: .in, value: "in", position: 10),
-                Token(kind: .identifier, value: "arr", position: 13),
-                Token(kind: .closeExpression, value: "}}", position: 17),
-                Token(kind: .text, value: "|", position: 19),
-                Token(kind: .openExpression, value: "{{", position: 20),
-                Token(kind: .number, value: "1", position: 23),
-                Token(kind: .not, value: "not", position: 25),
-                Token(kind: .in, value: "in", position: 29),
-                Token(kind: .identifier, value: "arr", position: 32),
-                Token(kind: .closeExpression, value: "}}", position: 36),
-                Token(kind: .text, value: "|", position: 38),
-                Token(kind: .openExpression, value: "{{", position: 39),
-                Token(kind: .boolean, value: "true", position: 42),
-                Token(kind: .not, value: "not", position: 47),
-                Token(kind: .in, value: "in", position: 51),
-                Token(kind: .identifier, value: "arr", position: 54),
-                Token(kind: .closeExpression, value: "}}", position: 58),
-                Token(kind: .text, value: "|", position: 60),
-                Token(kind: .openExpression, value: "{{", position: 61),
-                Token(kind: .boolean, value: "false", position: 64),
-                Token(kind: .not, value: "not", position: 70),
-                Token(kind: .in, value: "in", position: 74),
-                Token(kind: .identifier, value: "arr", position: 77),
-                Token(kind: .closeExpression, value: "}}", position: 81),
-                Token(kind: .text, value: "|", position: 83),
-                Token(kind: .openExpression, value: "{{", position: 84),
-                Token(kind: .string, value: "a", position: 87),
-                Token(kind: .not, value: "not", position: 91),
-                Token(kind: .in, value: "in", position: 95),
-                Token(kind: .identifier, value: "arr", position: 98),
-                Token(kind: .closeExpression, value: "}}", position: 102),
-                Token(kind: .text, value: "|", position: 104),
-                Token(kind: .openExpression, value: "{{", position: 105),
-                Token(kind: .string, value: "b", position: 108),
-                Token(kind: .not, value: "not", position: 112),
-                Token(kind: .in, value: "in", position: 116),
-                Token(kind: .identifier, value: "arr", position: 119),
-                Token(kind: .closeExpression, value: "}}", position: 123),
-                Token(kind: .text, value: "|", position: 125),
-                Token(kind: .eof, value: "", position: 126),
-            ]
-        )
-
         // Check result of parser
+        let tokens = try Lexer.tokenize(string)
         let nodes = try Parser.parse(tokens)
         #expect(
             nodes == [

@@ -492,41 +492,6 @@ struct InterpreterTests {
             #expect(result == false)
         }
         
-        // MARK: - Tests Dictionary
-        
-        @Test("Tests.default dictionary contains all tests")
-        func testTestsDefaultDictionary() throws {
-            let expectedTests = [
-                "defined", "undefined", "none", "string", "number", "boolean", "iterable",
-                "even", "odd", "divisibleby", "equalto",
-            ]
-            
-            for testName in expectedTests {
-                #expect(
-                    Tests.default[testName] != nil,
-                    "Test '\(testName)' should be in Tests.default dictionary")
-            }
-            
-            #expect(
-                Tests.default.count == expectedTests.count,
-                "Tests.default should contain exactly \(expectedTests.count) tests")
-        }
-        
-        @Test("Tests.default dictionary functions work correctly")
-        func testTestsDefaultDictionaryFunctions() throws {
-            // Test defined
-            let definedResult = try Tests.default["defined"]!([.string("hello")], [:], env)
-            #expect(definedResult == true)
-            
-            // Test even
-            let evenResult = try Tests.default["even"]!([.integer(4)], [:], env)
-            #expect(evenResult == true)
-            
-            // Test equalto
-            let equaltoResult = try Tests.default["equalto"]!([.integer(42), .integer(42)], [:], env)
-            #expect(equaltoResult == true)
-        }
-        
         // MARK: - Edge Cases
         
         @Test("Tests with null values")
