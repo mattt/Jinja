@@ -630,5 +630,134 @@ struct InterpreterTests {
                 [.number(10.0), .number(2.0)], kwargs: [:], env: env)
             #expect(divisibleResult == true)
         }
+        
+        // MARK: - New Tests
+        
+        @Test("float test with number value")
+        func testFloatWithNumberValue() throws {
+            let result = try Tests.float([.number(3.14)], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("float test with integer value")
+        func testFloatWithIntegerValue() throws {
+            let result = try Tests.float([.integer(42)], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("sequence test with array")
+        func testSequenceWithArray() throws {
+            let result = try Tests.sequence([.array([.string("a"), .string("b")])], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("sequence test with string")
+        func testSequenceWithString() throws {
+            let result = try Tests.sequence([.string("hello")], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("sequence test with object")
+        func testSequenceWithObject() throws {
+            let result = try Tests.sequence([.object(["key": .string("value")])], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("escaped test")
+        func testEscaped() throws {
+            // Basic implementation always returns false
+            let result = try Tests.escaped([.string("hello")], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("filter test with existing filter")
+        func testFilterWithExistingFilter() throws {
+            let result = try Tests.filter([.string("upper")], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("filter test with non-existing filter")
+        func testFilterWithNonExistingFilter() throws {
+            let result = try Tests.filter([.string("nonexistent")], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("test test with existing test")
+        func testTestWithExistingTest() throws {
+            let result = try Tests.test([.string("defined")], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("test test with non-existing test")
+        func testTestWithNonExistingTest() throws {
+            let result = try Tests.test([.string("nonexistent")], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("sameas test with equal values")
+        func testSameasWithEqualValues() throws {
+            let result = try Tests.sameas([.integer(42), .integer(42)], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("sameas test with different values")
+        func testSameasWithDifferentValues() throws {
+            let result = try Tests.sameas([.integer(42), .integer(43)], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("in test with value in array")
+        func testInWithValueInArray() throws {
+            let array = Value.array([.string("a"), .string("b"), .string("c")])
+            let result = try Tests.`in`([.string("b"), array], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("in test with value not in array")
+        func testInWithValueNotInArray() throws {
+            let array = Value.array([.string("a"), .string("b"), .string("c")])
+            let result = try Tests.`in`([.string("d"), array], kwargs: [:], env: env)
+            #expect(result == false)
+        }
+        
+        @Test("in test with substring in string")
+        func testInWithSubstringInString() throws {
+            let result = try Tests.`in`([.string("ell"), .string("hello")], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("in test with key in object")
+        func testInWithKeyInObject() throws {
+            let obj = Value.object(["name": .string("test"), "age": .integer(25)])
+            let result = try Tests.`in`([.string("name"), obj], kwargs: [:], env: env)
+            #expect(result == true)
+        }
+        
+        @Test("comparison tests")
+        func testComparisonTests() throws {
+            // gt test
+            let gtResult = try Tests.gt([.integer(5), .integer(3)], kwargs: [:], env: env)
+            #expect(gtResult == true)
+            
+            // lt test
+            let ltResult = try Tests.lt([.integer(3), .integer(5)], kwargs: [:], env: env)
+            #expect(ltResult == true)
+            
+            // ge test
+            let geResult = try Tests.ge([.integer(5), .integer(5)], kwargs: [:], env: env)
+            #expect(geResult == true)
+            
+            // le test
+            let leResult = try Tests.le([.integer(3), .integer(5)], kwargs: [:], env: env)
+            #expect(leResult == true)
+            
+            // ne test
+            let neResult = try Tests.ne([.integer(3), .integer(5)], kwargs: [:], env: env)
+            #expect(neResult == true)
+            
+            // eq test
+            let eqResult = try Tests.eq([.integer(5), .integer(5)], kwargs: [:], env: env)
+            #expect(eqResult == true)
+        }
     }
 }

@@ -1356,7 +1356,7 @@ public enum Tests {
     }
 
     /// Tests if a string is all lowercase.
-    @Sendable public static func isLower(
+    @Sendable public static func lower(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
@@ -1367,7 +1367,7 @@ public enum Tests {
     }
 
     /// Tests if a string is all uppercase.
-    @Sendable public static func isUpper(
+    @Sendable public static func upper(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
@@ -1378,7 +1378,7 @@ public enum Tests {
     }
 
     /// Tests if a value is true.
-    @Sendable public static func isTrue(
+    @Sendable public static func `true`(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
@@ -1386,11 +1386,160 @@ public enum Tests {
     }
 
     /// Tests if a value is false.
-    @Sendable public static func isFalse(
+    @Sendable public static func `false`(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
         return value == .boolean(false)
+    }
+
+    /// Tests if a value is a float.
+    @Sendable public static func float(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first else { return false }
+        if case .number(_) = value {
+            return true
+        }
+        return false
+    }
+
+    /// Tests if a value is a sequence (array or string).
+    @Sendable public static func sequence(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first else { return false }
+        switch value {
+        case .array(_), .string(_):
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Tests if a value is escaped (always returns false for basic implementation).
+    @Sendable public static func escaped(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        // In basic implementation, values are not escaped by default
+        return false
+    }
+
+    /// Tests if a filter exists by name.
+    @Sendable public static func filter(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first, let filterName = value.string else { return false }
+        return Filters.default[filterName] != nil
+    }
+
+    /// Tests if a test exists by name.
+    @Sendable public static func test(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first, let testName = value.string else { return false }
+        return Tests.default[testName] != nil
+    }
+
+    /// Tests if two values point to the same memory address (identity test).
+    @Sendable public static func sameas(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        // For basic implementation, this is the same as equality
+        // In a more advanced implementation, this would check object identity
+        return Interpreter.valuesEqual(values[0], values[1])
+    }
+
+    /// Tests if a value is in a sequence.
+    @Sendable public static func `in`(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        let value = values[0]
+        let container = values[1]
+        
+        switch container {
+        case let .array(arr):
+            return arr.contains { Interpreter.valuesEqual($0, value) }
+        case let .string(str):
+            if let searchStr = value.string {
+                return str.contains(searchStr)
+            }
+            return false
+        case let .object(dict):
+            if let key = value.string {
+                return dict[key] != nil
+            }
+            return false
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Comparison Tests
+
+    /// Tests if a == b.
+    @Sendable public static func eq(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        return try equalto(values, kwargs: kwargs, env: env)
+    }
+
+    /// Tests if a != b.
+    @Sendable public static func ne(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        return !Interpreter.valuesEqual(values[0], values[1])
+    }
+
+    /// Tests if a > b.
+    @Sendable public static func gt(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        do {
+            return try Interpreter.compareValues(values[0], values[1]) > 0
+        } catch {
+            return false
+        }
+    }
+
+    /// Tests if a >= b.
+    @Sendable public static func ge(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        do {
+            return try Interpreter.compareValues(values[0], values[1]) >= 0
+        } catch {
+            return false
+        }
+    }
+
+    /// Tests if a < b.
+    @Sendable public static func lt(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        do {
+            return try Interpreter.compareValues(values[0], values[1]) < 0
+        } catch {
+            return false
+        }
+    }
+
+    /// Tests if a <= b.
+    @Sendable public static func le(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard values.count >= 2 else { return false }
+        do {
+            return try Interpreter.compareValues(values[0], values[1]) <= 0
+        } catch {
+            return false
+        }
     }
 
     /// Dictionary of all available tests.
@@ -1406,14 +1555,35 @@ public enum Tests {
             "even": even,
             "odd": odd,
             "divisibleby": divisibleby,
-            "equalto": equalto,
             "mapping": mapping,
             "callable": callable,
             "integer": integer,
-            "true": isTrue,
-            "false": isFalse,
-            "lower": isLower,
-            "upper": isUpper,
+            "true": `true`,
+            "false": `false`,
+            "lower": lower,
+            "upper": upper,
+            "float": float,
+            "sequence": sequence,
+            "escaped": escaped,
+            "filter": filter,
+            "test": test,
+            "sameas": sameas,
+            "in": `in`,
+            "eq": eq,
+            "==": eq,
+            "equalto": eq,
+            "ne": ne,
+            "!=": ne,
+            "gt": gt,
+            ">": gt,
+            "greaterthan": gt,
+            "ge": ge,
+            ">=": ge,
+            "lt": lt,
+            "<": lt,
+            "lessthan": lt,
+            "le": le,
+            "<=": le,
         ]
 }
 
