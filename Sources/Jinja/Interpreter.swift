@@ -867,6 +867,10 @@ public enum Interpreter {
             return .number(a + Double(b))
         case let (.string(a), .string(b)):
             return .string(a + b)
+        case let (.string(a), b):
+            return .string(a + b.description)
+        case let (a, .string(b)):
+            return .string(a.description + b)
         case let (.array(a), .array(b)):
             return .array(a + b)
         default:
