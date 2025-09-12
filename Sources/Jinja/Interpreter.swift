@@ -12,7 +12,7 @@ private let builtinValues: Context = [
     "True": true,
     "False": false,
     "none": .null,
-    "range": .function { values in
+    "range": .function { values, _ in
         guard !values.isEmpty else { return .array([]) }
 
         switch values.count {
@@ -241,23 +241,15 @@ public enum Interpreter {
             let result = try evaluateTest(testName, argValues, env: env)
             return .boolean(negated ? !result : result)
 
-        case let .call(function, args, kwargs):
-            let functionValue = try evaluateExpression(function, env: env)
-            guard case let .function(fn) = functionValue else {
+        case let .call(callableExpr, argsExpr, kwargsExpr):
+            let callableValue = try evaluateExpression(callableExpr, env: env)
+            guard case let .function(function) = callableValue else {
                 throw JinjaError.runtime("Cannot call non-function value")
             }
-
-            var argValues: [Value] = []
-            for arg in args {
-                argValues.append(try evaluateExpression(arg, env: env))
-            }
-
-            // Merge kwargs by appending their values after positional arguments
-            for (_, expr) in kwargs {
-                argValues.append(try evaluateExpression(expr, env: env))
-            }
-
-            return try fn(argValues)
+            let argValues = try argsExpr.map { try evaluateExpression($0, env: env) }
+            let kwargs = try kwargsExpr.mapValues { try evaluateExpression($0, env: env) }
+            // TODO: Handle kwargs
+            return try function(argValues, env)
 
         case let .slice(array, start, stop, step):
             let arrayValue = try evaluateExpression(array, env: env)
@@ -374,7 +366,8 @@ public enum Interpreter {
                         ]
 
                         // Add cycle function
-                        let cycleFunction: @Sendable ([Value]) throws -> Value = { cycleArgs in
+                        let cycleFunction: @Sendable ([Value], Environment) throws -> Value = {
+                            cycleArgs, _ in
                             guard !cycleArgs.isEmpty else { return .string("") }
                             let cycleIndex = index % cycleArgs.count
                             return cycleArgs[cycleIndex]
@@ -426,7 +419,7 @@ public enum Interpreter {
                             "revindex0": .integer(items.count - index - 1),
                         ]
                         var loopObj = loopContext
-                        loopObj["cycle"] = .function { args in
+                        loopObj["cycle"] = .function { args, _ in
                             guard !args.isEmpty else { return .string("") }
                             let cycleIndex = index % args.count
                             return args[cycleIndex]
@@ -464,7 +457,7 @@ public enum Interpreter {
                             "revindex0": .integer(chars.count - index - 1),
                         ]
                         var loopObj = loopContext
-                        loopObj["cycle"] = .function { args in
+                        loopObj["cycle"] = .function { args, _ in
                             guard !args.isEmpty else { return .string("") }
                             let cycleIndex = index % args.count
                             return args[cycleIndex]
@@ -498,8 +491,14 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs in
+            env[name] = .function { passedArgs, callTimeEnv in
                 let macroEnv = Environment(parent: env)
+
+                let caller = callTimeEnv["caller"]
+                if caller != .undefined {
+                    macroEnv["caller"] = caller
+                }
+
                 // Start with defaults
                 for (key, expr) in defaults {
                     // Evaluate defaults in current env
@@ -508,7 +507,8 @@ public enum Interpreter {
                 }
                 // Bind positional args
                 for (index, paramName) in parameters.enumerated() {
-                    let value = index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
+                    let value =
+                        index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
                     macroEnv[paramName] = value
                 }
                 var macroBuffer = Buffer()
@@ -526,14 +526,15 @@ public enum Interpreter {
                 throw JinjaError.runtime("Cannot call non-function value")
             }
 
-            var bodyBuffer = Buffer()
-            try interpret(body, env: env, into: &bodyBuffer)
-            let renderedBody = bodyBuffer.build()
+            let callTimeEnv = Environment(parent: env)
+            callTimeEnv["caller"] = .function { _, _ in
+                var bodyBuffer = Buffer()
+                try interpret(body, env: env, into: &bodyBuffer)
+                return .string(bodyBuffer.build())
+            }
 
-            var finalArgs = callerArgs?.compactMap { try? evaluateExpression($0, env: env) } ?? []
-            finalArgs.append(.string(renderedBody))
-
-            let result = try function(finalArgs)
+            let finalArgs = callerArgs?.compactMap { try? evaluateExpression($0, env: env) } ?? []
+            let result = try function(finalArgs, callTimeEnv)
             buffer.write(result.description)
 
         case let .filter(filterExpr, body):
@@ -580,8 +581,14 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs in
+            env[name] = .function { passedArgs, callTimeEnv in
                 let macroEnv = Environment(parent: env)
+
+                let caller = callTimeEnv["caller"]
+                if caller != .undefined {
+                    macroEnv["caller"] = caller
+                }
+
                 // Start with defaults
                 for (key, expr) in defaults {
                     // Evaluate defaults in current env
@@ -590,7 +597,8 @@ public enum Interpreter {
                 }
                 // Bind positional args
                 for (index, paramName) in parameters.enumerated() {
-                    let value = index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
+                    let value =
+                        index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
                     macroEnv[paramName] = value
                 }
                 var macroBuffer = Buffer()
@@ -721,26 +729,27 @@ public enum Interpreter {
         case let .string(str):
             switch propertyName {
             case "upper":
-                return .function { _ in .string(str.uppercased()) }
+                return .function { _, _ in .string(str.uppercased()) }
             case "lower":
-                return .function { _ in .string(str.lowercased()) }
+                return .function { _, _ in .string(str.lowercased()) }
             case "title":
-                return .function { _ in .string(str.capitalized) }
+                return .function { _, _ in .string(str.capitalized) }
             case "strip":
-                return .function { _ in .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
+                return .function { _, _ in
+                    .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
             case "lstrip":
-                return .function { _ in
+                return .function { _, _ in
                     let trimmed = str.drop(while: { $0.isWhitespace })
                     return .string(String(trimmed))
                 }
             case "rstrip":
-                return .function { _ in
+                return .function { _, _ in
                     let reversed = str.reversed().drop(while: { $0.isWhitespace })
                     return .string(String(reversed.reversed()))
                 }
             case "split":
-                return .function { args in
+                return .function { args, _ in
                     if args.isEmpty {
                         // Split on whitespace
                         let components = str.split(separator: " ").map(String.init)
@@ -758,7 +767,7 @@ public enum Interpreter {
                     return .array([.string(str)])
                 }
             case "replace":
-                return .function { args in
+                return .function { args, _ in
                     guard args.count >= 2,
                         case let .string(old) = args[0],
                         case let .string(new) = args[1]
@@ -786,7 +795,7 @@ public enum Interpreter {
         case let .object(obj):
             // Support Python-like dict.items() for iteration
             if propertyName == "items" {
-                let fn: @Sendable ([Value]) throws -> Value = { _ in
+                let fn: @Sendable ([Value], Environment) throws -> Value = { _, _ in
                     let pairs = obj.map { key, value in Value.array([.string(key), value]) }
                     return .array(pairs)
                 }
@@ -811,7 +820,7 @@ public enum Interpreter {
         guard case let .function(fn) = testValue else {
             throw JinjaError.runtime("Unknown test: \(testName)")
         }
-        let result = try fn(argValues)
+        let result = try fn(argValues, env)
         if case let .boolean(b) = result { return b }
         return result.isTruthy
     }
@@ -824,7 +833,7 @@ public enum Interpreter {
         // Try environment-provided filters first
         let filterValue = env[filterName]
         if case let .function(fn) = filterValue {
-            return try fn(argValues)
+            return try fn(argValues, env)
         }
 
         // Fallback to built-in filters

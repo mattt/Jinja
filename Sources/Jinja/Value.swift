@@ -19,7 +19,7 @@ public enum Value: Sendable {
     /// Object containing key-value pairs with preserved insertion order.
     case object(OrderedDictionary<String, Value>)
     /// Function value that can be called with arguments.
-    case function(@Sendable ([Value]) throws -> Value)
+    case function(@Sendable ([Value], Environment) throws -> Value)
 
     /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {
@@ -158,7 +158,7 @@ extension Value: Equatable {
         case (.undefined, .undefined): return true
         case let (.array(lhs), .array(rhs)): return lhs == rhs
         case let (.object(lhs), .object(rhs)): return lhs == rhs
-        case (.function, .function): return true
+        case (.function, .function): return false
         default: return false
         }
     }

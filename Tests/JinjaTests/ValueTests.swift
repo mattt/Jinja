@@ -164,7 +164,7 @@ struct ValueTests {
         #expect(nestedArrayJSON.contains("null"))
 
         // Test function encoding should throw
-        let functionValue = Value.function { _ in Value.null }
+        let functionValue = Value.function { _, _ in Value.null }
         #expect(throws: EncodingError.self) {
             _ = try encoder.encode(functionValue)
         }
