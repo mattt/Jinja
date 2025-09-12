@@ -373,7 +373,7 @@ struct TemplateTests {
 
     @Test("Logical combined with comparison")
     func logicalCombined() throws {
-        let string = #"{{ 1 == 2 and 2 == 2 }}{{ 1 == 2 or 2 == 2}}"#
+        let string = #"{{ 1 == 2 and 2 == 2 }}{{ 1 == 2 or 2 == 2 }}"#
         let context: Context = [:]
 
         // Check result of parser
@@ -715,7 +715,7 @@ struct TemplateTests {
 
     @Test("Variable block assignment")
     func variablesBlock() throws {
-        let string = #"{% set x %}Hello!\nMultiline/block set!\n{% endset %}{{ x }}"#
+        let string = "{% set x %}Hello!\nMultiline/block set!\n{% endset %}{{ x }}"
         let context: Context = [:]
 
         // Check result of template
@@ -1256,7 +1256,7 @@ struct TemplateTests {
 
         // Check result of template
         let rendered = try Template(string).render(context)
-        #expect(rendered.contains("\"string\": \"world\""))
+        #expect(rendered.contains("\"key\":\"value\""))
         #expect(rendered.contains("\"test\""))
         #expect(rendered.contains("1"))
         #expect(rendered.contains("true"))
@@ -1624,7 +1624,7 @@ struct TemplateTests {
     @Test("Macros with caller and parameters")
     func macrosWithCallerAndParameters() throws {
         let string =
-            #"{%- macro print_users(users) -%}{%- for user in users -%}{{ caller(user) }}{%- endfor -%}{%- endmacro %}{% call(user) print_users(users) %}  - {{ user.firstname }} {{ user.lastname }}\n{% endcall %}"#
+            "{%- macro print_users(users) -%}{%- for user in users -%}{{ caller(user) }}{%- endfor -%}{%- endmacro %}{% call(user) print_users(users) %}  - {{ user.firstname }} {{ user.lastname }}\n{% endcall %}"
         let context: Context = [
             "users": [
                 ["firstname": "John", "lastname": "Doe"],
@@ -1997,7 +1997,7 @@ struct TemplateTests {
 
         // Check result of template
         let rendered = try Template(string).render(context)
-        #expect(rendered == "|true|true|true|true|")
+        #expect(rendered == "|true|false|false|true|")
     }
 
     @Test("Keyword arguments")

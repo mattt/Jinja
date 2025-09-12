@@ -8,66 +8,67 @@ struct InterpreterTests {
     @Suite("Filters")
     struct FiltersTests {
         let env = Environment()
-        
+
         @Test("upper filter")
         func testUpperFilter() throws {
             let result = try Filters.upper([.string("hello world")], kwargs: [:], env: env)
             #expect(result == .string("HELLO WORLD"))
         }
-        
+
         @Test("lower filter")
         func testLowerFilter() throws {
             let result = try Filters.lower([.string("HELLO WORLD")], kwargs: [:], env: env)
             #expect(result == .string("hello world"))
         }
-        
+
         @Test("length filter for strings")
         func testLengthFilterString() throws {
             let result = try Filters.length([.string("hello")], kwargs: [:], env: env)
             #expect(result == .integer(5))
         }
-        
+
         @Test("length filter for arrays")
         func testLengthFilterArray() throws {
             let values = [Value.integer(1), .integer(2), .integer(3)]
             let result = try Filters.length([.array(values)], kwargs: [:], env: env)
             #expect(result == .integer(3))
         }
-        
+
         @Test("join filter")
         func testJoinFilter() throws {
             let values = [Value.string("a"), .string("b"), .string("c")]
             let result = try Filters.join([.array(values), .string(", ")], kwargs: [:], env: env)
             #expect(result == .string("a, b, c"))
         }
-        
+
         @Test("default filter with undefined")
         func testDefaultFilterWithUndefined() throws {
-            let result = try Filters.default([.undefined, .string("fallback")], kwargs: [:], env: env)
+            let result = try Filters.default(
+                [.undefined, .string("fallback")], kwargs: [:], env: env)
             #expect(result == .string("fallback"))
         }
-        
+
         @Test("default filter with defined value")
         func testDefaultFilterWithDefinedValue() throws {
             let result = try Filters.default(
                 [.string("actual"), .string("fallback")], kwargs: [:], env: env)
             #expect(result == .string("actual"))
         }
-        
+
         @Test("first filter with array")
         func testFirstFilterWithArray() throws {
             let values = [Value.string("a"), .string("b"), .string("c")]
             let result = try Filters.first([.array(values)], kwargs: [:], env: env)
             #expect(result == .string("a"))
         }
-        
+
         @Test("last filter with array")
         func testLastFilterWithArray() throws {
             let values = [Value.string("a"), .string("b"), .string("c")]
             let result = try Filters.last([.array(values)], kwargs: [:], env: env)
             #expect(result == .string("c"))
         }
-        
+
         @Test("reverse filter with array")
         func testReverseFilterWithArray() throws {
             let values = [Value.integer(1), .integer(2), .integer(3)]
@@ -75,43 +76,43 @@ struct InterpreterTests {
             let expected = Value.array([.integer(3), .integer(2), .integer(1)])
             #expect(result == expected)
         }
-        
+
         @Test("abs filter with negative integer")
         func testAbsFilterWithNegativeInteger() throws {
             let result = try Filters.abs([.integer(-5)], kwargs: [:], env: env)
             #expect(result == .integer(5))
         }
-        
+
         @Test("abs filter with negative number")
         func testAbsFilterWithNegativeNumber() throws {
             let result = try Filters.abs([.number(-3.14)], kwargs: [:], env: env)
             #expect(result == .number(3.14))
         }
-        
+
         @Test("capitalize filter")
         func testCapitalizeFilter() throws {
             let result = try Filters.capitalize([.string("hello world")], kwargs: [:], env: env)
             #expect(result == .string("Hello world"))
         }
-        
+
         @Test("trim filter")
         func testTrimFilter() throws {
             let result = try Filters.trim([.string("  hello world  ")], kwargs: [:], env: env)
             #expect(result == .string("hello world"))
         }
-        
+
         @Test("float filter")
         func testFloatFilter() throws {
             let result = try Filters.float([.integer(42)], kwargs: [:], env: env)
             #expect(result == .number(42.0))
         }
-        
+
         @Test("int filter")
         func testIntFilter() throws {
             let result = try Filters.int([.number(3.14)], kwargs: [:], env: env)
             #expect(result == .integer(3))
         }
-        
+
         @Test("unique filter")
         func testUniqueFilter() throws {
             let values = [Value.integer(1), .integer(2), .integer(1), .integer(3), .integer(2)]
@@ -119,7 +120,7 @@ struct InterpreterTests {
             let expected = Value.array([.integer(1), .integer(2), .integer(3)])
             #expect(result == expected)
         }
-        
+
         @Test("dictsort filter")
         func testDictsortFilter() throws {
             let dict = Value.object(["c": .integer(3), "a": .integer(1), "b": .integer(2)])
@@ -127,22 +128,23 @@ struct InterpreterTests {
             let expected = Value.array([
                 .array([.string("a"), .integer(1)]),
                 .array([.string("b"), .integer(2)]),
-                .array([.string("c"), .integer(3)])
+                .array([.string("c"), .integer(3)]),
             ])
             #expect(result == expected)
         }
-        
+
         @Test("dictsort filter with reverse")
         func testDictsortFilterWithReverse() throws {
             let dict = Value.object(["b": .integer(2), "a": .integer(1)])
-            let result = try Filters.dictsort([dict, .boolean(false), .string("key"), .boolean(true)], kwargs: [:], env: env)
+            let result = try Filters.dictsort(
+                [dict, .boolean(false), .string("key"), .boolean(true)], kwargs: [:], env: env)
             let expected = Value.array([
                 .array([.string("b"), .integer(2)]),
-                .array([.string("a"), .integer(1)])
+                .array([.string("a"), .integer(1)]),
             ])
             #expect(result == expected)
         }
-        
+
         @Test("pprint filter")
         func testPprintFilter() throws {
             let dict = Value.object(["name": .string("test"), "value": .integer(42)])
@@ -157,7 +159,7 @@ struct InterpreterTests {
                 Issue.record("Expected string result")
             }
         }
-        
+
         @Test("urlize filter")
         func testUrlizeFilter() throws {
             let text = "Visit https://example.com for more info"
@@ -169,18 +171,18 @@ struct InterpreterTests {
                 Issue.record("Expected string result")
             }
         }
-        
+
         @Test("sum filter with attribute")
         func testSumFilterWithAttribute() throws {
             let items = Value.array([
                 .object(["price": .number(10.5)]),
                 .object(["price": .number(20.0)]),
-                .object(["price": .number(15.5)])
+                .object(["price": .number(15.5)]),
             ])
             let result = try Filters.sum([items, .string("price")], kwargs: [:], env: env)
             #expect(result == .number(46.0))
         }
-        
+
         @Test("indent filter")
         func testIndentFilter() throws {
             let text = "line1\nline2\nline3"
@@ -194,11 +196,12 @@ struct InterpreterTests {
                 Issue.record("Expected string result")
             }
         }
-        
+
         @Test("indent filter with first")
         func testIndentFilterWithFirst() throws {
             let text = "line1\nline2\nline3"
-            let result = try Filters.indent([.string(text), .integer(2), .boolean(true)], kwargs: [:], env: env)
+            let result = try Filters.indent(
+                [.string(text), .integer(2), .boolean(true)], kwargs: [:], env: env)
             if case .string(let str) = result {
                 // All lines should be indented when first=true
                 #expect(str.contains("  line1"))
@@ -209,552 +212,561 @@ struct InterpreterTests {
             }
         }
     }
-    
+
     @Suite("Tests")
     struct TestsTests {
         let env = Environment()
-        
+
         // MARK: - Basic Tests
-        
+
         @Test("defined test with defined value")
         func testDefinedWithDefinedValue() throws {
             let result = try Tests.defined([.string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("defined test with undefined value")
         func testDefinedWithUndefinedValue() throws {
             let result = try Tests.defined([.undefined], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("defined test with empty values")
         func testDefinedWithEmptyValues() throws {
             let result = try Tests.defined([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("undefined test with undefined value")
         func testUndefinedWithUndefinedValue() throws {
             let result = try Tests.undefined([.undefined], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("undefined test with defined value")
         func testUndefinedWithDefinedValue() throws {
             let result = try Tests.undefined([.string("hello")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("undefined test with empty values")
         func testUndefinedWithEmptyValues() throws {
             let result = try Tests.undefined([], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("none test with null value")
         func testNoneWithNullValue() throws {
             let result = try Tests.none([.null], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("none test with non-null value")
         func testNoneWithNonNullValue() throws {
             let result = try Tests.none([.string("hello")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("none test with empty values")
         func testNoneWithEmptyValues() throws {
             let result = try Tests.none([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("string test with string value")
         func testStringWithStringValue() throws {
             let result = try Tests.string([.string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("string test with non-string value")
         func testStringWithNonStringValue() throws {
             let result = try Tests.string([.integer(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("string test with empty values")
         func testStringWithEmptyValues() throws {
             let result = try Tests.string([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("number test with integer value")
         func testNumberWithIntegerValue() throws {
             let result = try Tests.number([.integer(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("number test with float value")
         func testNumberWithFloatValue() throws {
             let result = try Tests.number([.number(3.14)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("number test with non-number value")
         func testNumberWithNonNumberValue() throws {
             let result = try Tests.number([.string("hello")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("number test with empty values")
         func testNumberWithEmptyValues() throws {
             let result = try Tests.number([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("boolean test with true value")
         func testBooleanWithTrueValue() throws {
             let result = try Tests.boolean([.boolean(true)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("boolean test with false value")
         func testBooleanWithFalseValue() throws {
             let result = try Tests.boolean([.boolean(false)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("boolean test with non-boolean value")
         func testBooleanWithNonBooleanValue() throws {
             let result = try Tests.boolean([.string("true")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("boolean test with empty values")
         func testBooleanWithEmptyValues() throws {
             let result = try Tests.boolean([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("iterable test with array value")
         func testIterableWithArrayValue() throws {
             let result = try Tests.iterable(
                 [.array([.string("a"), .string("b")])], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("iterable test with object value")
         func testIterableWithObjectValue() throws {
-            let result = try Tests.iterable([.object(["key": .string("value")])], kwargs: [:], env: env)
+            let result = try Tests.iterable(
+                [.object(["key": .string("value")])], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("iterable test with string value")
         func testIterableWithStringValue() throws {
             let result = try Tests.iterable([.string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("iterable test with non-iterable value")
         func testIterableWithNonIterableValue() throws {
             let result = try Tests.iterable([.integer(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("iterable test with empty values")
         func testIterableWithEmptyValues() throws {
             let result = try Tests.iterable([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         // MARK: - Numeric Tests
-        
+
         @Test("even test with even integer")
         func testEvenWithEvenInteger() throws {
             let result = try Tests.even([.integer(4)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("even test with odd integer")
         func testEvenWithOddInteger() throws {
             let result = try Tests.even([.integer(5)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("even test with even float")
         func testEvenWithEvenFloat() throws {
             let result = try Tests.even([.number(4.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("even test with odd float")
         func testEvenWithOddFloat() throws {
             let result = try Tests.even([.number(5.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("even test with non-number value")
         func testEvenWithNonNumberValue() throws {
             let result = try Tests.even([.string("4")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("even test with zero")
         func testEvenWithZero() throws {
             let result = try Tests.even([.integer(0)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("even test with empty values")
         func testEvenWithEmptyValues() throws {
             let result = try Tests.even([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("odd test with odd integer")
         func testOddWithOddInteger() throws {
             let result = try Tests.odd([.integer(3)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("odd test with even integer")
         func testOddWithEvenInteger() throws {
             let result = try Tests.odd([.integer(4)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("odd test with odd float")
         func testOddWithOddFloat() throws {
             let result = try Tests.odd([.number(3.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("odd test with even float")
         func testOddWithEvenFloat() throws {
             let result = try Tests.odd([.number(4.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("odd test with non-number value")
         func testOddWithNonNumberValue() throws {
             let result = try Tests.odd([.string("3")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("odd test with empty values")
         func testOddWithEmptyValues() throws {
             let result = try Tests.odd([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with divisible integers")
         func testDivisiblebyWithDivisibleIntegers() throws {
             let result = try Tests.divisibleby([.integer(10), .integer(2)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("divisibleby test with non-divisible integers")
         func testDivisiblebyWithNonDivisibleIntegers() throws {
             let result = try Tests.divisibleby([.integer(10), .integer(3)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with divisible floats")
         func testDivisiblebyWithDivisibleFloats() throws {
-            let result = try Tests.divisibleby([.number(10.0), .number(2.0)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby(
+                [.number(10.0), .number(2.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("divisibleby test with non-divisible floats")
         func testDivisiblebyWithNonDivisibleFloats() throws {
-            let result = try Tests.divisibleby([.number(10.0), .number(3.0)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby(
+                [.number(10.0), .number(3.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with zero divisor")
         func testDivisiblebyWithZeroDivisor() throws {
             let result = try Tests.divisibleby([.integer(10), .integer(0)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with non-number values")
         func testDivisiblebyWithNonNumberValues() throws {
-            let result = try Tests.divisibleby([.string("10"), .string("2")], kwargs: [:], env: env)
+            let result = try Tests.divisibleby(
+                [.string("10"), .string("2")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with insufficient arguments")
         func testDivisiblebyWithInsufficientArguments() throws {
             let result = try Tests.divisibleby([.integer(10)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("divisibleby test with empty values")
         func testDivisiblebyWithEmptyValues() throws {
             let result = try Tests.divisibleby([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         // MARK: - Comparison Tests
-        
+
         @Test("equalto test with equal integers")
         func testEqualtoWithEqualIntegers() throws {
             let result = try Tests.equalto([.integer(42), .integer(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("equalto test with different integers")
         func testEqualtoWithDifferentIntegers() throws {
             let result = try Tests.equalto([.integer(42), .integer(43)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("equalto test with equal strings")
         func testEqualtoWithEqualStrings() throws {
-            let result = try Tests.equalto([.string("hello"), .string("hello")], kwargs: [:], env: env)
+            let result = try Tests.equalto(
+                [.string("hello"), .string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("equalto test with different strings")
         func testEqualtoWithDifferentStrings() throws {
-            let result = try Tests.equalto([.string("hello"), .string("world")], kwargs: [:], env: env)
+            let result = try Tests.equalto(
+                [.string("hello"), .string("world")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("equalto test with equal booleans")
         func testEqualtoWithEqualBooleans() throws {
             let result = try Tests.equalto([.boolean(true), .boolean(true)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("equalto test with different booleans")
         func testEqualtoWithDifferentBooleans() throws {
-            let result = try Tests.equalto([.boolean(true), .boolean(false)], kwargs: [:], env: env)
+            let result = try Tests.equalto(
+                [.boolean(true), .boolean(false)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("equalto test with equal null values")
         func testEqualtoWithEqualNullValues() throws {
             let result = try Tests.equalto([.null, .null], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("equalto test with equal undefined values")
         func testEqualtoWithEqualUndefinedValues() throws {
             let result = try Tests.equalto([.undefined, .undefined], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("equalto test with different types")
         func testEqualtoWithDifferentTypes() throws {
             let result = try Tests.equalto([.integer(42), .string("42")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("equalto test with insufficient arguments")
         func testEqualtoWithInsufficientArguments() throws {
             let result = try Tests.equalto([.integer(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("equalto test with empty values")
         func testEqualtoWithEmptyValues() throws {
             let result = try Tests.equalto([], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         // MARK: - Edge Cases
-        
+
         @Test("Tests with null values")
         func testTestsWithNullValues() throws {
             let definedResult = try Tests.defined([.null], kwargs: [:], env: env)
             #expect(definedResult == true)  // null is defined, just null
-            
+
             let undefinedResult = try Tests.undefined([.null], kwargs: [:], env: env)
             #expect(undefinedResult == false)  // null is not undefined
-            
+
             let noneResult = try Tests.none([.null], kwargs: [:], env: env)
             #expect(noneResult == true)  // null is none
         }
-        
+
         @Test("Tests with empty arrays and objects")
         func testTestsWithEmptyArraysAndObjects() throws {
             let emptyArray = Value.array([])
             let emptyObject = Value.object([:])
-            
+
             // Empty array should be defined but falsy
             let definedResult = try Tests.defined([emptyArray], kwargs: [:], env: env)
             #expect(definedResult == true)
-            
+
             // Empty array should be iterable
             let iterableResult = try Tests.iterable([emptyArray], kwargs: [:], env: env)
             #expect(iterableResult == true)
-            
+
             // Empty object should be defined but falsy
             let definedObjectResult = try Tests.defined([emptyObject], kwargs: [:], env: env)
             #expect(definedObjectResult == true)
-            
+
             // Empty object should be iterable
             let iterableObjectResult = try Tests.iterable([emptyObject], kwargs: [:], env: env)
             #expect(iterableObjectResult == true)
         }
-        
+
         @Test("Tests with negative numbers")
         func testTestsWithNegativeNumbers() throws {
             // Negative even number
             let evenResult = try Tests.even([.integer(-4)], kwargs: [:], env: env)
             #expect(evenResult == true)
-            
+
             // Negative odd number
             let oddResult = try Tests.odd([.integer(-3)], kwargs: [:], env: env)
             #expect(oddResult == true)
-            
+
             // Divisibility with negative numbers
             let divisibleResult = try Tests.divisibleby(
                 [.integer(-10), .integer(2)], kwargs: [:], env: env)
             #expect(divisibleResult == true)
         }
-        
+
         @Test("Tests with floating point precision")
         func testTestsWithFloatingPointPrecision() throws {
             // Test even with floating point that should be even
             let evenResult = try Tests.even([.number(4.0)], kwargs: [:], env: env)
             #expect(evenResult == true)
-            
+
             // Test even with floating point that should be odd
             let oddResult = try Tests.odd([.number(3.0)], kwargs: [:], env: env)
             #expect(oddResult == true)
-            
+
             // Test divisibility with floating point
             let divisibleResult = try Tests.divisibleby(
                 [.number(10.0), .number(2.0)], kwargs: [:], env: env)
             #expect(divisibleResult == true)
         }
-        
+
         // MARK: - New Tests
-        
+
         @Test("float test with number value")
         func testFloatWithNumberValue() throws {
             let result = try Tests.float([.number(3.14)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("float test with integer value")
         func testFloatWithIntegerValue() throws {
             let result = try Tests.float([.integer(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("sequence test with array")
         func testSequenceWithArray() throws {
-            let result = try Tests.sequence([.array([.string("a"), .string("b")])], kwargs: [:], env: env)
+            let result = try Tests.sequence(
+                [.array([.string("a"), .string("b")])], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("sequence test with string")
         func testSequenceWithString() throws {
             let result = try Tests.sequence([.string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("sequence test with object")
         func testSequenceWithObject() throws {
-            let result = try Tests.sequence([.object(["key": .string("value")])], kwargs: [:], env: env)
+            let result = try Tests.sequence(
+                [.object(["key": .string("value")])], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("escaped test")
         func testEscaped() throws {
             // Basic implementation always returns false
             let result = try Tests.escaped([.string("hello")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("filter test with existing filter")
         func testFilterWithExistingFilter() throws {
             let result = try Tests.filter([.string("upper")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("filter test with non-existing filter")
         func testFilterWithNonExistingFilter() throws {
             let result = try Tests.filter([.string("nonexistent")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("test test with existing test")
         func testTestWithExistingTest() throws {
             let result = try Tests.test([.string("defined")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("test test with non-existing test")
         func testTestWithNonExistingTest() throws {
             let result = try Tests.test([.string("nonexistent")], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("sameas test with equal values")
         func testSameasWithEqualValues() throws {
             let result = try Tests.sameas([.integer(42), .integer(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("sameas test with different values")
         func testSameasWithDifferentValues() throws {
             let result = try Tests.sameas([.integer(42), .integer(43)], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("in test with value in array")
         func testInWithValueInArray() throws {
             let array = Value.array([.string("a"), .string("b"), .string("c")])
             let result = try Tests.`in`([.string("b"), array], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("in test with value not in array")
         func testInWithValueNotInArray() throws {
             let array = Value.array([.string("a"), .string("b"), .string("c")])
             let result = try Tests.`in`([.string("d"), array], kwargs: [:], env: env)
             #expect(result == false)
         }
-        
+
         @Test("in test with substring in string")
         func testInWithSubstringInString() throws {
             let result = try Tests.`in`([.string("ell"), .string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("in test with key in object")
         func testInWithKeyInObject() throws {
             let obj = Value.object(["name": .string("test"), "age": .integer(25)])
             let result = try Tests.`in`([.string("name"), obj], kwargs: [:], env: env)
             #expect(result == true)
         }
-        
+
         @Test("comparison tests")
         func testComparisonTests() throws {
             // gt test
             let gtResult = try Tests.gt([.integer(5), .integer(3)], kwargs: [:], env: env)
             #expect(gtResult == true)
-            
+
             // lt test
             let ltResult = try Tests.lt([.integer(3), .integer(5)], kwargs: [:], env: env)
             #expect(ltResult == true)
-            
+
             // ge test
             let geResult = try Tests.ge([.integer(5), .integer(5)], kwargs: [:], env: env)
             #expect(geResult == true)
-            
+
             // le test
             let leResult = try Tests.le([.integer(3), .integer(5)], kwargs: [:], env: env)
             #expect(leResult == true)
-            
+
             // ne test
             let neResult = try Tests.ne([.integer(3), .integer(5)], kwargs: [:], env: env)
             #expect(neResult == true)
-            
+
             // eq test
             let eqResult = try Tests.eq([.integer(5), .integer(5)], kwargs: [:], env: env)
             #expect(eqResult == true)

@@ -1016,19 +1016,20 @@ public enum Interpreter {
     public static func evaluateTest(_ testName: String, _ argValues: [Value], env: Environment)
         throws -> Bool
     {
-        // Try built-in tests first
-        if let testFunction = Tests.default[testName] {
+        // Try environment-provided tests first
+        let testValue = env[testName]
+        if case let .function(fn) = testValue {
+            let result = try fn(argValues, [:], env)
+            if case let .boolean(b) = result { return b }
+            return result.isTruthy
+        }
+
+        // Fallback to built-in tests
+        if let testFunction = Tests.builtIn[testName] {
             return try testFunction(argValues, [:], env)
         }
 
-        // Look up dynamic tests from the environment
-        let testValue = env[testName]
-        guard case let .function(fn) = testValue else {
-            throw JinjaError.runtime("Unknown test: \(testName)")
-        }
-        let result = try fn(argValues, [:], env)
-        if case let .boolean(b) = result { return b }
-        return result.isTruthy
+        throw JinjaError.runtime("Unknown test: \(testName)")
     }
 
     public static func evaluateFilter(
@@ -1043,7 +1044,7 @@ public enum Interpreter {
         }
 
         // Fallback to built-in filters
-        if let filterFunction = Filters.default[filterName] {
+        if let filterFunction = Filters.builtIn[filterName] {
             return try filterFunction(argValues, kwargs, env)
         }
 
@@ -1430,7 +1431,7 @@ public enum Tests {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first, let filterName = value.string else { return false }
-        return Filters.default[filterName] != nil
+        return Filters.builtIn[filterName] != nil
     }
 
     /// Tests if a test exists by name.
@@ -1438,7 +1439,7 @@ public enum Tests {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first, let testName = value.string else { return false }
-        return Tests.default[testName] != nil
+        return Tests.builtIn[testName] != nil
     }
 
     /// Tests if two values point to the same memory address (identity test).
@@ -1458,7 +1459,7 @@ public enum Tests {
         guard values.count >= 2 else { return false }
         let value = values[0]
         let container = values[1]
-        
+
         switch container {
         case let .array(arr):
             return arr.contains { Interpreter.valuesEqual($0, value) }
@@ -1543,7 +1544,7 @@ public enum Tests {
     }
 
     /// Dictionary of all available tests.
-    public static let `default`:
+    public static let builtIn:
         [String: @Sendable ([Value], [String: Value], Environment) throws -> Bool] = [
             "defined": defined,
             "undefined": undefined,
@@ -1946,28 +1947,31 @@ public enum Filters {
         guard case let .object(dict) = values.first else {
             return .array([])
         }
-        
-        let caseSensitive = kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
+
+        let caseSensitive =
+            kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
         let by = kwargs["by"]?.string ?? (values.count > 2 ? values[2].string : "key") ?? "key"
         let reverse = kwargs["reverse"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
-        
+
         let sortedPairs: [(key: String, value: Value)]
         if by == "value" {
             sortedPairs = dict.sorted { a, b in
-                let comparison = caseSensitive 
+                let comparison =
+                    caseSensitive
                     ? a.value.description.compare(b.value.description)
                     : a.value.description.localizedCaseInsensitiveCompare(b.value.description)
                 return reverse ? comparison == .orderedDescending : comparison == .orderedAscending
             }
         } else {
             sortedPairs = dict.sorted { a, b in
-                let comparison = caseSensitive 
+                let comparison =
+                    caseSensitive
                     ? a.key.compare(b.key)
                     : a.key.localizedCaseInsensitiveCompare(b.key)
                 return reverse ? comparison == .orderedDescending : comparison == .orderedAscending
             }
         }
-        
+
         let resultArray = sortedPairs.map { key, value in
             Value.array([.string(key), value])
         }
@@ -2111,7 +2115,8 @@ public enum Filters {
         guard let value = values.first, case let .object(dict) = value else {
             return .string("")
         }
-        let autospace = kwargs["autospace"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : true)
+        let autospace =
+            kwargs["autospace"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : true)
         var result = ""
         for (key, value) in dict {
             if value == .null || value == .undefined { continue }
@@ -2463,10 +2468,10 @@ public enum Filters {
         guard let value = values.first, let items = value.array else {
             return .integer(0)
         }
-        
+
         let attribute = kwargs["attribute"]?.string ?? (values.count > 1 ? values[1].string : nil)
         let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .integer(0))
-        
+
         let valuesToSum: [Value]
         if let attr = attribute {
             valuesToSum = try items.map { item in
@@ -2475,7 +2480,7 @@ public enum Filters {
         } else {
             valuesToSum = items
         }
-        
+
         let sum = try valuesToSum.reduce(start) { acc, next in
             try Interpreter.addValues(acc, next)
         }
@@ -2534,7 +2539,7 @@ public enum Filters {
         guard case let .string(str) = values.first else {
             return .string("")
         }
-        
+
         let width: String
         if let widthValue = kwargs["width"] {
             if let intWidth = widthValue.integer {
@@ -2551,13 +2556,13 @@ public enum Filters {
         } else {
             width = "    "
         }
-        
+
         let first = kwargs["first"]?.isTruthy ?? (values.count > 2 ? values[2].isTruthy : false)
         let blank = kwargs["blank"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
-        
+
         let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var result = ""
-        
+
         for (i, line) in lines.enumerated() {
             if i == 0 && !first {
                 result += line
@@ -2596,14 +2601,15 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = values.first else { return .string("") }
-        
+
         func prettyPrint(_ val: Value, indent: Int = 0) -> String {
             let indentString = String(repeating: "  ", count: indent)
             switch val {
             case let .array(arr):
                 if arr.isEmpty { return "[]" }
                 let items = arr.map { prettyPrint($0, indent: indent + 1) }
-                return "[\n" + items.map { "\(indentString)  \($0)" }.joined(separator: ",\n") + "\n\(indentString)]"
+                return "[\n" + items.map { "\(indentString)  \($0)" }.joined(separator: ",\n")
+                    + "\n\(indentString)]"
             case let .object(dict):
                 if dict.isEmpty { return "{}" }
                 let items = dict.map { key, value in
@@ -2616,7 +2622,7 @@ public enum Filters {
                 return val.description
             }
         }
-        
+
         return .string(prettyPrint(value))
     }
 
@@ -2627,12 +2633,12 @@ public enum Filters {
         guard case let .string(text) = values.first else {
             return .string("")
         }
-        
+
         let trimUrlLimit = kwargs["trim_url_limit"]?.integer
         let nofollow = kwargs["nofollow"]?.isTruthy ?? false
         let target = kwargs["target"]?.string
         let rel = kwargs["rel"]?.string
-        
+
         func buildAttributes() -> String {
             var attributes = ""
             if nofollow { attributes += " rel=\"nofollow\"" }
@@ -2640,26 +2646,29 @@ public enum Filters {
             if let rel = rel { attributes += " rel=\"\(rel)\"" }
             return attributes
         }
-        
+
         // Basic implementation - just detect simple http/https URLs
-        let httpRegex = try! NSRegularExpression(pattern: "https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+", options: [])
+        let httpRegex = try! NSRegularExpression(
+            pattern: "https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+", options: [])
         let range = NSRange(location: 0, length: text.utf16.count)
-        
+
         var result = text
         let matches = httpRegex.matches(in: text, options: [], range: range).reversed()
-        
+
         for match in matches {
             let url = (text as NSString).substring(with: match.range)
-            let displayUrl = trimUrlLimit != nil && url.count > trimUrlLimit! ? String(url.prefix(trimUrlLimit!)) + "..." : url
+            let displayUrl =
+                trimUrlLimit != nil && url.count > trimUrlLimit!
+                ? String(url.prefix(trimUrlLimit!)) + "..." : url
             let replacement = "<a href=\"\(url)\"\(buildAttributes())>\(displayUrl)</a>"
             result = (result as NSString).replacingCharacters(in: match.range, with: replacement)
         }
-        
+
         return .string(result)
     }
 
     /// Dictionary of all available filters.
-    public static let `default`:
+    public static let builtIn:
         [String: @Sendable ([Value], [String: Value], Environment) throws -> Value] = [
             "upper": upper,
             "lower": lower,
