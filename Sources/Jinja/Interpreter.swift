@@ -491,7 +491,7 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs, _, callTimeEnv in
+            env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
                 let macroEnv = Environment(parent: env)
 
                 let caller = callTimeEnv["caller"]
@@ -510,6 +510,10 @@ public enum Interpreter {
                     let value =
                         index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
                     macroEnv[paramName] = value
+                }
+                // Bind keyword args
+                for (key, value) in passedKwargs {
+                    macroEnv[key] = value
                 }
                 var macroBuffer = Buffer()
                 try interpret(body, env: macroEnv, into: &macroBuffer)
@@ -581,7 +585,7 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs, _, callTimeEnv in
+            env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
                 let macroEnv = Environment(parent: env)
 
                 let caller = callTimeEnv["caller"]
@@ -600,6 +604,10 @@ public enum Interpreter {
                     let value =
                         index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
                     macroEnv[paramName] = value
+                }
+                // Bind keyword args
+                for (key, value) in passedKwargs {
+                    macroEnv[key] = value
                 }
                 var macroBuffer = Buffer()
                 try interpret(body, env: macroEnv, into: &macroBuffer)

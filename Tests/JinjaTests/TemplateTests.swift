@@ -1403,6 +1403,32 @@ struct TemplateTests {
             #"{% macro hello(name, suffix='.') %}{{ 'Hello ' + name + suffix }}{% endmacro %}|{{ hello('A') }}|{{ hello('B', '!') }}|{{ hello('C', suffix='?') }}|"#
         let context: Context = [:]
 
+        let tokens = try Lexer.tokenize(string)
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .macro(
+                        "hello", ["name", "suffix"], ["suffix": .string(".")],
+                        [
+                            .expression(
+                                .binary(
+                                    .add,
+                                    .binary(.add, .string("Hello "), .identifier("name")),
+                                    .identifier("suffix")
+                                )
+                            )
+                        ])),
+                .text("|"),
+                .expression(.call(.identifier("hello"), [.string("A")], [:])),
+                .text("|"),
+                .expression(.call(.identifier("hello"), [.string("B"), .string("!")], [:])),
+                .text("|"),
+                .expression(.call(.identifier("hello"), [.string("C")], ["suffix": .string("?")])),
+                .text("|"),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "|Hello A.|Hello B!|Hello C?|")
