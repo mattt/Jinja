@@ -616,7 +616,7 @@ public enum Interpreter {
             try interpret(body, env: env, into: &bodyBuffer)
             let renderedBody = bodyBuffer.build()
 
-            if case let .filter(_, name, args, kwargs) = filterExpr {
+            if case let .filter(_, name, args, _) = filterExpr {
                 var filterArgs = [Value.string(renderedBody)]
                 filterArgs.append(contentsOf: try args.map { try evaluateExpression($0, env: env) })
                 // TODO: Handle kwargs in filters if necessary
@@ -1399,6 +1399,154 @@ public enum Interpreter {
                 ])
             }
             return .array(result)
+
+        case "attr":
+            guard let obj = argValues.first, argValues.count > 1,
+                let attribute = argValues[1].string
+            else {
+                return .undefined
+            }
+            return try evaluatePropertyMember(obj, attribute)
+
+        case "forceescape":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            let escaped =
+                str
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+                .replacingOccurrences(of: "\"", with: "&quot;")
+                .replacingOccurrences(of: "'", with: "&#39;")
+            return .string(escaped)
+
+        case "safe":
+            return argValues.first ?? .string("")
+
+        case "striptags":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            // Regular expression to find HTML tags and replace them.
+            // This is a simplified version. A more robust solution would be more complex.
+            let regex = try! NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive)
+            let range = NSRange(location: 0, length: str.utf16.count)
+            let noTags = regex.stringByReplacingMatches(
+                in: str, options: [], range: range, withTemplate: "")
+            // Replace adjacent whitespace with a single space
+            let components = noTags.components(separatedBy: .whitespacesAndNewlines)
+            return .string(components.filter { !$0.isEmpty }.joined(separator: " "))
+
+        case "format":
+            guard argValues.count > 1, let formatString = argValues[0].string else {
+                return argValues.first ?? .string("")
+            }
+            let args = Array(argValues.dropFirst())
+            // This is a very basic implementation of string formatting.
+            // It doesn't handle named placeholders or complex format specifiers.
+            var result = ""
+            var formatIdx = formatString.startIndex
+            var argIdx = 0
+            while formatIdx < formatString.endIndex {
+                let char = formatString[formatIdx]
+                if char == "%", argIdx < args.count {
+                    formatIdx = formatString.index(after: formatIdx)
+                    if formatIdx < formatString.endIndex {
+                        let specifier = formatString[formatIdx]
+                        if specifier == "s" {
+                            result += args[argIdx].description
+                            argIdx += 1
+                        } else {
+                            result.append("%")
+                            result.append(specifier)
+                        }
+                    } else {
+                        result.append("%")
+                    }
+                } else {
+                    result.append(char)
+                }
+                formatIdx = formatString.index(after: formatIdx)
+            }
+            return .string(result)
+
+        case "filesizeformat":
+            guard let value = argValues.first, let num = value.number else {
+                return .string("")
+            }
+            let binary = kwargs["binary"]?.isTruthy ?? false
+            let bytes = num
+            let unit: Double = binary ? 1024 : 1000
+            if bytes < unit {
+                return .string("\(Int(bytes)) Bytes")
+            }
+            let exp = Int(log(bytes) / log(unit))
+            let pre = (binary ? "KMGTPEZY" : "kMGTPEZY")
+            let preIndex = pre.index(pre.startIndex, offsetBy: exp - 1)
+            let preChar = pre[preIndex]
+            let suffix = binary ? "iB" : "B"
+            return .string(
+                String(format: "%.1f %s\(suffix)", bytes / pow(unit, Double(exp)), String(preChar)))
+
+        case "random":
+            guard let value = argValues.first else {
+                return .undefined
+            }
+            switch value {
+            case let .array(arr):
+                return arr.randomElement() ?? .undefined
+            case let .string(str):
+                return str.randomElement().map { .string(String($0)) } ?? .undefined
+            case let .object(dict):
+                if dict.isEmpty { return .undefined }
+                let randomIndex = dict.keys.indices.randomElement()!
+                let randomKey = dict.keys[randomIndex]
+                return .string(randomKey)
+            default:
+                return .undefined
+            }
+
+        case "wordwrap":
+            guard let value = argValues.first, let str = value.string else {
+                return .string("")
+            }
+            let width = argValues.count > 1 ? (argValues[1].integer ?? 79) : 79
+            _ = argValues.count > 2 ? (argValues[2].isTruthy) : true
+
+            var lines = [String]()
+            let paragraphs = str.components(separatedBy: .newlines)
+            for paragraph in paragraphs {
+                var line = ""
+                let words = paragraph.components(separatedBy: .whitespaces)
+                for word in words {
+                    if line.isEmpty {
+                        line = word
+                    } else if line.count + word.count + 1 <= width {
+                        line += " \(word)"
+                    } else {
+                        lines.append(line)
+                        line = word
+                    }
+                }
+                if !line.isEmpty {
+                    lines.append(line)
+                }
+            }
+            return .string(lines.joined(separator: "\n"))
+
+        case "xmlattr":
+            guard let value = argValues.first, case let .object(dict) = value else {
+                return .string("")
+            }
+            let autocapitalize = argValues.count > 1 ? argValues[1].isTruthy : false
+            var result = ""
+            for (key, value) in dict {
+                if key.starts(with: "_") { continue }
+                let finalKey = autocapitalize ? key.capitalized : key
+                result += " \(finalKey)=\"\(value.description)\""
+            }
+            return .string(result)
 
         case "dictsort":
             guard case let .object(dict) = argValues.first else {
