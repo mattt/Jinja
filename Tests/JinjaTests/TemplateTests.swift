@@ -1510,8 +1510,8 @@ struct TemplateTests {
 
         // Check result of template
         let rendered = try Template(string).render(context)
-        #expect(rendered.contains("\"string\": \"world\""))
-        #expect(rendered.contains("\"number\": 5"))
+        #expect(rendered.contains(#""string" : "world""#))
+        #expect(rendered.contains(#""number" : 5"#))
     }
 
     @Test("Filter operator with map")
