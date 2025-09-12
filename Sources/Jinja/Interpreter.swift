@@ -261,7 +261,7 @@ public enum Interpreter {
 
         case let .slice(array, start, stop, step):
             let arrayValue = try evaluateExpression(array, env: env)
-            
+
             let startIdx: Value? = try start.map { try evaluateExpression($0, env: env) }
             let stopIdx: Value? = try stop.map { try evaluateExpression($0, env: env) }
             let stepVal: Value? = try step.map { try evaluateExpression($0, env: env) }
@@ -283,11 +283,12 @@ public enum Interpreter {
                     sliceStep = st
                 }
 
-                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap { idx in
+                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap {
+                    idx in
                     idx >= 0 && idx < items.count ? items[idx] : nil
                 }
                 return .array(result)
-                
+
             case let .string(str):
                 // String slice implementation
                 let chars = Array(str)
@@ -305,11 +306,12 @@ public enum Interpreter {
                     sliceStep = st
                 }
 
-                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap { idx in
+                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap {
+                    idx in
                     idx >= 0 && idx < chars.count ? chars[idx] : nil
                 }
                 return .string(String(result))
-                
+
             default:
                 throw JinjaError.runtime("Slice requires array or string")
             }
@@ -725,14 +727,15 @@ public enum Interpreter {
             case "title":
                 return .function { _ in .string(str.capitalized) }
             case "strip":
-                return .function { _ in .string(str.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                return .function { _ in .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
             case "lstrip":
-                return .function { _ in 
+                return .function { _ in
                     let trimmed = str.drop(while: { $0.isWhitespace })
                     return .string(String(trimmed))
                 }
             case "rstrip":
-                return .function { _ in 
+                return .function { _ in
                     let reversed = str.reversed().drop(while: { $0.isWhitespace })
                     return .string(String(reversed.reversed()))
                 }
@@ -757,8 +760,9 @@ public enum Interpreter {
             case "replace":
                 return .function { args in
                     guard args.count >= 2,
-                          case let .string(old) = args[0],
-                          case let .string(new) = args[1] else {
+                        case let .string(old) = args[0],
+                        case let .string(new) = args[1]
+                    else {
                         return .string(str)
                     }
                     if args.count > 2, case let .integer(count) = args[2] {
@@ -1086,7 +1090,7 @@ public enum Tests {
         guard values.count >= 2 else { return false }
         return Interpreter.valuesEqual(values[0], values[1])
     }
-    
+
     /// Tests if a value is a mapping (dictionary/object).
     @Sendable public static func mapping(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
@@ -1097,7 +1101,7 @@ public enum Tests {
         }
         return false
     }
-    
+
     /// Tests if a value is callable (function).
     @Sendable public static func callable(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
@@ -1108,7 +1112,7 @@ public enum Tests {
         }
         return false
     }
-    
+
     /// Tests if a value is an integer.
     @Sendable public static func integer(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
@@ -1119,7 +1123,7 @@ public enum Tests {
         }
         return false
     }
-    
+
     /// Tests if a string is all lowercase.
     @Sendable public static func isLower(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
@@ -1127,6 +1131,17 @@ public enum Tests {
         guard let value = values.first else { return false }
         if case let .string(str) = value {
             return str == str.lowercased() && str != str.uppercased()
+        }
+        return false
+    }
+
+    /// Tests if a string is all uppercase.
+    @Sendable public static func isUpper(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first else { return false }
+        if case let .string(str) = value {
+            return str == str.uppercased() && str != str.lowercased()
         }
         return false
     }
@@ -1146,9 +1161,10 @@ public enum Tests {
             "divisibleby": divisibleby,
             "equalto": equalto,
             "mapping": mapping,
-            "callable": callable, 
+            "callable": callable,
             "integer": integer,
             "lower": isLower,
+            "upper": isUpper,
         ]
 }
 
@@ -2103,7 +2119,7 @@ public enum Filters {
         }
         return .string(result)
     }
-    
+
     /// Returns items (key-value pairs) of a dictionary/object.
     @Sendable public static func items(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
@@ -2111,14 +2127,14 @@ public enum Filters {
         guard let value = values.first else {
             return .array([])
         }
-        
+
         if case let .object(obj) = value {
-            let pairs = obj.map { key, value in 
+            let pairs = obj.map { key, value in
                 Value.array([.string(key), value])
             }
             return .array(pairs)
         }
-        
+
         return .array([])
     }
 

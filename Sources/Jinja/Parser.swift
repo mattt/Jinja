@@ -489,7 +489,16 @@ public struct Parser: Sendable {
         var expr = try parseOr()
         if match(.is) {
             let negated = match(.not)
-            let testName = try consumeIdentifier()
+            let testName: String
+            let token = peek()
+            if token.kind == .identifier {
+                testName = try consumeIdentifier()
+            } else if token.kind == .boolean || token.kind == .null {
+                testName = token.value
+                advance()
+            } else {
+                throw JinjaError.parser("Expected test name but found \(token.kind).")
+            }
             var args: [Expression] = []
             if match(.openParen) {
                 (args, _) = try parseArguments()
@@ -568,7 +577,9 @@ public struct Parser: Sendable {
             } else if match(.concat) {
                 let right = try parseFactor()
                 expr = .binary(.concat, expr, right)
-            } else if check(.string) || check(.identifier) || check(.number) || check(.boolean) || check(.openParen) || check(.openBracket) || check(.openBrace) {
+            } else if check(.string) || check(.identifier) || check(.number) || check(.boolean)
+                || check(.openParen) || check(.openBracket) || check(.openBrace)
+            {
                 // Implicit string concatenation - if we see another primary expression, concatenate it
                 let right = try parseFactor()
                 expr = .binary(.concat, expr, right)
@@ -685,11 +696,15 @@ public struct Parser: Sendable {
                 repeat {
                     let keyToken: Token
                     if check(.string) {
-                        keyToken = try consume(.string, message: "Expected string literal for object key.")
+                        keyToken = try consume(
+                            .string, message: "Expected string literal for object key.")
                     } else if check(.identifier) {
-                        keyToken = try consume(.identifier, message: "Expected identifier for object key.")
+                        keyToken = try consume(
+                            .identifier, message: "Expected identifier for object key.")
                     } else {
-                        throw JinjaError.parser("Expected string literal or identifier for object key. Got \(peek().kind) instead")
+                        throw JinjaError.parser(
+                            "Expected string literal or identifier for object key. Got \(peek().kind) instead"
+                        )
                     }
                     try consume(.colon, message: "Expected ':' after object key.")
                     let value = try parseExpression()
