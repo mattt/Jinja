@@ -318,20 +318,37 @@ public enum Interpreter {
                 var sliceEnd = chars.count
                 var sliceStep = 1
 
-                if let startValue = startIdx, case let .integer(s) = startValue {
-                    sliceStart = s >= 0 ? s : chars.count + s
-                }
-                if let stopValue = stopIdx, case let .integer(e) = stopValue {
-                    sliceEnd = e >= 0 ? e : chars.count + e
-                }
                 if let stepValue = stepVal, case let .integer(st) = stepValue {
                     sliceStep = st
                 }
 
-                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap {
-                    idx in
-                    idx >= 0 && idx < chars.count ? chars[idx] : nil
+                if let startValue = startIdx, case let .integer(s) = startValue {
+                    sliceStart = s >= 0 ? s : chars.count + s
+                } else if sliceStep < 0 {
+                    sliceStart = chars.count - 1
                 }
+
+                if let stopValue = stopIdx, case let .integer(e) = stopValue {
+                    sliceEnd = e >= 0 ? e : chars.count + e
+                } else if sliceStep < 0 {
+                    sliceEnd = -1  // Go to beginning for reverse slice
+                }
+
+                var result: [Character] = []
+                if sliceStep > 0 {
+                    var idx = sliceStart
+                    while idx < sliceEnd && idx >= 0 && idx < chars.count {
+                        result.append(chars[idx])
+                        idx += sliceStep
+                    }
+                } else if sliceStep < 0 {
+                    var idx = sliceStart
+                    while idx > sliceEnd && idx >= 0 && idx < chars.count {
+                        result.append(chars[idx])
+                        idx += sliceStep
+                    }
+                }
+
                 return .string(String(result))
 
             default:
@@ -1090,7 +1107,7 @@ public enum Interpreter {
     ) {
         switch expression {
         case let .call(callable, args, kwargs):
-            return (callable, args ?? [], kwargs)
+            return (callable, args, kwargs)
         default:
             return (expression, [], [:])
         }
@@ -1271,6 +1288,22 @@ public enum Tests {
         return false
     }
 
+    /// Tests if a value is true.
+    @Sendable public static func isTrue(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first else { return false }
+        return value == .boolean(true)
+    }
+
+    /// Tests if a value is false.
+    @Sendable public static func isFalse(
+        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let value = values.first else { return false }
+        return value == .boolean(false)
+    }
+
     /// Dictionary of all available tests.
     public static let `default`:
         [String: @Sendable ([Value], [String: Value], Environment) throws -> Bool] = [
@@ -1288,6 +1321,8 @@ public enum Tests {
             "mapping": mapping,
             "callable": callable,
             "integer": integer,
+            "true": isTrue,
+            "false": isFalse,
             "lower": isLower,
             "upper": isUpper,
         ]

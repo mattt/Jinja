@@ -187,35 +187,29 @@ extension Value: Hashable {
 
 extension Value: Encodable {
     public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+
         switch self {
         case let .string(value):
-            var container = encoder.singleValueContainer()
             try container.encode(value)
         case let .number(value):
-            var container = encoder.singleValueContainer()
             try container.encode(value)
         case let .integer(value):
-            var container = encoder.singleValueContainer()
             try container.encode(value)
         case let .boolean(value):
-            var container = encoder.singleValueContainer()
             try container.encode(value)
         case .null:
-            var container = encoder.singleValueContainer()
             try container.encodeNil()
         case .undefined:
-            var container = encoder.singleValueContainer()
             try container.encodeNil()
         case let .array(value):
-            var container = encoder.unkeyedContainer()
-            for element in value {
-                try container.encode(element)
-            }
+            try container.encode(value)
         case let .object(value):
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            for (key, val) in value {
-                try container.encode(val, forKey: CodingKeys(stringValue: key))
+            var dictionary: [String: Value] = [:]
+            for (key, value) in value {
+                dictionary[key] = value
             }
+            try container.encode(dictionary)
         case .function:
             throw EncodingError.invalidValue(
                 self,
@@ -225,59 +219,31 @@ extension Value: Encodable {
                 ))
         }
     }
-
-    private struct CodingKeys: CodingKey {
-        var stringValue: String
-        var intValue: Int?
-
-        init(stringValue: String) {
-            self.stringValue = stringValue
-            self.intValue = nil
-        }
-
-        init?(intValue: Int) {
-            return nil
-        }
-    }
 }
 
 // MARK: - Decodable
 
 extension Value: Decodable {
     public init(from decoder: Decoder) throws {
-        if let container = try? decoder.singleValueContainer() {
-            if container.decodeNil() {
-                self = .null
-            } else if let string = try? container.decode(String.self) {
-                self = .string(string)
-            } else if let number = try? container.decode(Double.self) {
-                self = .number(number)
-            } else if let integer = try? container.decode(Int.self) {
-                self = .integer(integer)
-            } else if let boolean = try? container.decode(Bool.self) {
-                self = .boolean(boolean)
-            } else {
-                throw DecodingError.typeMismatch(
-                    Value.self,
-                    DecodingError.Context(
-                        codingPath: decoder.codingPath,
-                        debugDescription: "Cannot decode Value from single value container"
-                    ))
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let string = try? container.decode(String.self) {
+            self = .string(string)
+        } else if let integer = try? container.decode(Int.self) {
+            self = .integer(integer)
+        } else if let number = try? container.decode(Double.self) {
+            self = .number(number)
+        } else if let boolean = try? container.decode(Bool.self) {
+            self = .boolean(boolean)
+        } else if let value = try? container.decode([Value].self) {
+            self = .array(value)
+        } else if let value = try? container.decode([String: Value].self) {
+            var orderedDictionary: OrderedDictionary<String, Value> = [:]
+            for (key) in value.keys.sorted() {
+                orderedDictionary[key] = value[key]
             }
-        } else if var container = try? decoder.unkeyedContainer() {
-            var values: [Value] = []
-            while !container.isAtEnd {
-                let value = try container.decode(Value.self)
-                values.append(value)
-            }
-            self = .array(values)
-        } else if let container = try? decoder.container(keyedBy: CodingKeys.self) {
-            var dict = OrderedDictionary<String, Value>()
-            for key in container.allKeys {
-                let value = try container.decode(Value.self, forKey: key)
-                dict[key.stringValue] = value
-            }
-            self = .object(dict)
+            self = .object(orderedDictionary)
         } else {
             throw DecodingError.typeMismatch(
                 Value.self,
@@ -285,6 +251,7 @@ extension Value: Decodable {
                     codingPath: decoder.codingPath,
                     debugDescription: "Cannot decode Value from any supported container type"
                 ))
+            
         }
     }
 }
