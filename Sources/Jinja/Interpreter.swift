@@ -523,7 +523,9 @@ public enum Interpreter {
         case let .program(nodes):
             try interpret(nodes, env: env, into: &buffer)
 
-        case let .call(callable, callerArgs, body):
+        case let .call(callExpr, callerParameters, body):
+            let (callable, args, kwargs) = Self.extractCallParts(from: callExpr)
+
             guard let callableValue = try? evaluateExpression(callable, env: env),
                 case .function(let function) = callableValue
             else {
@@ -531,14 +533,23 @@ public enum Interpreter {
             }
 
             let callTimeEnv = Environment(parent: env)
-            callTimeEnv["caller"] = .function { _, _, _ in
+            callTimeEnv["caller"] = .function { callerArgs, _, _ in
+                let bodyEnv = Environment(parent: env)
+                for (paramName, value) in zip(callerParameters ?? [], callerArgs) {
+                    guard case let .identifier(paramName) = paramName else {
+                        throw JinjaError.runtime("Caller parameter must be an identifier")
+                    }
+                    bodyEnv[paramName] = value
+                }
                 var bodyBuffer = Buffer()
-                try interpret(body, env: env, into: &bodyBuffer)
+                try interpret(body, env: bodyEnv, into: &bodyBuffer)
                 return .string(bodyBuffer.build())
             }
 
-            let finalArgs = callerArgs?.compactMap { try? evaluateExpression($0, env: env) } ?? []
-            let result = try function(finalArgs, [:], callTimeEnv)
+            let finalArgs = try args.map { try evaluateExpression($0, env: env) }
+            let finalKwargs = try kwargs.mapValues { try evaluateExpression($0, env: env) }
+
+            let result = try function(finalArgs, finalKwargs, callTimeEnv)
             buffer.write(result.description)
 
         case let .filter(filterExpr, body):
@@ -990,6 +1001,17 @@ public enum Interpreter {
         default:
             throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")
+        }
+    }
+
+    private static func extractCallParts(from expression: Expression) -> (
+        callable: Expression, args: [Expression], kwargs: [String: Expression]
+    ) {
+        switch expression {
+        case let .call(callable, args, kwargs):
+            return (callable, args ?? [], kwargs)
+        default:
+            return (expression, [], [:])
         }
     }
 }
