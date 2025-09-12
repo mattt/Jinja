@@ -183,6 +183,31 @@ extension Value: Hashable {
     }
 }
 
+// MARK: - Encodable
+
+extension Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case let .string(value): try container.encode(value)
+        case let .number(value): try container.encode(value)
+        case let .integer(value): try container.encode(value)
+        case let .boolean(value): try container.encode(value)
+        case .null: try container.encodeNil()
+        case .undefined: try container.encodeNil()
+        case let .array(value): try container.encode(value)
+        case let .object(value): try container.encode(value)
+        default:
+            throw EncodingError.invalidValue(
+                self,
+                EncodingError.Context(
+                    codingPath: encoder.codingPath,
+                    debugDescription: "Cannot encode Jinja Value \(self))"
+                ))
+        }
+    }
+}
+
 // MARK: - ExpressibleByStringLiteral
 
 extension Value: ExpressibleByStringLiteral {
