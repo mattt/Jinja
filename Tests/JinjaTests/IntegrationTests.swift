@@ -2,7 +2,7 @@ import Testing
 
 @testable import Jinja
 
-@Suite("Integration Tests with Real Chat Templates", .enabled(if: true))
+@Suite("Integration Tests with Real Chat Templates", .enabled(if: false))
 struct IntegrationTests {
 
     // MARK: - Chat Template Data

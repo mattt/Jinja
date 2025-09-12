@@ -151,17 +151,11 @@ public enum Lexer: Sendable {
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]
 
-    private static let whitespaceChars: [UInt8] = [0x20, 0x09, 0x0A, 0x0D]
-
-    private static func isWhitespace(_ char: UInt8) -> Bool {
-        whitespaceChars.contains(char)
-    }
-
     private static func skipWhitespace(
         _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
     ) -> Int {
         var pos = position
-        while pos < buffer.count, isWhitespace(buffer[pos]) {
+        while pos < buffer.count, [0x20, 0x09, 0x0A, 0x0D].contains(buffer[pos]) {
             pos += 1
         }
         return pos
