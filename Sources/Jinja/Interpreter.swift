@@ -220,7 +220,7 @@ public enum Interpreter {
                 let value = try evaluateExpression(arg, env: env)
                 argValues.append(value)
             }
-            return try evaluateFilter(filterName, argValues)
+            return try evaluateFilter(filterName, argValues, env: env)
 
         case let .ternary(value, test, alternate):
             let testValue = try evaluateExpression(test, env: env)
@@ -234,7 +234,16 @@ public enum Interpreter {
 
         case let .test(operand, testName, negated):
             let operandValue = try evaluateExpression(operand, env: env)
-            let result = try evaluateTest(testName, [operandValue])
+            let result = try evaluateTest(testName, [operandValue], env: env)
+            return .boolean(negated ? !result : result)
+
+        case let .testArgs(operand, testName, args, negated):
+            let operandValue = try evaluateExpression(operand, env: env)
+            var argValues: [Value] = [operandValue]
+            for arg in args {
+                argValues.append(try evaluateExpression(arg, env: env))
+            }
+            let result = try evaluateTest(testName, argValues, env: env)
             return .boolean(negated ? !result : result)
 
         case let .call(function, args, kwargs):
@@ -242,31 +251,34 @@ public enum Interpreter {
             guard case let .function(fn) = functionValue else {
                 throw JinjaError.runtime("Cannot call non-function value")
             }
-            
+
             var argValues: [Value] = []
             for arg in args {
                 argValues.append(try evaluateExpression(arg, env: env))
             }
-            
-            // For now, temporarily disable function calls to avoid async complexity
-            // This needs to be properly implemented with async support
-            throw JinjaError.runtime("Function calls need async support - not yet implemented")
+
+            // Merge kwargs by appending their values after positional arguments
+            for (_, expr) in kwargs {
+                argValues.append(try evaluateExpression(expr, env: env))
+            }
+
+            return try fn(argValues)
 
         case let .slice(array, start, stop, step):
             let arrayValue = try evaluateExpression(array, env: env)
             guard case let .array(items) = arrayValue else {
                 throw JinjaError.runtime("Slice requires array")
             }
-            
+
             let startIdx: Value? = try start.map { try evaluateExpression($0, env: env) }
             let stopIdx: Value? = try stop.map { try evaluateExpression($0, env: env) }
             let stepVal: Value? = try step.map { try evaluateExpression($0, env: env) }
-            
+
             // Simple slice implementation
             var sliceStart = 0
             var sliceEnd = items.count
             var sliceStep = 1
-            
+
             if let startValue = startIdx, case let .integer(s) = startValue {
                 sliceStart = s
             }
@@ -276,11 +288,11 @@ public enum Interpreter {
             if let stepValue = stepVal, case let .integer(st) = stepValue {
                 sliceStep = st
             }
-            
+
             let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap { idx in
                 idx >= 0 && idx < items.count ? items[idx] : nil
             }
-            
+
             return .array(result)
 
         default:
@@ -303,7 +315,7 @@ public enum Interpreter {
                 try interpretNode(node, env: env, into: &buffer)
             }
 
-        case let .for(loopVar, iterable, body, elseBody, _):
+        case let .for(loopVar, iterable, body, elseBody, test):
             let iterableValue = try evaluateExpression(iterable, env: env)
 
             switch iterableValue {
@@ -339,17 +351,23 @@ public enum Interpreter {
                             "revindex": .integer(items.count - index),
                             "revindex0": .integer(items.count - index - 1),
                         ]
-                        
+
                         // Add cycle function
-                        let cycleFunction: @Sendable ([Value]) async throws -> Value = { cycleArgs in
+                        let cycleFunction: @Sendable ([Value]) throws -> Value = { cycleArgs in
                             guard !cycleArgs.isEmpty else { return .string("") }
                             let cycleIndex = index % cycleArgs.count
                             return cycleArgs[cycleIndex]
                         }
-                        
+
                         var loopObj = loopContext
                         loopObj["cycle"] = .function(cycleFunction)
                         childEnv["loop"] = .object(loopObj)
+
+                        // Optional inline test filter for the loop
+                        if let test = test {
+                            let testValue = try evaluateExpression(test, env: childEnv)
+                            if !testValue.isTruthy { continue }
+                        }
 
                         // Execute body
                         for node in body {
@@ -358,6 +376,86 @@ public enum Interpreter {
                     }
                 }
 
+            case let .object(dict):
+                // Iterate over object as array of [key, value]
+                let items = dict.map { key, value in Value.array([.string(key), value]) }
+                if items.isEmpty {
+                    for node in elseBody { try interpretNode(node, env: env, into: &buffer) }
+                } else {
+                    let childEnv = Environment(parent: env)
+                    for (index, item) in items.enumerated() {
+                        switch loopVar {
+                        case let .single(varName):
+                            childEnv[varName] = item
+                        case let .tuple(varNames):
+                            if case let .array(tupleItems) = item {
+                                for (i, varName) in varNames.enumerated() {
+                                    let value = i < tupleItems.count ? tupleItems[i] : .undefined
+                                    childEnv[varName] = value
+                                }
+                            }
+                        }
+                        let loopContext: OrderedDictionary<String, Value> = [
+                            "index": .integer(index + 1),
+                            "index0": .integer(index),
+                            "first": .boolean(index == 0),
+                            "last": .boolean(index == items.count - 1),
+                            "length": .integer(items.count),
+                            "revindex": .integer(items.count - index),
+                            "revindex0": .integer(items.count - index - 1),
+                        ]
+                        var loopObj = loopContext
+                        loopObj["cycle"] = .function { args in
+                            guard !args.isEmpty else { return .string("") }
+                            let cycleIndex = index % args.count
+                            return args[cycleIndex]
+                        }
+                        childEnv["loop"] = .object(loopObj)
+                        if let test = test {
+                            let testValue = try evaluateExpression(test, env: childEnv)
+                            if !testValue.isTruthy { continue }
+                        }
+                        for node in body { try interpretNode(node, env: childEnv, into: &buffer) }
+                    }
+                }
+            case let .string(str):
+                let chars = str.map { Value.string(String($0)) }
+                if chars.isEmpty {
+                    for node in elseBody { try interpretNode(node, env: env, into: &buffer) }
+                } else {
+                    let childEnv = Environment(parent: env)
+                    for (index, item) in chars.enumerated() {
+                        switch loopVar {
+                        case let .single(varName):
+                            childEnv[varName] = item
+                        case let .tuple(varNames):
+                            for (i, varName) in varNames.enumerated() {
+                                childEnv[varName] = i == 0 ? item : .undefined
+                            }
+                        }
+                        let loopContext: OrderedDictionary<String, Value> = [
+                            "index": .integer(index + 1),
+                            "index0": .integer(index),
+                            "first": .boolean(index == 0),
+                            "last": .boolean(index == chars.count - 1),
+                            "length": .integer(chars.count),
+                            "revindex": .integer(chars.count - index),
+                            "revindex0": .integer(chars.count - index - 1),
+                        ]
+                        var loopObj = loopContext
+                        loopObj["cycle"] = .function { args in
+                            guard !args.isEmpty else { return .string("") }
+                            let cycleIndex = index % args.count
+                            return args[cycleIndex]
+                        }
+                        childEnv["loop"] = .object(loopObj)
+                        if let test = test {
+                            let testValue = try evaluateExpression(test, env: childEnv)
+                            if !testValue.isTruthy { continue }
+                        }
+                        for node in body { try interpretNode(node, env: childEnv, into: &buffer) }
+                    }
+                }
             default:
                 throw JinjaError.runtime("Cannot iterate over non-iterable value")
             }
@@ -366,26 +464,24 @@ public enum Interpreter {
             let value = try evaluateExpression(expression, env: env)
             env[identifier] = value
 
-        case let .macro(name, parameters, body):
-            // Store macro definition as a special macro value (not async function)
-            // We'll handle macro calls differently
-            env["\(name)__macro"] = .object([
-                "parameters": .array(parameters.map { .string($0) }),
-                "body": .array(body.map { _ in .string("node") }) // Simplified for now
-            ])
-            
-            // Also store as a function for backwards compatibility
-            env[name] = .function { args in
-                // Create new environment for macro execution
+        case let .macro(name, parameters, defaults, body):
+            // Record macro definition in environment
+            env.macros[name] = Environment.MacroDef(
+                name: name, parameters: parameters, defaults: defaults, body: body)
+            // Expose as callable function too
+            env[name] = .function { passedArgs in
                 let macroEnv = Environment(parent: env)
-                
-                // Bind parameters to arguments
-                for (index, paramName) in parameters.enumerated() {
-                    let argValue = index < args.count ? args[index] : .undefined
-                    macroEnv[paramName] = argValue
+                // Start with defaults
+                for (key, expr) in defaults {
+                    // Evaluate defaults in current env
+                    let val = try evaluateExpression(expr, env: env)
+                    macroEnv[key] = val
                 }
-                
-                // Execute macro body and collect output
+                // Bind positional args
+                for (index, paramName) in parameters.enumerated() {
+                    let value = index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
+                    macroEnv[paramName] = value
+                }
                 var macroBuffer = Buffer()
                 try interpret(body, env: macroEnv, into: &macroBuffer)
                 return .string(macroBuffer.build())
@@ -492,14 +588,32 @@ public enum Interpreter {
         -> Value
     {
         switch object {
+        case let .string(str):
+            if propertyName == "upper" {
+                return .function { _ in .string(str.uppercased()) }
+            }
+            if propertyName == "lower" {
+                return .function { _ in .string(str.lowercased()) }
+            }
+            return .undefined
         case let .object(obj):
+            // Support Python-like dict.items() for iteration
+            if propertyName == "items" {
+                let fn: @Sendable ([Value]) throws -> Value = { _ in
+                    let pairs = obj.map { key, value in Value.array([.string(key), value]) }
+                    return .array(pairs)
+                }
+                return .function(fn)
+            }
             return obj[propertyName] ?? .undefined
         default:
             return .undefined
         }
     }
 
-    private static func evaluateTest(_ testName: String, _ argValues: [Value]) throws -> Bool {
+    private static func evaluateTest(_ testName: String, _ argValues: [Value], env: Environment)
+        throws -> Bool
+    {
         switch testName {
         case "defined":
             guard let value = argValues.first else { return false }
@@ -567,22 +681,31 @@ public enum Interpreter {
             return valuesEqual(argValues[0], argValues[1])
 
         default:
-            throw JinjaError.runtime("Unknown test: \(testName)")
+            // Look up dynamic tests from the environment
+            let testValue = env[testName]
+            guard case let .function(fn) = testValue else {
+                throw JinjaError.runtime("Unknown test: \(testName)")
+            }
+            let result = try fn(argValues)
+            if case let .boolean(b) = result { return b }
+            return result.isTruthy
         }
     }
 
-    private static func evaluateFilter(_ filterName: String, _ argValues: [Value]) throws -> Value {
+    private static func evaluateFilter(_ filterName: String, _ argValues: [Value], env: Environment)
+        throws -> Value
+    {
         // Inline the most common filters for performance
         switch filterName {
         case "upper":
             guard case let .string(str) = argValues.first else {
-                throw JinjaError.runtime("upper filter requires string")
+                return .string("")
             }
             return .string(str.uppercased())
 
         case "lower":
             guard case let .string(str) = argValues.first else {
-                throw JinjaError.runtime("lower filter requires string")
+                return .string("")
             }
             return .string(str.lowercased())
 
@@ -603,7 +726,7 @@ public enum Interpreter {
                 case let .array(array) = argValues[0],
                 case let .string(separator) = argValues[1]
             else {
-                throw JinjaError.runtime("join filter requires array and separator")
+                return .string("")
             }
 
             let strings = array.map { $0.description }
@@ -611,15 +734,16 @@ public enum Interpreter {
 
         case "trim":
             guard case let .string(str) = argValues.first else {
-                throw JinjaError.runtime("trim filter requires string")
+                return .string("")
             }
             return .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
 
         case "escape", "e":
             guard case let .string(str) = argValues.first else {
-                throw JinjaError.runtime("escape filter requires string")
+                return .string("")
             }
-            let escaped = str
+            let escaped =
+                str
                 .replacingOccurrences(of: "&", with: "&amp;")
                 .replacingOccurrences(of: "<", with: "&lt;")
                 .replacingOccurrences(of: ">", with: "&gt;")
@@ -661,45 +785,51 @@ public enum Interpreter {
             default:
                 return value
             }
-            
+
         // Test filters (return boolean values for type checking)
         case "defined":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value != .undefined)
-            
+
         case "undefined":
             guard let value = argValues.first else { return .boolean(true) }
             return .boolean(value == .undefined)
-            
+
         case "none":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value == .null)
-            
+
         case "string":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value.isString)
-            
+
         case "number":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value.isNumber)
-            
+
         case "boolean":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value.isBoolean)
-            
+
         case "iterable":
             guard let value = argValues.first else { return .boolean(false) }
             return .boolean(value.isIterable)
 
         default:
-            throw JinjaError.runtime("Unknown filter: \(filterName)")
+            // Fallback to environment-provided filters
+            let filterValue = env[filterName]
+            guard case let .function(fn) = filterValue else {
+                throw JinjaError.runtime("Unknown filter: \(filterName)")
+            }
+            return try fn(argValues)
         }
     }
 
     private static func toJsonString(_ value: Value) -> String {
         switch value {
         case .string(let str):
-            let escaped = str
+            let escaped =
+                str
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
                 .replacingOccurrences(of: "\n", with: "\\n")

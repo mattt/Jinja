@@ -45,6 +45,8 @@ public indirect enum Expression: Sendable {
     case filter(Expression, String, [Expression], [String: Expression])
     /// Test operation to check a condition.
     case test(Expression, String, negated: Bool)
+    /// Test operation with arguments (e.g., value is divisibleby(3)).
+    case testArgs(Expression, String, [Expression], negated: Bool)
     /// Ternary conditional expression (value if test else alternate).
     case ternary(Expression, test: Expression, alternate: Expression?)
     /// Select expression for conditional evaluation.
@@ -61,8 +63,8 @@ public enum Statement: Sendable {
     case `if`(Expression, [Node], [Node])
     /// Loop statement with variable, iterable, body, else block, and optional condition.
     case `for`(LoopVar, Expression, [Node], [Node], test: Expression?)
-    /// Macro definition with name, parameters, and body.
-    case macro(String, [String], [Node])
+    /// Macro definition with name, parameters, default values, and body.
+    case macro(String, [String], OrderedDictionary<String, Expression>, [Node])
 }
 
 /// Loop variable specification for for-loops.

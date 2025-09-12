@@ -19,7 +19,7 @@ public enum Value: Sendable {
     /// Object containing key-value pairs with preserved insertion order.
     case object(OrderedDictionary<String, Value>)
     /// Function value that can be called with arguments.
-    case function(@Sendable ([Value]) async throws -> Value)
+    case function(@Sendable ([Value]) throws -> Value)
 
     /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {
@@ -46,7 +46,8 @@ public enum Value: Sendable {
             }
             self = .object(orderedDict)
         default:
-            throw JinjaError.runtime("Cannot convert value of type \(type(of: value)) to Jinja Value")
+            throw JinjaError.runtime(
+                "Cannot convert value of type \(type(of: value)) to Jinja Value")
         }
     }
 
@@ -106,7 +107,8 @@ extension Value: CustomStringConvertible {
         case .null: ""
         case .undefined: ""
         case .array(let a): "[\(a.map { $0.description }.joined(separator: ", "))]"
-        case .object(let o): "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
+        case .object(let o):
+            "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
         case .function: "[Function]"
         }
     }

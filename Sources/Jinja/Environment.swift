@@ -37,6 +37,14 @@ private let builtinValues: [String: Value] = [
 public final class Environment: @unchecked Sendable {
     private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
+    // Store macro definitions by name for invocation
+    struct MacroDef {
+        let name: String
+        let parameters: [String]
+        let defaults: OrderedDictionary<String, Expression>
+        let body: [Node]
+    }
+    var macros: [String: MacroDef] = [:]
 
     /// Creates a new environment with optional parent and initial variables.
     /// - Parameters:

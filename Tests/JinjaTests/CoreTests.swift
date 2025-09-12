@@ -1,5 +1,6 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import Jinja
 
 struct CoreTests {
@@ -205,6 +206,7 @@ struct CoreTests {
         let _ = Statement.macro(
             "test_macro",
             ["arg1", "arg2"],
+            [:],
             [Node.text("macro body")]
         )
 

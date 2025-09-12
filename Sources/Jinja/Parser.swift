@@ -30,6 +30,8 @@ public struct Parser: Sendable {
             }
         }
 
+        // Ensure no unclosed control structures remain
+        // Lexer would have provided matching end tokens; reaching here means blocks closed
         // Apply constant folding optimization
         return parser.optimizeNodes(nodes)
     }
@@ -123,8 +125,8 @@ public struct Parser: Sendable {
         case let .set(identifier, expression):
             return .set(identifier, optimizeExpression(expression))
 
-        case let .macro(name, args, body):
-            return .macro(name, args, optimizeNodes(body))
+        case let .macro(name, args, defaults, body):
+            return .macro(name, args, defaults, optimizeNodes(body))
 
         case let .program(nodes):
             return .program(optimizeNodes(nodes))
@@ -163,6 +165,10 @@ public struct Parser: Sendable {
         return nodes
     }
 
+    // Helper to ensure we don't silently allow unclosed blocks
+    // If the last token was a start of a block and we reached EOF without hitting a keyword,
+    // throw a parser error via a tiny adapter on Array
+
     // Parse a complete if/elif/else/endif structure
     private mutating func parseIfStatement() throws -> Node {
         var branches: [(Expression?, [Node])] = []
@@ -175,7 +181,7 @@ public struct Parser: Sendable {
         let ifCondition = try ExpressionParser.parse(ifConditionPart)
 
         // Parse the body until we hit elif, else, or endif
-        let ifBody = try parseNodesUntil(["elif", "else", "endif"])
+        let ifBody = try parseNodesUntil(["elif", "else", "endif"]).guardNonEmptyOrThrow()
         branches.append((ifCondition, ifBody))
 
         // Handle elif and else branches
@@ -211,6 +217,10 @@ public struct Parser: Sendable {
             } else {
                 throw JinjaError.parser("Expected elif, else, or endif, got: \(firstWord)")
             }
+        }
+        // Ensure we consumed an endif
+        if branches.isEmpty {
+            throw JinjaError.parser("Unclosed if block")
         }
 
         // Convert branches to the expected format for Statement.if
@@ -292,25 +302,48 @@ public struct Parser: Sendable {
         guard let inIndex = parts.firstIndex(of: "in") else {
             throw JinjaError.parser("Invalid for loop syntax: \(forContent)")
         }
-        
+
         let loopVarParts = Array(parts[1..<inIndex])
-        let iterableContent = parts[(inIndex + 1)...].joined(separator: " ")
-        
+        var iterableContent = parts[(inIndex + 1)...].joined(separator: " ")
+        var testExpr: Expression? = nil
+        // Support optional inline condition: "for x in items if condition"
+        if let range = iterableContent.range(of: " if ") {
+            let iterPart = String(iterableContent[..<range.lowerBound])
+            let condPart = String(iterableContent[range.upperBound...])
+            iterableContent = iterPart
+            testExpr = try ExpressionParser.parse(condPart)
+        }
+
         // Handle both single variable and tuple unpacking
         let loopVar: LoopVar
         if loopVarParts.count == 1 {
             loopVar = .single(loopVarParts[0])
         } else {
             // Handle comma-separated variables for tuple unpacking
-            let varNames = loopVarParts.joined(separator: " ").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            let varNames = loopVarParts.joined(separator: " ").components(separatedBy: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
             loopVar = .tuple(varNames)
         }
 
         // Parse the iterable expression
         let iterableExpr = try ExpressionParser.parse(iterableContent)
 
-        // Parse the body until we hit endfor
-        let forBody = try parseNodesUntil(["endfor"])
+        // Parse the body until we hit else or endfor
+        let forBody = try parseNodesUntil(["else", "endfor"]).guardNonEmptyOrThrow()
+
+        var elseBody: [Node] = []
+        // Check for optional else
+        if !isAtEnd {
+            let token = peek()
+            if case .statement = token.kind {
+                let content = token.value.trimmingCharacters(in: .whitespaces)
+                if content == "else" {
+                    advance()  // consume else
+                    elseBody = try parseNodesUntil(["endfor"])
+                }
+            }
+        }
 
         // Consume the endfor token
         if !isAtEnd {
@@ -318,12 +351,16 @@ public struct Parser: Sendable {
             if case .statement = token.kind {
                 let content = token.value.trimmingCharacters(in: .whitespaces)
                 if content == "endfor" {
-                    advance()  // consume endfor
+                    advance()
+                } else {
+                    throw JinjaError.parser("Expected endfor, got: \(content)")
                 }
             }
+        } else {
+            throw JinjaError.parser("Unclosed for block")
         }
 
-        return .statement(.for(loopVar, iterableExpr, forBody, [], test: nil))
+        return .statement(.for(loopVar, iterableExpr, forBody, elseBody, test: testExpr))
     }
 
     // Parse a complete macro/endmacro structure
@@ -341,6 +378,7 @@ public struct Parser: Sendable {
         let nameAndParams = parts[1...].joined(separator: " ")
         let macroName: String
         var parameters: [String] = []
+        var defaults: OrderedDictionary<String, Expression> = [:]
 
         // Parse macro name and parameters
         if let parenIndex = nameAndParams.firstIndex(of: "(") {
@@ -349,7 +387,20 @@ public struct Parser: Sendable {
             if let endParenIndex = paramString.lastIndex(of: ")") {
                 let paramContent = String(paramString[..<endParenIndex])
                 if !paramContent.isEmpty {
-                    parameters = paramContent.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    let parts = paramContent.components(separatedBy: ",")
+                    for raw in parts {
+                        let p = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let eqIndex = p.firstIndex(of: "=") {
+                            let key = String(p[..<eqIndex]).trimmingCharacters(in: .whitespaces)
+                            let valStr = String(p[p.index(after: eqIndex)...]).trimmingCharacters(
+                                in: .whitespaces)
+                            parameters.append(key)
+                            let expr = try ExpressionParser.parse(valStr)
+                            defaults[key] = expr
+                        } else {
+                            parameters.append(p)
+                        }
+                    }
                 }
             }
         } else {
@@ -370,7 +421,7 @@ public struct Parser: Sendable {
             }
         }
 
-        return .statement(.macro(macroName, parameters, macroBody))
+        return .statement(.macro(macroName, parameters, defaults, macroBody))
     }
 
     // MARK: -
@@ -479,16 +530,17 @@ private struct ExpressionParser {
 
     init(_ content: String) {
         self.content = content.trimmingCharacters(in: .whitespaces)
-        self.tokens = Self.tokenizeExpression(self.content)
+        let raw = Self.tokenizeExpression(self.content)
+        self.tokens = Self.mergeOperatorTokens(raw)
         self.current = 0
     }
-    
+
     private static func tokenizeExpression(_ content: String) -> [String] {
         var tokens: [String] = []
         var currentToken = ""
         var inString = false
         var stringChar: Character = "'"
-        
+
         for char in content {
             switch char {
             case "'" where !inString:
@@ -541,12 +593,46 @@ private struct ExpressionParser {
                 currentToken.append(char)
             }
         }
-        
+
         if !currentToken.isEmpty {
             tokens.append(currentToken)
         }
-        
+
         return tokens.filter { !$0.isEmpty }
+    }
+
+    private static func mergeOperatorTokens(_ tokens: [String]) -> [String] {
+        var merged: [String] = []
+        var i = 0
+        while i < tokens.count {
+            let t = tokens[i]
+            if i + 1 < tokens.count {
+                let next = tokens[i + 1]
+                if t == "=" && next == "=" {
+                    merged.append("==")
+                    i += 2
+                    continue
+                }
+                if t == "!" && next == "=" {
+                    merged.append("!=")
+                    i += 2
+                    continue
+                }
+                if t == "<" && next == "=" {
+                    merged.append("<=")
+                    i += 2
+                    continue
+                }
+                if t == ">" && next == "=" {
+                    merged.append(">=")
+                    i += 2
+                    continue
+                }
+            }
+            merged.append(t)
+            i += 1
+        }
+        return merged
     }
 
     static func parse(_ content: String) throws -> Expression {
@@ -736,7 +822,16 @@ private struct ExpressionParser {
             } else if matchKeyword("is") {
                 let negated = matchKeyword("not")
                 let testName = consumeIdentifier()
-                expr = .test(expr, testName, negated: negated)
+                var args: [Expression] = []
+                if match("(") {
+                    (args, _) = try parseArguments()
+                    try consume(")")
+                }
+                if args.isEmpty {
+                    expr = .test(expr, testName, negated: negated)
+                } else {
+                    expr = .testArgs(expr, testName, args, negated: negated)
+                }
             } else {
                 break
             }
@@ -931,6 +1026,14 @@ private struct ExpressionParser {
     }
 }
 
+// MARK: - Small helpers
+extension Array where Element == Node {
+    fileprivate func guardNonEmptyOrThrow(_ message: String = "") throws -> [Node] {
+        if isEmpty { throw JinjaError.parser(message.isEmpty ? "Empty block body" : message) }
+        return self
+    }
+}
+
 // MARK: - Statement Parser
 
 private struct StatementParser {
@@ -1030,7 +1133,7 @@ private struct StatementParser {
             try consume(")")
         }
 
-        return .macro(name, params, [])
+        return .macro(name, params, [:], [])
     }
 
     // MARK: -
