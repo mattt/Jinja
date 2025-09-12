@@ -131,6 +131,29 @@ struct TemplateTests {
             #"{{ true and true }}{{ true and false }}{{ false and true }}{{ false and false }}"#
         let context: Context = [:]
 
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .expression, value: "true and true", position: 0),
+                Token(kind: .expression, value: "true and false", position: 19),
+                Token(kind: .expression, value: "false and true", position: 39),
+                Token(kind: .expression, value: "false and false", position: 60),
+                Token(kind: .eof, value: "", position: 82),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(.binary(.and, .boolean(true), .boolean(true))),
+                .expression(.binary(.and, .boolean(true), .boolean(false))),
+                .expression(.binary(.and, .boolean(false), .boolean(true))),
+                .expression(.binary(.and, .boolean(false), .boolean(false))),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "truefalsefalsefalse")
@@ -142,6 +165,29 @@ struct TemplateTests {
             #"{{ true or true }}{{ true or false }}{{ false or true }}{{ false or false }}"#
         let context: Context = [:]
 
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .expression, value: "true or true", position: 0),
+                Token(kind: .expression, value: "true or false", position: 18),
+                Token(kind: .expression, value: "false or true", position: 38),
+                Token(kind: .expression, value: "false or false", position: 59),
+                Token(kind: .eof, value: "", position: 81),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(.binary(.or, .boolean(true), .boolean(true))),
+                .expression(.binary(.or, .boolean(true), .boolean(false))),
+                .expression(.binary(.or, .boolean(false), .boolean(true))),
+                .expression(.binary(.or, .boolean(false), .boolean(false))),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "truetruetruefalse")
@@ -151,6 +197,25 @@ struct TemplateTests {
     func logicalNot() throws {
         let string = #"{{ not true }}{{ not false }}"#
         let context: Context = [:]
+
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .expression, value: "not true", position: 0),
+                Token(kind: .expression, value: "not false", position: 14),
+                Token(kind: .eof, value: "", position: 30),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens, optimize: false)
+        #expect(
+            nodes == [
+                .expression(.unary(.not, .boolean(true))),
+                .expression(.unary(.not, .boolean(false))),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -214,6 +279,28 @@ struct TemplateTests {
     func ifOnly() throws {
         let string = #"{% if 1 == 1 %}{{ 'A' }}{% endif %}{{ 'B' }}"#
         let context: Context = [:]
+
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .statement, value: "if 1 == 1", position: 0),
+                Token(kind: .expression, value: "'A'", position: 15),
+                Token(kind: .statement, value: "endif", position: 24),
+                Token(kind: .expression, value: "'B'", position: 36),
+                Token(kind: .eof, value: "", position: 44),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .statement(
+                    .if(.binary(.equal, .integer(1), .integer(1)), [.expression(.string("A"))], [])),
+                .expression(.string("B")),
+            ]
+        )
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -299,7 +386,7 @@ struct TemplateTests {
     }
 
     @Test("For loop with selectattr")
-    func forLoopSelect2() throws {
+    func forLoopWithSelectAttr() throws {
         let string =
             #"{% for x in arr | selectattr('value', 'equalto', 'a') %}{{ x['value'] }}{% endfor %}"#
         let context: Context = [
@@ -365,7 +452,7 @@ struct TemplateTests {
     }
 
     @Test("Variable assignment with method call")
-    func variables2() throws {
+    func variableAssignmentWithMethodCall() throws {
         let string = #"{% set x = 'Hello'.split('el')[-1] %}{{ x }}"#
         let context: Context = [:]
 
@@ -428,7 +515,7 @@ struct TemplateTests {
     }
 
     @Test("Binary expressions with concatenation")
-    func binopExpr1() throws {
+    func binaryExpressionsWithConcatenation() throws {
         let string = #"{{ 1 ~ "+" ~ 2 ~ "=" ~ 3 ~ " is " ~ true }}"#
         let context: Context = [:]
 
@@ -450,7 +537,7 @@ struct TemplateTests {
     }
 
     @Test("String literals with quotes")
-    func strings1() throws {
+    func stringLiteralsWithQuotes() throws {
         let string =
             #"|{{ "test" }}|{{ "a" + 'b' + "c" }}|{{ '"' + "'" }}|{{ '\\'' }}|{{ "\\"" }}|"#
         let context: Context = [:]
@@ -461,7 +548,7 @@ struct TemplateTests {
     }
 
     @Test("String length")
-    func strings2() throws {
+    func stringLength() throws {
         let string = #"|{{ "" | length }}|{{ "a" | length }}|{{ '' | length }}|{{ 'a' | length }}|"#
         let context: Context = [:]
 
@@ -471,7 +558,7 @@ struct TemplateTests {
     }
 
     @Test("String literals with template syntax")
-    func strings3() throws {
+    func stringLiteralsWithTemplateSyntax() throws {
         let string = #"|{{ '{{ "hi" }}' }}|{{ '{% if true %}{% endif %}' }}|"#
         let context: Context = [:]
 
@@ -481,7 +568,7 @@ struct TemplateTests {
     }
 
     @Test("String concatenation")
-    func strings4() throws {
+    func stringConcatenation() throws {
         let string = #"{{ 'a' + 'b' 'c' }}"#
         let context: Context = [:]
 
@@ -604,7 +691,7 @@ struct TemplateTests {
     }
 
     @Test("String split with separator")
-    func split2() throws {
+    func stringSplitWithSeparator() throws {
         let string = #"|{{ "   test it  ".split(" ") | join("|") }}|"#
         let context: Context = [:]
 
@@ -614,7 +701,7 @@ struct TemplateTests {
     }
 
     @Test("String split with limit")
-    func split3() throws {
+    func stringSplitWithLimit() throws {
         let string = #"|{{ "   test it  ".split(" ", 4) | join("|") }}|"#
         let context: Context = [:]
 
@@ -674,7 +761,7 @@ struct TemplateTests {
     }
 
     @Test("Membership negation with not")
-    func membershipNegation1() throws {
+    func membershipNegationWithNot() throws {
         let string =
             #"|{{ not 0 in arr }}|{{ not 1 in arr }}|{{ not true in arr }}|{{ not false in arr }}|{{ not 'a' in arr }}|{{ not 'b' in arr }}|"#
         let context: Context = [
@@ -687,7 +774,7 @@ struct TemplateTests {
     }
 
     @Test("Membership negation with not in")
-    func membershipNegation2() throws {
+    func membershipNegationWithNotIn() throws {
         let string =
             #"|{{ 0 not in arr }}|{{ 1 not in arr }}|{{ true not in arr }}|{{ false not in arr }}|{{ 'a' not in arr }}|{{ 'b' not in arr }}|"#
         let context: Context = [
@@ -746,7 +833,7 @@ struct TemplateTests {
     }
 
     @Test("Filter operator string transformations")
-    func filterOperator2() throws {
+    func filterOperatorStringTransformations() throws {
         let string =
             #"|{{ 'abc' | length }}|{{ 'aBcD' | upper }}|{{ 'aBcD' | lower }}|{{ 'test test' | capitalize}}|{{ 'test test' | title }}|{{ ' a b ' | trim }}|{{ '  A  B  ' | trim | lower | length }}|"#
         let context: Context = [:]
@@ -757,7 +844,7 @@ struct TemplateTests {
     }
 
     @Test("Filter operator abs")
-    func filterOperator3() throws {
+    func filterOperatorAbs() throws {
         let string = #"|{{ -1 | abs }}|{{ 1 | abs }}|"#
         let context: Context = [:]
 
@@ -767,7 +854,7 @@ struct TemplateTests {
     }
 
     @Test("Filter operator selectattr")
-    func filterOperator4() throws {
+    func filterOperatorSelectAttr() throws {
         let string = #"{{ items | selectattr('key') | length }}"#
         let context: Context = [
             "items": [
@@ -785,7 +872,7 @@ struct TemplateTests {
     }
 
     @Test("Filter operator selectattr with equalto")
-    func filterOperator5() throws {
+    func filterOperatorSelectAttrWithEqualTo() throws {
         let string = #"{{ messages | selectattr('role', 'equalto', 'system') | length }}"#
         let context: Context = [
             "messages": [
@@ -801,7 +888,7 @@ struct TemplateTests {
     }
 
     @Test("Filter operator tojson")
-    func filterOperator7() throws {
+    func filterOperatorToJson() throws {
         let string =
             #"|{{ obj | tojson }}|{{ "test" | tojson }}|{{ 1 | tojson }}|{{ true | tojson }}|{{ null | tojson }}|{{ [1,2,3] | tojson }}|"#
         let context: Context = [
@@ -869,7 +956,7 @@ struct TemplateTests {
     }
 
     @Test("Boolean operations mixed with strings")
-    func booleanMixed2() throws {
+    func booleanOperationsMixedWithStrings() throws {
         let string =
             #"|{{ true and '' }}|{{ true and 'a' }}|{{ false or '' }}|{{ false or 'a' }}|{{ '' and true }}|{{ 'a' and true }}|{{ '' or false }}|{{ 'a' or false }}|"#
         let context: Context = [:]
@@ -902,7 +989,7 @@ struct TemplateTests {
     }
 
     @Test("Ternary operator with length")
-    func ternaryOperator1() throws {
+    func ternaryOperatorWithLength() throws {
         let string = #"{{ (x if true else []) | length }}"#
         let context: Context = [
             "x": [[:], [:], [:]]
@@ -979,7 +1066,7 @@ struct TemplateTests {
     }
 
     @Test("Object literals nested")
-    func objectLiterals1() throws {
+    func objectLiteralsNested() throws {
         let string = #"{{{'key': {'key': 'value'}}['key']['key']}}"#
         let context: Context = [:]
 
@@ -1014,7 +1101,7 @@ struct TemplateTests {
     }
 
     @Test("Object get method")
-    func objectOperators1() throws {
+    func objectGetMethod() throws {
         let string =
             #"|{{ obj.get('known') }}|{{ obj.get('unknown') is none }}|{{ obj.get('unknown') is defined }}|"#
         let context: Context = [
@@ -1029,7 +1116,7 @@ struct TemplateTests {
     }
 
     @Test("Object items method")
-    func objectOperators2() throws {
+    func objectItemsMethod() throws {
         let string = #"|{% for x, y in obj.items() %}|{{ x + ' ' + y }}|{% endfor %}|"#
         let context: Context = [
             "obj": [
@@ -1058,7 +1145,7 @@ struct TemplateTests {
     }
 
     @Test("Scope without namespace")
-    func scope1() throws {
+    func scopeWithoutNamespace() throws {
         let string =
             #"{% set found = false %}{% for num in nums %}{% if num == 1 %}{{ 'found=' }}{% set found = true %}{% endif %}{% endfor %}{{ found }}"#
         let context: Context = [

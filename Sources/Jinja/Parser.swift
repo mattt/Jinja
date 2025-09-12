@@ -11,7 +11,7 @@ public struct Parser: Sendable {
     }
 
     /// Parses tokens into an abstract syntax tree of nodes.
-    public static func parse(_ tokens: [Token]) throws -> [Node] {
+    public static func parse(_ tokens: [Token], optimize: Bool = true) throws -> [Node] {
         var parser = Parser(tokens: tokens)
         var nodes: [Node] = []
         nodes.reserveCapacity(tokens.count / 3)  // Rough estimate
@@ -33,7 +33,7 @@ public struct Parser: Sendable {
         // Ensure no unclosed control structures remain
         // Lexer would have provided matching end tokens; reaching here means blocks closed
         // Apply constant folding optimization
-        return parser.optimizeNodes(nodes)
+        return optimize ? parser.optimizeNodes(nodes) : nodes
     }
 
     /// Apply constant folding and other compile-time optimizations
