@@ -11,7 +11,7 @@ public struct Parser: Sendable {
     }
 
     /// Parses tokens into an abstract syntax tree of nodes.
-    public static func parse(_ tokens: [Token], optimize: Bool = true) throws -> [Node] {
+    public static func parse(_ tokens: [Token]) throws -> [Node] {
         var parser = Parser(tokens: tokens)
         var nodes: [Node] = []
         nodes.reserveCapacity(tokens.count / 3)  // Rough estimate
@@ -32,315 +32,7 @@ public struct Parser: Sendable {
             }
         }
 
-        // Ensure no unclosed control structures remain
-        // Lexer would have provided matching end tokens; reaching here means blocks closed
-        // Apply constant folding optimization
-        return optimize ? parser.optimizeNodes(nodes) : nodes
-    }
-
-    /// Apply constant folding and other compile-time optimizations
-    private func optimizeNodes(_ nodes: [Node]) -> [Node] {
-        return nodes.map { node in
-            switch node {
-            case let .expression(expr):
-                return .expression(optimizeExpression(expr))
-            case let .statement(stmt):
-                return .statement(optimizeStatement(stmt))
-            case .text:
-                return node  // Text nodes are already optimized through coalescing
-            }
-        }
-    }
-
-    /// Optimize expressions through constant folding
-    private func optimizeExpression(_ expr: Expression) -> Expression {
-        switch expr {
-        case let .binary(.add, .integer(left), .integer(right)):
-            return .integer(left + right)
-        case let .binary(.add, .number(left), .number(right)):
-            return .number(left + right)
-        case let .binary(.subtract, .integer(left), .integer(right)):
-            return .integer(left - right)
-        case let .binary(.subtract, .number(left), .number(right)):
-            return .number(left - right)
-        case let .binary(.multiply, .integer(left), .integer(right)):
-            return .integer(left * right)
-        case let .binary(.multiply, .number(left), .number(right)):
-            return .number(left * right)
-        case let .binary(.concat, .string(left), .string(right)):
-            return .string(left + right)
-        case let .unary(.not, .boolean(value)):
-            return .boolean(!value)
-        case let .unary(.minus, .integer(value)):
-            return .integer(-value)
-        case let .unary(.minus, .number(value)):
-            return .number(-value)
-        default:
-            return expr
-        }
-    }
-
-    /// Optimize statements
-    private func optimizeStatement(_ stmt: Statement) -> Statement {
-        switch stmt {
-        case let .if(condition, body, alternate):
-            let optimizedCondition = optimizeExpression(condition)
-            let optimizedBody = optimizeNodes(body)
-            let optimizedAlternate = optimizeNodes(alternate)
-
-            // If condition is constant true, return only the body
-            if case .boolean(true) = optimizedCondition {
-                return .program(optimizedBody)
-            }
-
-            // If condition is constant false, return only the alternate
-            if case .boolean(false) = optimizedCondition {
-                return .program(optimizedAlternate)
-            }
-
-            // If body is empty and alternate is empty, return empty program
-            if optimizedBody.isEmpty && optimizedAlternate.isEmpty {
-                return .program([])
-            }
-
-            return .if(optimizedCondition, optimizedBody, optimizedAlternate)
-
-        case let .for(loopVar, iterable, body, elseBody, test):
-            let optimizedIterable = optimizeExpression(iterable)
-            let optimizedBody = optimizeNodes(body)
-            let optimizedElseBody = optimizeNodes(elseBody)
-            let optimizedTest = test.map(optimizeExpression)
-
-            // If iterable is an empty array, return only the else body
-            if case .array(let elements) = optimizedIterable, elements.isEmpty {
-                return .program(optimizedElseBody)
-            }
-
-            // If body is empty and else body is empty, return empty program
-            if optimizedBody.isEmpty && optimizedElseBody.isEmpty {
-                return .program([])
-            }
-
-            return .for(
-                loopVar, optimizedIterable, optimizedBody, optimizedElseBody, test: optimizedTest)
-
-        case let .set(identifier, expression):
-            return .set(identifier, optimizeExpression(expression))
-
-        case let .macro(name, args, defaults, body):
-            return .macro(name, args, defaults, optimizeNodes(body))
-
-        case let .program(nodes):
-            return .program(optimizeNodes(nodes))
-        }
-    }
-
-    // Parse nodes until we hit one of the specified statement keywords
-    private mutating func parseNodesUntil(_ keywords: Set<String>) throws -> [Node] {
-        var nodes: [Node] = []
-
-        while !isAtEnd {
-            if check(.openStatement) {
-                let nextToken = tokens[current + 1]
-                if nextToken.kind == .identifier, keywords.contains(nextToken.value) {
-                    break
-                }
-            }
-
-            let node = try parseNode()
-
-            // Text node coalescing: merge adjacent text nodes
-            if case .text(let newText) = node,
-                case .text(let existingText)? = nodes.last
-            {
-                // Replace the last node with merged text
-                nodes[nodes.count - 1] = .text(existingText + newText)
-            } else {
-                nodes.append(node)
-            }
-        }
-
         return nodes
-    }
-
-    // Parse a complete if/elif/else/endif structure
-    private mutating func parseIfStatement() throws -> Statement {
-        let condition = try parseExpression()
-        try consume(.closeStatement, message: "Expected '%}' after if condition.")
-        let body = try parseNodesUntil(["elif", "else", "endif"])
-
-        var alternate: [Node] = []
-
-        if match(.openStatement) {
-            if peekKeyword("elif") {
-                advance()
-                alternate.append(.statement(try parseIfStatement()))
-            } else if peekKeyword("else") {
-                advance()
-                try consume(.closeStatement, message: "Expected '%}' after else.")
-                alternate = try parseNodesUntil(["endif"])
-                try consume(.openStatement, message: "Expected '{%' for endif.")
-                try consumeIdentifier("endif")
-                try consume(.closeStatement, message: "Expected '%}' after endif.")
-            } else {
-                try consumeIdentifier("endif")
-                try consume(.closeStatement, message: "Expected '%}' after endif.")
-            }
-        } else {
-            throw JinjaError.parser("Unclosed if statement")
-        }
-
-        return .if(condition, body, alternate)
-    }
-
-    // Parse a complete for/endfor structure
-    private mutating func parseForStatement() throws -> Statement {
-        var loopVarParts: [String] = []
-        repeat {
-            loopVarParts.append(try consumeIdentifier())
-        } while match(.comma)
-
-        let loopVar: LoopVar
-        if loopVarParts.count == 1 {
-            loopVar = .single(loopVarParts[0])
-        } else {
-            loopVar = .tuple(loopVarParts)
-        }
-
-        try consumeIdentifier("in")
-
-        let iterableExpr = try parseExpression()
-        var testExpr: Expression?
-
-        if matchKeyword("if") {
-            testExpr = try parseExpression()
-        }
-
-        try consume(.closeStatement, message: "Expected '%}' after for loop.")
-
-        let body = try parseNodesUntil(["else", "endfor"])
-        var elseBody: [Node] = []
-
-        if match(.openStatement) {
-            if matchKeyword("else") {
-                try consume(.closeStatement, message: "Expected '%}' after else.")
-                elseBody = try parseNodesUntil(["endfor"])
-                try consume(.openStatement, message: "Expected '{%' for endfor.")
-                try consumeIdentifier("endfor")
-                try consume(.closeStatement, message: "Expected '%}' after endfor.")
-            } else {
-                try consumeIdentifier("endfor")
-                try consume(.closeStatement, message: "Expected '%}' after endfor.")
-            }
-        } else {
-            throw JinjaError.parser("Unclosed for loop")
-        }
-
-        return .for(loopVar, iterableExpr, body, elseBody, test: testExpr)
-    }
-
-    // Parse a complete macro/endmacro structure
-    private mutating func parseMacroStatement() throws -> Statement {
-        let macroName = try consumeIdentifier()
-        var parameters: [String] = []
-        var defaults: OrderedDictionary<String, Expression> = [:]
-
-        try consume(.openParen, message: "Expected '(' after macro name.")
-        if !check(.closeParen) {
-            repeat {
-                let paramName = try consumeIdentifier()
-                parameters.append(paramName)
-                if match(.equals) {
-                    defaults[paramName] = try parseExpression()
-                }
-            } while match(.comma)
-        }
-        try consume(.closeParen, message: "Expected ')' after macro parameters.")
-        try consume(.closeStatement, message: "Expected '%}' after macro definition.")
-
-        let body = try parseNodesUntil(["endmacro"])
-
-        try consume(.openStatement, message: "Expected '{%' for endmacro.")
-        try consumeIdentifier("endmacro")
-        try consume(.closeStatement, message: "Expected '%}' after endmacro.")
-
-        return .macro(macroName, parameters, defaults, body)
-    }
-
-    // MARK: -
-
-    private var isAtEnd: Bool {
-        current >= tokens.count || peek().kind == .eof
-    }
-
-    private func peek() -> Token {
-        guard current < tokens.count else {
-            return Token(kind: .eof, value: "", position: tokens.last?.position ?? 0)
-        }
-        return tokens[current]
-    }
-
-    @discardableResult
-    private mutating func advance() -> Token {
-        if !isAtEnd { current += 1 }
-        return previous()
-    }
-
-    private func previous() -> Token {
-        guard current > 0 else {
-            return Token(kind: .eof, value: "", position: 0)
-        }
-        return tokens[current - 1]
-    }
-
-    private func check(_ kind: Token.Kind) -> Bool {
-        isAtEnd ? false : peek().kind == kind
-    }
-
-    private mutating func match(_ kinds: Token.Kind...) -> Bool {
-        for kind in kinds {
-            if check(kind) {
-                advance()
-                return true
-            }
-        }
-        return false
-    }
-
-    @discardableResult
-    private mutating func consume(_ kind: Token.Kind, message: String) throws -> Token {
-        if check(kind) { return advance() }
-        throw JinjaError.parser("\(message). Got \(peek().kind) instead")
-    }
-
-    private func peekKeyword(_ keyword: String) -> Bool {
-        guard !isAtEnd else { return false }
-        let token = peek()
-        return token.value == keyword
-    }
-
-    private mutating func matchKeyword(_ keyword: String) -> Bool {
-        if peekKeyword(keyword) {
-            advance()
-            return true
-        }
-        return false
-    }
-
-    @discardableResult
-    private mutating func consumeIdentifier(_ name: String? = nil) throws -> String {
-        guard !isAtEnd else {
-            throw JinjaError.parser("Expected identifier but found EOF.")
-        }
-        let token = peek()
-        if token.kind == .identifier {
-            if let name = name, token.value != name {
-                throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
-            }
-            advance()
-            return token.value
-        }
-        throw JinjaError.parser("Expected identifier but found \(token.kind).")
     }
 
     // MARK: - Node Parsing
@@ -362,7 +54,6 @@ public struct Parser: Sendable {
         case .openStatement:
             try consume(.openStatement, message: "Expected '{%'.")
             let statement = try parseStatement()
-            // The closing '%}' is consumed by the statement parsing function
             return .statement(statement)
 
         default:
@@ -371,43 +62,244 @@ public struct Parser: Sendable {
         }
     }
 
+    // Parse nodes until we hit one of the specified statement keywords
+    private mutating func parseNodesUntil(_ kinds: Set<Token.Kind>) throws -> [Node] {
+        var nodes: [Node] = []
+
+        while !isAtEnd {
+            if check(.openStatement) {
+                let nextToken = tokens[current + 1]
+                if kinds.contains(nextToken.kind) {
+                    break
+                }
+            }
+
+            let node = try parseNode()
+
+            if case .text(let newText) = node,
+                case .text(let existingText)? = nodes.last
+            {
+                nodes[nodes.count - 1] = .text(existingText + newText)
+            } else {
+                nodes.append(node)
+            }
+        }
+
+        return nodes
+    }
+
+    // MARK: - Statement Parsing
+
     private mutating func parseStatement() throws -> Statement {
         let keywordToken = peek()
 
         switch keywordToken.kind {
-        case .set:
-            advance()  // consume keyword
-            let identifier = try consumeIdentifier()
-            try consume(.equals, message: "Expected '=' after identifier.")
-            let expression = try parseExpression()
-            try consume(.closeStatement, message: "Expected '%}' after set statement.")
-            return .set(identifier, expression)
         case .if:
-            advance()  // consume keyword
+            advance()
             return try parseIfStatement()
         case .for:
-            advance()  // consume keyword
+            advance()
             return try parseForStatement()
+        case .set:
+            advance()
+            return try parseSetStatement()
         case .macro:
-            advance()  // consume keyword
+            advance()
             return try parseMacroStatement()
+        case .break:
+            advance()
+            try consume(.closeStatement, message: "Expected '%}' after break.")
+            return .break
+        case .continue:
+            advance()
+            try consume(.closeStatement, message: "Expected '%}' after continue.")
+            return .continue
+        case .call:
+            advance()
+            return try parseCallStatement()
+        case .filter:
+            advance()
+            return try parseFilterStatement()
         default:
             throw JinjaError.parser("Unknown statement: \(keywordToken.value)")
         }
     }
 
+    private mutating func parseIfStatement() throws -> Statement {
+        let condition = try parseExpression()
+        try consume(.closeStatement, message: "Expected '%}' after if condition.")
+        let body = try parseNodesUntil([.elif, .else, .endif])
+
+        var alternate: [Node] = []
+
+        if match(.openStatement) {
+            if peek().kind == .elif {
+                advance()
+                alternate.append(.statement(try parseIfStatement()))
+            } else if peek().kind == .else {
+                advance()
+                try consume(.closeStatement, message: "Expected '%}' after else.")
+                alternate = try parseNodesUntil([.endif])
+                try consume(.openStatement, message: "Expected '{%' for endif.")
+                try consume(.endif, message: "Expected 'endif'.")
+                try consume(.closeStatement, message: "Expected '%}' after endif.")
+            } else {
+                try consume(.endif, message: "Expected 'endif'.")
+                try consume(.closeStatement, message: "Expected '%}' after endif.")
+            }
+        } else {
+            throw JinjaError.parser("Unclosed if statement")
+        }
+
+        return .if(condition, body, alternate)
+    }
+
+    private mutating func parseForStatement() throws -> Statement {
+        var loopVarParts: [String] = []
+        repeat {
+            loopVarParts.append(try consumeIdentifier())
+        } while match(.comma)
+
+        let loopVar: LoopVar
+        if loopVarParts.count == 1 {
+            loopVar = .single(loopVarParts[0])
+        } else {
+            loopVar = .tuple(loopVarParts)
+        }
+
+        try consume(.in, message: "Expected 'in' in for loop.")
+
+        let iterableExpr = try parseExpression()
+        var testExpr: Expression?
+
+        if match(.if) {
+            testExpr = try parseExpression()
+        }
+
+        try consume(.closeStatement, message: "Expected '%}' after for loop.")
+
+        let body = try parseNodesUntil([.else, .endfor])
+        var elseBody: [Node] = []
+
+        if match(.openStatement) {
+            if match(.else) {
+                try consume(.closeStatement, message: "Expected '%}' after else.")
+                elseBody = try parseNodesUntil([.endfor])
+                try consume(.openStatement, message: "Expected '{%' for endfor.")
+                try consume(.endfor, message: "Expected 'endfor'.")
+                try consume(.closeStatement, message: "Expected '%}' after endfor.")
+            } else {
+                try consume(.endfor, message: "Expected 'endfor'.")
+                try consume(.closeStatement, message: "Expected '%}' after endfor.")
+            }
+        } else {
+            throw JinjaError.parser("Unclosed for loop")
+        }
+
+        return .for(loopVar, iterableExpr, body, elseBody, test: testExpr)
+    }
+
+    private mutating func parseSetStatement() throws -> Statement {
+        let target = try parseExpressionSequence()
+
+        if match(.equals) {
+            let value = try parseExpressionSequence()
+            try consume(.closeStatement, message: "Expected '%}' after set statement.")
+            return .set(target: target, value: value, body: [])
+        } else {
+            try consume(.closeStatement, message: "Expected '%}' after set statement.")
+            let body = try parseNodesUntil([.endset])
+            try consume(.openStatement, message: "Expected '{%' for endset.")
+            try consume(.endset, message: "Expected 'endset'.")
+            try consume(.closeStatement, message: "Expected '%}' after endset.")
+            return .set(target: target, value: nil, body: body)
+        }
+    }
+
+    private mutating func parseMacroStatement() throws -> Statement {
+        let macroName = try consumeIdentifier()
+        var parameters: [String] = []
+        var defaults: OrderedDictionary<String, Expression> = [:]
+
+        try consume(.openParen, message: "Expected '(' after macro name.")
+        if !check(.closeParen) {
+            repeat {
+                let paramName = try consumeIdentifier()
+                parameters.append(paramName)
+                if match(.equals) {
+                    defaults[paramName] = try parseExpression()
+                }
+            } while match(.comma)
+        }
+        try consume(.closeParen, message: "Expected ')' after macro parameters.")
+        try consume(.closeStatement, message: "Expected '%}' after macro definition.")
+
+        let body = try parseNodesUntil([.endmacro])
+
+        try consume(.openStatement, message: "Expected '{%' for endmacro.")
+        try consume(.endmacro, message: "Expected 'endmacro'.")
+        try consume(.closeStatement, message: "Expected '%}' after endmacro.")
+
+        return .macro(macroName, parameters, defaults, body)
+    }
+
+    private mutating func parseCallStatement() throws -> Statement {
+        var callerArgs: [Expression]?
+        if match(.openParen) {
+            let (args, _) = try parseArguments()
+            callerArgs = args
+            try consume(.closeParen, message: "Expected ')' after caller arguments.")
+        }
+
+        let callable = try parseExpression()
+
+        try consume(.closeStatement, message: "Expected '%}' after call statement.")
+
+        let body = try parseNodesUntil([.endcall])
+
+        try consume(.openStatement, message: "Expected '{%' for endcall.")
+        try consume(.endcall, message: "Expected 'endcall'.")
+        try consume(.closeStatement, message: "Expected '%}' after endcall.")
+
+        return .call(callable: callable, callerArgs: callerArgs, body: body)
+    }
+
+    private mutating func parseFilterStatement() throws -> Statement {
+        let filterExpr = try parseExpression()
+
+        try consume(.closeStatement, message: "Expected '%}' after filter statement.")
+
+        let body = try parseNodesUntil([.endfilter])
+
+        try consume(.openStatement, message: "Expected '{%' for endfilter.")
+        try consume(.endfilter, message: "Expected 'endfilter'.")
+        try consume(.closeStatement, message: "Expected '%}' after endfilter.")
+
+        return .filter(filterExpr: filterExpr, body: body)
+    }
+
+    // MARK: - Expression Parsing
+
     private mutating func parseExpression() throws -> Expression {
         return try parseTernary()
+    }
+
+    private mutating func parseExpressionSequence() throws -> Expression {
+        var expressions: [Expression] = [try parseExpression()]
+        while match(.comma) {
+            expressions.append(try parseExpression())
+        }
+        return expressions.count == 1 ? expressions[0] : .tuple(expressions)
     }
 
     private mutating func parseTernary() throws -> Expression {
         let expr = try parseOr()
 
-        if matchKeyword("if") {
+        if match(.if) {
             let test = try parseOr()
             var alternate: Expression?
 
-            if matchKeyword("else") {
+            if match(.else) {
                 alternate = try parseOr()
             }
 
@@ -419,49 +311,32 @@ public struct Parser: Sendable {
 
     private mutating func parseOr() throws -> Expression {
         var expr = try parseAnd()
-
-        while matchKeyword("or") {
+        while match(.or) {
             let right = try parseAnd()
             expr = .binary(.or, expr, right)
         }
-
         return expr
     }
 
     private mutating func parseAnd() throws -> Expression {
-        var expr = try parseEquality()
-
-        while matchKeyword("and") {
-            let right = try parseEquality()
+        var expr = try parseComparison()
+        while match(.and) {
+            let right = try parseComparison()
             expr = .binary(.and, expr, right)
         }
-
-        return expr
-    }
-
-    private mutating func parseEquality() throws -> Expression {
-        var expr = try parseComparison()
-
-        while true {
-            if match(.equal) {
-                let right = try parseComparison()
-                expr = .binary(.equal, expr, right)
-            } else if match(.notEqual) {
-                let right = try parseComparison()
-                expr = .binary(.notEqual, expr, right)
-            } else {
-                break
-            }
-        }
-
         return expr
     }
 
     private mutating func parseComparison() throws -> Expression {
         var expr = try parseTerm()
-
         while true {
-            if match(.less) {
+            if match(.equal) {
+                let right = try parseTerm()
+                expr = .binary(.equal, expr, right)
+            } else if match(.notEqual) {
+                let right = try parseTerm()
+                expr = .binary(.notEqual, expr, right)
+            } else if match(.less) {
                 let right = try parseTerm()
                 expr = .binary(.less, expr, right)
             } else if match(.lessEqual) {
@@ -473,23 +348,21 @@ public struct Parser: Sendable {
             } else if match(.greaterEqual) {
                 let right = try parseTerm()
                 expr = .binary(.greaterEqual, expr, right)
-            } else if matchKeyword("in") {
+            } else if match(.in) {
                 let right = try parseTerm()
-                expr = .binary(.`in`, expr, right)
-            } else if matchKeyword("not"), matchKeyword("in") {
+                expr = .binary(.in, expr, right)
+            } else if match(.not), match(.in) {
                 let right = try parseTerm()
                 expr = .binary(.notIn, expr, right)
             } else {
                 break
             }
         }
-
         return expr
     }
 
     private mutating func parseTerm() throws -> Expression {
         var expr = try parseFactor()
-
         while true {
             if match(.plus) {
                 let right = try parseFactor()
@@ -504,13 +377,11 @@ public struct Parser: Sendable {
                 break
             }
         }
-
         return expr
     }
 
     private mutating func parseFactor() throws -> Expression {
         var expr = try parseUnary()
-
         while true {
             if match(.multiply) {
                 let right = try parseUnary()
@@ -525,36 +396,23 @@ public struct Parser: Sendable {
                 break
             }
         }
-
         return expr
     }
 
     private mutating func parseUnary() throws -> Expression {
-        if matchKeyword("not") {
+        if match(.not) {
             let expr = try parseUnary()
             return .unary(.not, expr)
         }
-
         if match(.minus) {
             let expr = try parseUnary()
             return .unary(.minus, expr)
         }
-
         if match(.plus) {
             let expr = try parseUnary()
             return .unary(.plus, expr)
         }
-
-        var expr = try parsePostfix()
-
-        // Handle adjacent string literals as implicit concatenation
-        while case .string = expr, case .string(let val) = try? parsePrimary(calledFromUnary: true)
-        {
-            let right = Expression.string(val)
-            expr = .binary(.concat, expr, right)
-        }
-
-        return expr
+        return try parsePostfix()
     }
 
     private mutating func parsePostfix() throws -> Expression {
@@ -565,9 +423,18 @@ public struct Parser: Sendable {
                 let name = try consumeIdentifier()
                 expr = .member(expr, .identifier(name), computed: false)
             } else if match(.openBracket) {
-                let index = try parseExpression()
+                // Slice or subscript
+                let start = try? parseExpression()
+                if match(.colon) {
+                    let stop = try? parseExpression()
+                    let step = match(.colon) ? try parseExpression() : nil
+                    expr = .slice(expr, start: start, stop: stop, step: step)
+                } else if let index = start {
+                    expr = .member(expr, index, computed: true)
+                } else {
+                    throw JinjaError.parser("Invalid subscript")
+                }
                 try consume(.closeBracket, message: "Expected ']' after index.")
-                expr = .member(expr, index, computed: true)
             } else if match(.openParen) {
                 let (args, kwargs) = try parseArguments()
                 try consume(.closeParen, message: "Expected ')' after arguments.")
@@ -583,8 +450,8 @@ public struct Parser: Sendable {
                 }
 
                 expr = .filter(expr, filterName, args, kwargs)
-            } else if matchKeyword("is") {
-                let negated = matchKeyword("not")
+            } else if match(.is) {
+                let negated = match(.not)
                 let testName = try consumeIdentifier()
                 var args: [Expression] = []
                 if match(.openParen) {
@@ -604,7 +471,7 @@ public struct Parser: Sendable {
         return expr
     }
 
-    private mutating func parsePrimary(calledFromUnary: Bool = false) throws -> Expression {
+    private mutating func parsePrimary() throws -> Expression {
         let token = peek()
         switch token.kind {
         case .string:
@@ -652,18 +519,10 @@ public struct Parser: Sendable {
             let expr = try parseExpression()
             try consume(.closeParen, message: "Expected ')' after expression.")
             return expr
-        case .identifier, .if, .else, .in, .is, .not, .and, .or:
+        case .identifier:
             advance()
             return .identifier(token.value)
         default:
-            if token.kind == .text {
-                throw JinjaError.parser("Unexpected text found in expression: '\(token.value)'")
-            }
-
-            if calledFromUnary {
-                // To avoid infinite recursion in parseUnary for adjacent string literal concatenation
-                throw JinjaError.parser("Not a primary expression")
-            }
             throw JinjaError.parser("Unexpected token for primary expression: \(token.kind)")
         }
     }
@@ -674,28 +533,85 @@ public struct Parser: Sendable {
 
         if !check(.closeParen) {
             repeat {
-                let expr = try parseExpression()
-                if match(.equals) {
-                    if case .identifier(let key) = expr {
-                        let value = try parseExpression()
-                        kwargs[key] = value
-                    } else {
-                        throw JinjaError.parser("Identifier expected for keyword argument.")
-                    }
+                // Look ahead for keyword argument
+                if let key = try? peekIdentifier(), tokens[current + 1].kind == .equals {
+                    advance()  // consume identifier
+                    advance()  // consume equals
+                    let value = try parseExpression()
+                    kwargs[key] = value
                 } else {
-                    args.append(expr)
+                    args.append(try parseExpression())
                 }
             } while match(.comma)
         }
 
         return (args, kwargs)
     }
-}
 
-// MARK: - Small helpers
-extension Array where Element == Node {
-    fileprivate func guardNonEmptyOrThrow(_ message: String = "") throws -> [Node] {
-        if isEmpty { throw JinjaError.parser(message.isEmpty ? "Empty block body" : message) }
-        return self
+    // MARK: - Helpers
+
+    private var isAtEnd: Bool {
+        current >= tokens.count || peek().kind == .eof
+    }
+
+    private func peek() -> Token {
+        guard current < tokens.count else {
+            return Token(kind: .eof, value: "", position: tokens.last?.position ?? 0)
+        }
+        return tokens[current]
+    }
+
+    private func peekIdentifier() throws -> String {
+        let token = peek()
+        guard token.kind == .identifier else {
+            throw JinjaError.parser("Expected identifier")
+        }
+        return token.value
+    }
+
+    @discardableResult
+    private mutating func advance() -> Token {
+        if !isAtEnd { current += 1 }
+        return previous()
+    }
+
+    private func previous() -> Token {
+        guard current > 0 else {
+            return Token(kind: .eof, value: "", position: 0)
+        }
+        return tokens[current - 1]
+    }
+
+    private func check(_ kind: Token.Kind) -> Bool {
+        isAtEnd ? false : peek().kind == kind
+    }
+
+    private mutating func match(_ kinds: Token.Kind...) -> Bool {
+        for kind in kinds {
+            if check(kind) {
+                advance()
+                return true
+            }
+        }
+        return false
+    }
+
+    @discardableResult
+    private mutating func consume(_ kind: Token.Kind, message: String) throws -> Token {
+        if check(kind) { return advance() }
+        throw JinjaError.parser("\(message). Got \(peek().kind) instead")
+    }
+
+    @discardableResult
+    private mutating func consumeIdentifier(_ name: String? = nil) throws -> String {
+        let token = peek()
+        if token.kind == .identifier {
+            if let name = name, token.value != name {
+                throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
+            }
+            advance()
+            return token.value
+        }
+        throw JinjaError.parser("Expected identifier but found \(token.kind).")
     }
 }

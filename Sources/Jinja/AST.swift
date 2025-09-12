@@ -58,13 +58,21 @@ public enum Statement: Sendable, Hashable {
     /// Block of nodes to execute sequentially.
     case program([Node])
     /// Variable assignment statement.
-    case set(String, Expression)
+    case set(target: Expression, value: Expression?, body: [Node])
     /// Conditional statement with test, body, and optional alternate.
     case `if`(Expression, [Node], [Node])
     /// Loop statement with variable, iterable, body, else block, and optional condition.
     case `for`(LoopVar, Expression, [Node], [Node], test: Expression?)
     /// Macro definition with name, parameters, default values, and body.
     case macro(String, [String], OrderedDictionary<String, Expression>, [Node])
+    /// Exits a loop immediately.
+    case `break`
+    /// Skips the current iteration of a loop.
+    case `continue`
+    /// Calls a macro with a body.
+    case call(callable: Expression, callerArgs: [Expression]?, body: [Node])
+    /// Applies a filter to a block of content.
+    case filter(filterExpr: Expression, body: [Node])
 }
 
 /// Loop variable specification for for-loops.

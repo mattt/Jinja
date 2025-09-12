@@ -98,10 +98,24 @@ public struct Token: Sendable, Hashable {
         case endfor
         /// Variable assignment keyword `set`.
         case set
+        /// End of set block keyword `endset`.
+        case endset
         /// Macro definition keyword `macro`.
         case macro
         /// End of macro block keyword `endmacro`.
         case endmacro
+        /// Loop control keyword `break`.
+        case `break`
+        /// Loop control keyword `continue`.
+        case `continue`
+        /// Call block keyword `call`.
+        case call
+        /// End of call block keyword `endcall`.
+        case endcall
+        /// Filter block keyword `filter`.
+        case filter
+        /// End of filter block keyword `endfilter`.
+        case endfilter
         /// End of file marker.
         case eof
     }
@@ -123,9 +137,12 @@ public enum Lexer: Sendable {
     private static let keywords: [String: Token.Kind] = [
         "if": .`if`, "else": .`else`, "elif": .elif, "endif": .endif,
         "for": .`for`, "endfor": .endfor, "in": .`in`, "not": .not,
-        "and": .and, "or": .or, "is": .`is`, "set": .set,
+        "and": .and, "or": .or, "is": .`is`, "set": .set, "endset": .endset,
         "macro": .macro, "endmacro": .endmacro,
         "true": .boolean, "false": .boolean, "none": .null,
+        "break": .`break`, "continue": .`continue`,
+        "call": .call, "endcall": .endcall,
+        "filter": .filter, "endfilter": .endfilter,
     ]
 
     private static let operators: [String: Token.Kind] = [

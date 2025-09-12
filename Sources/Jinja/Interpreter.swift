@@ -552,9 +552,17 @@ public enum Interpreter {
                 throw JinjaError.runtime("Cannot iterate over non-iterable value")
             }
 
-        case let .set(identifier, expression):
-            let value = try evaluateExpression(expression, env: env)
-            env[identifier] = value
+        case let .set(target, value, body):
+            if let valueExpr = value {
+                let evaluatedValue = try evaluateExpression(valueExpr, env: env)
+                try assign(target: target, value: evaluatedValue, env: env)
+            } else {
+                var bodyBuffer = Buffer()
+                try interpret(body, env: env, into: &bodyBuffer)
+                let renderedBody = bodyBuffer.build()
+                let valueToAssign = Value.string(renderedBody)
+                try assign(target: target, value: valueToAssign, env: env)
+            }
 
         case let .macro(name, parameters, defaults, body):
             // Record macro definition in environment
@@ -582,8 +590,108 @@ public enum Interpreter {
         case let .program(nodes):
             try interpret(nodes, env: env, into: &buffer)
 
+        case let .call(callable, callerArgs, body):
+            guard let callableValue = try? evaluateExpression(callable, env: env),
+                case .function(let function) = callableValue
+            else {
+                throw JinjaError.runtime("Cannot call non-function value")
+            }
+
+            var bodyBuffer = Buffer()
+            try interpret(body, env: env, into: &bodyBuffer)
+            let renderedBody = bodyBuffer.build()
+
+            var finalArgs = callerArgs?.compactMap { try? evaluateExpression($0, env: env) } ?? []
+            finalArgs.append(.string(renderedBody))
+
+            let result = try function(finalArgs)
+            buffer.write(result.description)
+
+        case let .filter(filterExpr, body):
+            var bodyBuffer = Buffer()
+            try interpret(body, env: env, into: &bodyBuffer)
+            let renderedBody = bodyBuffer.build()
+
+            if case let .filter(_, name, args, _) = filterExpr {
+                var filterArgs = [Value.string(renderedBody)]
+                filterArgs.append(contentsOf: try args.map { try evaluateExpression($0, env: env) })
+                // TODO: Handle kwargs in filters if necessary
+                let filteredValue = try evaluateFilter(name, filterArgs, env: env)
+                buffer.write(filteredValue.description)
+            } else if case let .identifier(name) = filterExpr {
+                let filteredValue = try evaluateFilter(name, [.string(renderedBody)], env: env)
+                buffer.write(filteredValue.description)
+            } else {
+                throw JinjaError.runtime("Invalid filter expression in filter statement")
+            }
+
+        case .break, .continue:
+            // These are handled by executeStatementWithControlFlow, this path shouldn't be hit.
+            throw JinjaError.runtime("Unexpected statement type for executeStatementWithOutput")
+        }
+    }
+
+    private static func executeStatement(_ statement: Statement, env: Environment) throws {
+        switch statement {
+        case let .set(target, value, body):
+            if let valueExpr = value {
+                let evaluatedValue = try evaluateExpression(valueExpr, env: env)
+                try assign(target: target, value: evaluatedValue, env: env)
+            } else {
+                var bodyBuffer = Buffer()
+                try interpret(body, env: env, into: &bodyBuffer)
+                let renderedBody = bodyBuffer.build()
+                let valueToAssign = Value.string(renderedBody)
+                try assign(target: target, value: valueToAssign, env: env)
+            }
+
+        case let .macro(name, parameters, defaults, body):
+            // Record macro definition in environment
+            env.macros[name] = Environment.MacroDef(
+                name: name, parameters: parameters, defaults: defaults, body: body)
+            // Expose as callable function too
+            env[name] = .function { passedArgs in
+                let macroEnv = Environment(parent: env)
+                // Start with defaults
+                for (key, expr) in defaults {
+                    // Evaluate defaults in current env
+                    let val = try evaluateExpression(expr, env: env)
+                    macroEnv[key] = val
+                }
+                // Bind positional args
+                for (index, paramName) in parameters.enumerated() {
+                    let value = index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
+                    macroEnv[paramName] = value
+                }
+                var macroBuffer = Buffer()
+                try interpret(body, env: macroEnv, into: &macroBuffer)
+                return .string(macroBuffer.build())
+            }
+
+        // These statements do not produce output directly or are handled elsewhere.
+        case .if, .for, .program, .break, .continue, .call, .filter:
+            break
+        }
+    }
+
+    private static func assign(target: Expression, value: Value, env: Environment) throws {
+        switch target {
+        case .identifier(let name):
+            env[name] = value
+        case .tuple(let expressions):
+            guard let values = value.array else {
+                throw JinjaError.runtime("Cannot unpack non-array value for tuple assignment.")
+            }
+            guard expressions.count == values.count else {
+                throw JinjaError.runtime(
+                    "Tuple assignment mismatch: \(expressions.count) variables and \(values.count) values."
+                )
+            }
+            for (expr, val) in zip(expressions, values) {
+                try assign(target: expr, value: val, env: env)
+            }
         default:
-            throw JinjaError.runtime("Unimplemented statement type")
+            throw JinjaError.runtime("Invalid target for assignment: \(target)")
         }
     }
 
@@ -1074,10 +1182,13 @@ public enum Interpreter {
             return items.contains { valuesEqual(value, $0) }
         case let .string(str):
             guard case let .string(substr) = value else { return false }
+            guard !substr.isEmpty else { return true } // '' in 'abc' -> true
             return str.contains(substr)
         case let .object(dict):
             guard case let .string(key) = value else { return false }
             return dict.keys.contains(key)
+        case .undefined, .null:
+            return false
         default:
             throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")

@@ -92,6 +92,12 @@ public enum Value: Sendable {
         case .function: true
         }
     }
+
+    /// Returns the array of values if this value is an array, otherwise `nil`.
+    public var array: [Value]? {
+        guard case let .array(values) = self else { return nil }
+        return values
+    }
 }
 
 // MARK: - CustomStringConvertible

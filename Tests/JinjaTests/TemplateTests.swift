@@ -263,7 +263,7 @@ struct TemplateTests {
         )
 
         // Check result of parser
-        let nodes = try Parser.parse(tokens, optimize: false)
+        let nodes = try Parser.parse(tokens)
         #expect(
             nodes == [
                 .expression(.unary(.not, .boolean(true))),
