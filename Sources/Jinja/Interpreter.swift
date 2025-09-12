@@ -12,7 +12,7 @@ private let builtinValues: Context = [
     "True": true,
     "False": false,
     "none": .null,
-    "range": .function { values, _ in
+    "range": .function { values, _, _ in
         guard !values.isEmpty else { return .array([]) }
 
         switch values.count {
@@ -248,8 +248,7 @@ public enum Interpreter {
             }
             let argValues = try argsExpr.map { try evaluateExpression($0, env: env) }
             let kwargs = try kwargsExpr.mapValues { try evaluateExpression($0, env: env) }
-            // TODO: Handle kwargs
-            return try function(argValues, env)
+            return try function(argValues, kwargs, env)
 
         case let .slice(array, start, stop, step):
             let arrayValue = try evaluateExpression(array, env: env)
@@ -366,12 +365,13 @@ public enum Interpreter {
                         ]
 
                         // Add cycle function
-                        let cycleFunction: @Sendable ([Value], Environment) throws -> Value = {
-                            cycleArgs, _ in
-                            guard !cycleArgs.isEmpty else { return .string("") }
-                            let cycleIndex = index % cycleArgs.count
-                            return cycleArgs[cycleIndex]
-                        }
+                        let cycleFunction:
+                            @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+                                cycleArgs, _, _ in
+                                guard !cycleArgs.isEmpty else { return .string("") }
+                                let cycleIndex = index % cycleArgs.count
+                                return cycleArgs[cycleIndex]
+                            }
 
                         var loopObj = loopContext
                         loopObj["cycle"] = .function(cycleFunction)
@@ -419,7 +419,7 @@ public enum Interpreter {
                             "revindex0": .integer(items.count - index - 1),
                         ]
                         var loopObj = loopContext
-                        loopObj["cycle"] = .function { args, _ in
+                        loopObj["cycle"] = .function { args, _, _ in
                             guard !args.isEmpty else { return .string("") }
                             let cycleIndex = index % args.count
                             return args[cycleIndex]
@@ -457,7 +457,7 @@ public enum Interpreter {
                             "revindex0": .integer(chars.count - index - 1),
                         ]
                         var loopObj = loopContext
-                        loopObj["cycle"] = .function { args, _ in
+                        loopObj["cycle"] = .function { args, _, _ in
                             guard !args.isEmpty else { return .string("") }
                             let cycleIndex = index % args.count
                             return args[cycleIndex]
@@ -491,7 +491,7 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs, callTimeEnv in
+            env[name] = .function { passedArgs, _, callTimeEnv in
                 let macroEnv = Environment(parent: env)
 
                 let caller = callTimeEnv["caller"]
@@ -527,14 +527,14 @@ public enum Interpreter {
             }
 
             let callTimeEnv = Environment(parent: env)
-            callTimeEnv["caller"] = .function { _, _ in
+            callTimeEnv["caller"] = .function { _, _, _ in
                 var bodyBuffer = Buffer()
                 try interpret(body, env: env, into: &bodyBuffer)
                 return .string(bodyBuffer.build())
             }
 
             let finalArgs = callerArgs?.compactMap { try? evaluateExpression($0, env: env) } ?? []
-            let result = try function(finalArgs, callTimeEnv)
+            let result = try function(finalArgs, [:], callTimeEnv)
             buffer.write(result.description)
 
         case let .filter(filterExpr, body):
@@ -581,7 +581,7 @@ public enum Interpreter {
             env.macros[name] = Environment.Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
-            env[name] = .function { passedArgs, callTimeEnv in
+            env[name] = .function { passedArgs, _, callTimeEnv in
                 let macroEnv = Environment(parent: env)
 
                 let caller = callTimeEnv["caller"]
@@ -729,27 +729,27 @@ public enum Interpreter {
         case let .string(str):
             switch propertyName {
             case "upper":
-                return .function { _, _ in .string(str.uppercased()) }
+                return .function { _, _, _ in .string(str.uppercased()) }
             case "lower":
-                return .function { _, _ in .string(str.lowercased()) }
+                return .function { _, _, _ in .string(str.lowercased()) }
             case "title":
-                return .function { _, _ in .string(str.capitalized) }
+                return .function { _, _, _ in .string(str.capitalized) }
             case "strip":
-                return .function { _, _ in
+                return .function { _, _, _ in
                     .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
             case "lstrip":
-                return .function { _, _ in
+                return .function { _, _, _ in
                     let trimmed = str.drop(while: { $0.isWhitespace })
                     return .string(String(trimmed))
                 }
             case "rstrip":
-                return .function { _, _ in
+                return .function { _, _, _ in
                     let reversed = str.reversed().drop(while: { $0.isWhitespace })
                     return .string(String(reversed.reversed()))
                 }
             case "split":
-                return .function { args, _ in
+                return .function { args, _, _ in
                     if args.isEmpty {
                         // Split on whitespace
                         let components = str.split(separator: " ").map(String.init)
@@ -767,7 +767,7 @@ public enum Interpreter {
                     return .array([.string(str)])
                 }
             case "replace":
-                return .function { args, _ in
+                return .function { args, _, _ in
                     guard args.count >= 2,
                         case let .string(old) = args[0],
                         case let .string(new) = args[1]
@@ -795,7 +795,8 @@ public enum Interpreter {
         case let .object(obj):
             // Support Python-like dict.items() for iteration
             if propertyName == "items" {
-                let fn: @Sendable ([Value], Environment) throws -> Value = { _, _ in
+                let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+                    _, _, _ in
                     let pairs = obj.map { key, value in Value.array([.string(key), value]) }
                     return .array(pairs)
                 }
@@ -820,7 +821,7 @@ public enum Interpreter {
         guard case let .function(fn) = testValue else {
             throw JinjaError.runtime("Unknown test: \(testName)")
         }
-        let result = try fn(argValues, env)
+        let result = try fn(argValues, [:], env)
         if case let .boolean(b) = result { return b }
         return result.isTruthy
     }
@@ -833,7 +834,7 @@ public enum Interpreter {
         // Try environment-provided filters first
         let filterValue = env[filterName]
         if case let .function(fn) = filterValue {
-            return try fn(argValues, env)
+            return try fn(argValues, kwargs, env)
         }
 
         // Fallback to built-in filters

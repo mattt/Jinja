@@ -19,7 +19,7 @@ public enum Value: Sendable {
     /// Object containing key-value pairs with preserved insertion order.
     case object(OrderedDictionary<String, Value>)
     /// Function value that can be called with arguments.
-    case function(@Sendable ([Value], Environment) throws -> Value)
+    case function(@Sendable ([Value], [String: Value], Environment) throws -> Value)
 
     /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {

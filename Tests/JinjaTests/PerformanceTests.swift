@@ -107,7 +107,7 @@ struct PerformanceTests {
         env["true"] = .boolean(true)
         env["false"] = .boolean(false)
         env["none"] = .null
-        env["range"] = .function { values, _ in
+        env["range"] = .function { values, _, _ in
             guard !values.isEmpty else { return .array([]) }
             switch values.count {
             case 1:

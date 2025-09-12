@@ -552,7 +552,7 @@ struct TemplateTests {
         let string = #"|{{ 5 }}|{{ -5 }}|{{ add(3, -1) }}|{{ (3 - 1) + (a - 5) - (a + 5)}}|"#
         let context: Context = [
             "a": 0,
-            "add": .function { (args: [Value], _) -> Value in
+            "add": .function { (args: [Value], _, _) -> Value in
                 guard args.count == 2,
                     case let .integer(x) = args[0],
                     case let .integer(y) = args[1]
@@ -708,7 +708,7 @@ struct TemplateTests {
         let context: Context = [
             "x": 10,
             "apple": "apple",
-            "func": .function { (args: [Value], _) -> Value in
+            "func": .function { (args: [Value], _, _) -> Value in
                 return .integer(args.count)
             },
         ]
@@ -740,7 +740,7 @@ struct TemplateTests {
             "x": "A",
             "y": "B",
             "obj": [
-                "x": .function { (args: [Value], _) -> Value in
+                "x": .function { (args: [Value], _, _) -> Value in
                     let strings = args.compactMap { value in
                         if case .string(let str) = value { return str }
                         return nil
@@ -748,7 +748,7 @@ struct TemplateTests {
                     return .string(strings.joined(separator: ", "))
                 },
                 "z": [
-                    "A": .function { (args: [Value], _) -> Value in
+                    "A": .function { (args: [Value], _, _) -> Value in
                         let strings = args.compactMap { value in
                             if case .string(let str) = value { return str }
                             return nil
@@ -1685,7 +1685,7 @@ struct TemplateTests {
         let string =
             #"|{{ func is callable }}|{{ 2 is callable }}|{{ 1 is iterable }}|{{ 'hello' is iterable }}|"#
         let context: Context = [
-            "func": .function { _, _ in .string("test") }
+            "func": .function { _, _, _ in .string("test") }
         ]
 
         // Check result of template
@@ -1776,7 +1776,7 @@ struct TemplateTests {
         let string = #"{{ "hello world"|replace("world", "jinja") }}"#
         let context: Context = [
             "a": 0,
-            "add": .function { (args: [Value], _) -> Value in
+            "add": .function { (args: [Value], _, _) -> Value in
                 guard args.count == 2,
                     case let .integer(x) = args[0],
                     case let .integer(y) = args[1]
@@ -1797,11 +1797,25 @@ struct TemplateTests {
         let string =
             #"|{{ func is callable }}|{{ 2 is callable }}|{{ 1 is iterable }}|{{ 'hello' is iterable }}|"#
         let context: Context = [
-            "func": .function { _, _ in .string("test") }
+            "func": .function { _, _, _ in .string("test") }
         ]
 
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "|true|true|true|true|")
+    }
+
+    @Test("Keyword arguments")
+    func testKeywordArguments() throws {
+        let string = #"{{ greet(name="world") }}"#
+        let context: Context = [
+            "greet": .function { args, kwargs, _ in
+                let name = kwargs["name"]?.string ?? "stranger"
+                return .string("Hello, \(name)!")
+            }
+        ]
+
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "Hello, world!")
     }
 }
