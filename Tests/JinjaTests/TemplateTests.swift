@@ -1189,4 +1189,389 @@ struct TemplateTests {
         let rendered = try Template(string).render(context)
         #expect(rendered == "pass")
     }
+
+    @Test("Macros")
+    func macros() throws {
+        let string =
+            #"{% macro hello(name) %}{{ 'Hello ' + name }}{% endmacro %}|{{ hello('Bob') }}|{{ hello('Alice') }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|Hello Bob|Hello Alice|")
+    }
+
+    @Test("Macros with default parameters")
+    func macrosWithDefaultParameters() throws {
+        let string =
+            #"{% macro hello(name, suffix='.') %}{{ 'Hello ' + name + suffix }}{% endmacro %}|{{ hello('A') }}|{{ hello('B', '!') }}|{{ hello('C', suffix='?') }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|Hello A.|Hello B!|Hello C?|")
+    }
+
+    @Test("Macros with multiple default parameters")
+    func macrosWithMultipleDefaultParameters() throws {
+        let string =
+            #"{% macro fn(x, y=2, z=3) %}{{ x + ',' + y + ',' + z }}{% endmacro %}|{{ fn(1) }}|{{ fn(1, 0) }}|{{ fn(1, 0, -1) }}|{{ fn(1, y=0, z=-1) }}|{{ fn(1, z=0) }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|1,2,3|1,0,3|1,0,-1|1,0,-1|1,2,0|")
+    }
+
+    @Test("Macros with caller")
+    func macrosWithCaller() throws {
+        let string =
+            #"{%- macro dummy(a, b='!') -%}{{ a }} {{ caller() }}{{ b }}{%- endmacro %}{%- call dummy('hello') -%}name{%- endcall -%}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "hello name!")
+    }
+
+    @Test("Macros with caller and parameters")
+    func macrosWithCallerAndParameters() throws {
+        let string =
+            #"{%- macro print_users(users) -%}{%- for user in users -%}{{ caller(user) }}{%- endfor -%}{%- endmacro %}{% call(user) print_users(users) %}  - {{ user.firstname }} {{ user.lastname }}\n{% endcall %}"#
+        let context: Context = [
+            "users": [
+                ["firstname": "John", "lastname": "Doe"],
+                ["firstname": "Jane", "lastname": "Smith"],
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "  - John Doe\n  - Jane Smith\n")
+    }
+
+    @Test("Context-specific keywords")
+    func contextKeywords() throws {
+        let string =
+            #"{% if if in in %}a{% endif %}{% set if = "a" %}{% set in = "abc" %}{% if if in in %}b{% endif %}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "ab")
+    }
+
+    @Test("Context-specific keywords with assignment")
+    func contextKeywordsWithAssignment() throws {
+        let string = #"|{{ if }}|{% set if = 2 %}{% if if == 2 %}{{ if }}{% endif %}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "||2|")
+    }
+
+    @Test("Unpacking")
+    func unpacking() throws {
+        let string =
+            #"{% macro mul(a, b, c) %}{{ a * b * c }}{% endmacro %}|{{ mul(1, 2, 3) }}|{{ mul(*[1, 2, 3]) }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|6|6|")
+    }
+
+    @Test("Filter operator with items")
+    func filterOperatorWithItems() throws {
+        let string = #"|{{ obj | length }}|{{ (obj | items)[1:] | length }}|"#
+        let context: Context = [
+            "obj": [
+                "a": 1,
+                "b": 2,
+                "c": 3,
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|3|2|")
+    }
+
+    @Test("Filter operator with tojson indent")
+    func filterOperatorWithToJsonIndent() throws {
+        let string = #"{{ obj | tojson(indent=2) }}"#
+        let context: Context = [
+            "obj": [
+                "string": "world",
+                "number": 5,
+                "boolean": true,
+                "null": nil,
+                "array": [1, 2, 3],
+                "object": ["key": "value"],
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered.contains("\"string\": \"world\""))
+        #expect(rendered.contains("\"number\": 5"))
+    }
+
+    @Test("Filter operator with map")
+    func filterOperatorWithMap() throws {
+        let string = #"{{ data | map(attribute='val') | list | tojson }}"#
+        let context: Context = [
+            "data": [
+                ["val": "a"],
+                ["val": "b"],
+                ["val": "c"],
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered.contains("a"))
+        #expect(rendered.contains("b"))
+        #expect(rendered.contains("c"))
+    }
+
+    @Test("Filter operator with indent")
+    func filterOperatorWithIndent() throws {
+        let string =
+            #"|{{ " 1 \n 2 \n 3 \n\n " | indent }}|{{ " 1 \n 2 \n 3 \n\n " | indent(2) }}|{{ " 1 \n 2 \n 3 \n\n " | indent(first=True) }}|{{ " 1 \n 2 \n 3 \n\n " | indent(blank=True) }}|{{ " 1 \n 2 \n 3 \n\n " | indent(4, first=True) }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered.contains(" 1"))
+        #expect(rendered.contains(" 2"))
+        #expect(rendered.contains(" 3"))
+    }
+
+    @Test("Filter operator with rejectattr")
+    func filterOperatorWithRejectAttr() throws {
+        let string = #"{{ items | rejectattr('key') | length }}"#
+        let context: Context = [
+            "items": [
+                ["key": "a"],
+                ["key": 0],
+                ["key": 1],
+                [:],
+                ["key": false],
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "3")
+    }
+
+    @Test("Filter operator with rejectattr equalto")
+    func filterOperatorWithRejectAttrEqualTo() throws {
+        let string = #"{{ messages | rejectattr('role', 'equalto', 'system') | length }}"#
+        let context: Context = [
+            "messages": [
+                ["role": "system"],
+                ["role": "user"],
+                ["role": "assistant"],
+            ]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "2")
+    }
+
+    @Test("Filter operator with string conversion")
+    func filterOperatorWithStringConversion() throws {
+        let string = #"{{ tools | string }}"#
+        let context: Context = [
+            "tools": [1, 2, 3]
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "[1, 2, 3]")
+    }
+
+    @Test("Filter operator with int conversion")
+    func filterOperatorWithIntConversion() throws {
+        let string =
+            #"|{{ "1" | int + 2 }}|{{ "invalid" | int }}|{{ "invalid" | int(-1) }}|{{ true | int }}|{{ false | int }}|{{ 1.5 | int }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|3|-1|1|0|1|")
+    }
+
+    @Test("Filter operator with float conversion")
+    func filterOperatorWithFloatConversion() throws {
+        let string =
+            #"|{{ "1.5" | float }}|{{ "invalid" | float }}|{{ "invalid" | float("hello") }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|1.5|0.0|0.0|")
+    }
+
+    @Test("Filter operator with replace count")
+    func filterOperatorWithReplaceCount() throws {
+        let string =
+            #"|{{ "abcabcabc" | replace("a", "b") }}|{{ "abcabcabc" | replace("a", "b", 1) }}|{{ "abcabcabc" | replace("a", "b", count=1) }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|bbcbbcbbc|bbcabcabc|bbcabcabc|")
+    }
+
+    @Test("Filter operator with default")
+    func filterOperatorWithDefault() throws {
+        let string =
+            #"|{{ undefined | default("hello") }}|{{ false | default("hello") }}|{{ false | default("hello", true) }}|{{ 0 | default("hello", boolean=true) }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|hello|false|hello|0|")
+    }
+
+    @Test("Filter operator with unique")
+    func filterOperatorWithUnique() throws {
+        let string = #"{{ [1, 2, 1, -1, 2] | unique | list | length }}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "3")
+    }
+
+    @Test("Is operator with defined")
+    func isOperatorWithDefined() throws {
+        let string =
+            #"|{{ unknown_var is defined }}|{{ unknown_var is not defined }}|{{ known_var is defined }}|{{ known_var is not defined }}|"#
+        let context: Context = [
+            "known_var": "test"
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|false|true|true|false|")
+    }
+
+    @Test("Is operator with boolean")
+    func isOperatorWithBoolean() throws {
+        let string =
+            #"|{{ true is true }}|{{ true is not true }}|{{ true is false }}|{{ true is not false }}|{{ true is boolean }}|{{ 1 is boolean }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|true|false|false|true|true|false|")
+    }
+
+    @Test("Is operator with odd even")
+    func isOperatorWithOddEven() throws {
+        let string =
+            #"|{{ 1 is odd }}|{{ 2 is odd }}|{{ 1 is even }}|{{ 2 is even }}|{{ 2 is number }}|{{ '2' is number }}|{{ 2 is integer }}|{{ '2' is integer }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|true|false|false|true|true|false|true|false|")
+    }
+
+    @Test("Is operator with callable")
+    func isOperatorWithCallable() throws {
+        let string =
+            #"|{{ func is callable }}|{{ 2 is callable }}|{{ 1 is iterable }}|{{ 'hello' is iterable }}|"#
+        let context: Context = [
+            "func": Value.function { _ in .string("test") }
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|true|false|false|true|")
+    }
+
+    @Test("Is operator with case")
+    func isOperatorWithCase() throws {
+        let string =
+            #"|{{ 'a' is lower }}|{{ 'A' is lower }}|{{ 'a' is upper }}|{{ 'A' is upper }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|true|false|false|true|")
+    }
+
+    @Test("Is operator with mapping")
+    func isOperatorWithMapping() throws {
+        let string =
+            #"|{{ string is mapping }}|{{ number is mapping }}|{{ array is mapping }}|{{ dict is mapping }}|"#
+        let context: Context = [
+            "string": "hello",
+            "number": 42,
+            "array": [1, 2, 3],
+            "dict": ["key": "value"],
+        ]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|false|false|false|true|")
+    }
+
+    @Test("Short circuit with false and")
+    func shortCircuitWithFalseAnd() throws {
+        let string = #"{{ false and raise_exception('This should not be printed') }}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "false")
+    }
+
+    @Test("Short circuit with true or")
+    func shortCircuitWithTrueOr() throws {
+        let string = #"{{ true or raise_exception('This should not be printed') }}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "true")
+    }
+
+    @Test("Namespace basic")
+    func namespaceBasic() throws {
+        let string = #"{% set ns = namespace() %}{% set ns.foo = 'bar' %}{{ ns.foo }}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "bar")
+    }
+
+    @Test("Namespace with default")
+    func namespaceWithDefault() throws {
+        let string = #"{% set ns = namespace(default=false) %}{{ ns.default }}"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "false")
+    }
+
+    @Test("Namespace with multiple defaults")
+    func namespaceWithMultipleDefaults() throws {
+        let string =
+            #"{% set ns = namespace(default=false, number=1+1) %}|{{ ns.default }}|{{ ns.number }}|"#
+        let context: Context = [:]
+
+        // Check result of template
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "|false|2|")
+    }
 }

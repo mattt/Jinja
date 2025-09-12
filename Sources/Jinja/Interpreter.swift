@@ -618,9 +618,9 @@ public enum Interpreter {
         case .greaterEqual:
             return .boolean(try compareValues(left, right) >= 0)
         case .and:
-            return .boolean(left.isTruthy && right.isTruthy)
+            return left.isTruthy ? right : left
         case .or:
-            return .boolean(left.isTruthy || right.isTruthy)
+            return left.isTruthy ? left : right
         case .`in`:
             return .boolean(try valueInCollection(left, right))
         case .notIn:
