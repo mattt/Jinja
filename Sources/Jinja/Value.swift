@@ -98,6 +98,30 @@ public enum Value: Sendable {
         guard case let .array(values) = self else { return nil }
         return values
     }
+
+    /// Returns the string value if this value is a string, otherwise `nil`.
+    public var string: String? {
+        guard case let .string(value) = self else { return nil }
+        return value
+    }
+
+    /// Returns the integer value if this value is an integer, otherwise `nil`.
+    public var integer: Int? {
+        guard case let .integer(value) = self else { return nil }
+        return value
+    }
+
+    /// Returns the floating-point value if this value is a number, otherwise `nil`.
+    public var number: Double? {
+        switch self {
+        case let .number(value):
+            return value
+        case let .integer(value):
+            return Double(value)
+        default:
+            return nil
+        }
+    }
 }
 
 // MARK: - CustomStringConvertible

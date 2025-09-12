@@ -305,14 +305,18 @@ public enum Interpreter {
                 return try evaluatePropertyMember(objectValue, propertyName)
             }
 
-        case let .filter(operand, filterName, args, _):
+        case let .filter(operand, filterName, args, kwargs):
             let operandValue = try evaluateExpression(operand, env: env)
             var argValues = [operandValue]
             for arg in args {
                 let value = try evaluateExpression(arg, env: env)
                 argValues.append(value)
             }
-            return try evaluateFilter(filterName, argValues, env: env)
+            var kwargValues: [String: Value] = [:]
+            for (key, expr) in kwargs {
+                kwargValues[key] = try evaluateExpression(expr, env: env)
+            }
+            return try evaluateFilter(filterName, argValues, kwargs: kwargValues, env: env)
 
         case let .ternary(value, test, alternate):
             let testValue = try evaluateExpression(test, env: env)
@@ -612,14 +616,15 @@ public enum Interpreter {
             try interpret(body, env: env, into: &bodyBuffer)
             let renderedBody = bodyBuffer.build()
 
-            if case let .filter(_, name, args, _) = filterExpr {
+            if case let .filter(_, name, args, kwargs) = filterExpr {
                 var filterArgs = [Value.string(renderedBody)]
                 filterArgs.append(contentsOf: try args.map { try evaluateExpression($0, env: env) })
                 // TODO: Handle kwargs in filters if necessary
-                let filteredValue = try evaluateFilter(name, filterArgs, env: env)
+                let filteredValue = try evaluateFilter(name, filterArgs, kwargs: [:], env: env)
                 buffer.write(filteredValue.description)
             } else if case let .identifier(name) = filterExpr {
-                let filteredValue = try evaluateFilter(name, [.string(renderedBody)], env: env)
+                let filteredValue = try evaluateFilter(
+                    name, [.string(renderedBody)], kwargs: [:], env: env)
                 buffer.write(filteredValue.description)
             } else {
                 throw JinjaError.runtime("Invalid filter expression in filter statement")
@@ -892,7 +897,9 @@ public enum Interpreter {
         }
     }
 
-    private static func evaluateFilter(_ filterName: String, _ argValues: [Value], env: Environment)
+    private static func evaluateFilter(
+        _ filterName: String, _ argValues: [Value], kwargs: [String: Value], env: Environment
+    )
         throws -> Value
     {
         // Inline the most common filters for performance
@@ -954,6 +961,444 @@ public enum Interpreter {
         case "tojson":
             guard let value = argValues.first else { return .string("null") }
             return .string(toJsonString(value))
+
+        case "abs":
+            guard let value = argValues.first else {
+                return .integer(0)
+            }
+            switch value {
+            case let .integer(i):
+                return .integer(abs(i))
+            case let .number(n):
+                return .number(abs(n))
+            default:
+                // TODO: check what python jinja does
+                return .integer(0)
+            }
+
+        case "capitalize":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            return .string(str.prefix(1).uppercased() + str.dropFirst().lowercased())
+
+        case "center":
+            guard case let .string(str) = argValues.first,
+                argValues.count > 1,
+                case let .integer(width) = argValues[1]
+            else {
+                // TODO: default width?
+                return argValues.first ?? .string("")
+            }
+
+            let padCount = width - str.count
+            if padCount <= 0 {
+                return .string(str)
+            }
+            let leftPad = String(repeating: " ", count: padCount / 2)
+            let rightPad = String(repeating: " ", count: padCount - (padCount / 2))
+            return .string(leftPad + str + rightPad)
+
+        case "first":
+            guard let value = argValues.first else { return .undefined }
+            switch value {
+            case let .array(arr):
+                return arr.first ?? .undefined
+            case let .string(str):
+                return .string(String(str.prefix(1)))
+            default:
+                return .undefined
+            }
+
+        case "last":
+            guard let value = argValues.first else { return .undefined }
+            switch value {
+            case let .array(arr):
+                return arr.last ?? .undefined
+            case let .string(str):
+                return .string(String(str.suffix(1)))
+            default:
+                return .undefined
+            }
+
+        case "float":
+            guard let value = argValues.first else { return .number(0.0) }
+            switch value {
+            case let .integer(i):
+                return .number(Double(i))
+            case let .number(n):
+                return .number(n)
+            case let .string(s):
+                return .number(Double(s) ?? 0.0)
+            default:
+                return .number(0.0)
+            }
+
+        case "int":
+            guard let value = argValues.first else { return .integer(0) }
+            switch value {
+            case let .integer(i):
+                return .integer(i)
+            case let .number(n):
+                return .integer(Int(n))
+            case let .string(s):
+                return .integer(Int(s) ?? 0)
+            default:
+                return .integer(0)
+            }
+
+        case "list":
+            guard let value = argValues.first else { return .array([]) }
+            switch value {
+            case let .array(arr):
+                return .array(arr)
+            case let .string(str):
+                return .array(str.map { .string(String($0)) })
+            case let .object(dict):
+                return .array(dict.values.map { $0 })
+            default:
+                return .array([])
+            }
+
+        case "max":
+            guard let value = argValues.first, let items = value.array else { return .undefined }
+            return items.max(by: { a, b in
+                do {
+                    return try compareValues(a, b) < 0
+                } catch {
+                    return false
+                }
+            }) ?? .undefined
+
+        case "min":
+            guard let value = argValues.first, let items = value.array else { return .undefined }
+            return items.min(by: { a, b in
+                do {
+                    return try compareValues(a, b) < 0
+                } catch {
+                    return false
+                }
+            }) ?? .undefined
+
+        case "round":
+            guard let value = argValues.first else { return .number(0.0) }
+            let precision = (argValues.count > 1 ? argValues[1].integer : 0) ?? 0
+            let method = argValues.count > 2 ? (argValues[2].string ?? "common") : "common"
+
+            guard let number = value.number else {
+                return value  // Or throw error
+            }
+
+            if method == "common" {
+                let divisor = pow(10.0, Double(precision))
+                return .number((number * divisor).rounded() / divisor)
+            } else if method == "ceil" {
+                let divisor = pow(10.0, Double(precision))
+                return .number(ceil(number * divisor) / divisor)
+            } else if method == "floor" {
+                let divisor = pow(10.0, Double(precision))
+                return .number(floor(number * divisor) / divisor)
+            }
+            return .number(number)
+
+        case "string":
+            guard let value = argValues.first else { return .string("") }
+            return .string(value.description)
+
+        case "title":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            return .string(str.capitalized)
+
+        case "wordcount":
+            guard case let .string(str) = argValues.first else {
+                return .integer(0)
+            }
+            let words = str.split { $0.isWhitespace || $0.isNewline }
+            return .integer(words.count)
+
+        case "replace":
+            guard argValues.count >= 3,
+                case let .string(str) = argValues[0],
+                case let .string(old) = argValues[1],
+                case let .string(new) = argValues[2]
+            else {
+                return argValues.first ?? .string("")
+            }
+            let count = argValues.count > 3 ? argValues[3].integer : nil
+            var result = ""
+            var remaining = str
+            var replacements = 0
+            while let range = remaining.range(of: old) {
+                if let count = count, replacements >= count {
+                    break
+                }
+                result += remaining[..<range.lowerBound]
+                result += new
+                remaining = String(remaining[range.upperBound...])
+                replacements += 1
+            }
+            result += remaining
+            return .string(result)
+
+        case "urlencode":
+            guard let value = argValues.first else {
+                return .string("")
+            }
+
+            let str: String
+            if case let .string(s) = value {
+                str = s
+            } else if case .object(let dict) = value {
+                str = dict.map { key, value in
+                    let encodedKey =
+                        key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    let encodedValue =
+                        value.description.addingPercentEncoding(
+                            withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    return "\(encodedKey)=\(encodedValue)"
+                }.joined(separator: "&")
+            } else {
+                return .string("")
+            }
+
+            return .string(str.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")
+
+        case "batch":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 1, let batchSize = argValues[1].integer, batchSize > 0
+            else {
+                return .array([])
+            }
+
+            let fillWith = argValues.count > 2 ? argValues[2] : .null
+
+            var result = [Value]()
+            var batch = [Value]()
+            for item in items {
+                batch.append(item)
+                if batch.count == batchSize {
+                    result.append(.array(batch))
+                    batch = []
+                }
+            }
+            if !batch.isEmpty {
+                while batch.count < batchSize {
+                    batch.append(fillWith)
+                }
+                result.append(.array(batch))
+            }
+            return .array(result)
+
+        case "reverse":
+            guard let value = argValues.first else { return .undefined }
+            switch value {
+            case let .array(arr):
+                return .array(arr.reversed())
+            case let .string(str):
+                return .string(String(str.reversed()))
+            default:
+                return value
+            }
+
+        case "sort":
+            guard let value = argValues.first, var items = value.array else {
+                return .array([])
+            }
+            let reverse = argValues.count > 1 ? argValues[1].isTruthy : false
+            items.sort { a, b in
+                do {
+                    let result = try compareValues(a, b)
+                    return reverse ? result > 0 : result < 0
+                } catch {
+                    return false
+                }
+            }
+            return .array(items)
+
+        case "sum":
+            guard let value = argValues.first, let items = value.array else {
+                return .integer(0)
+            }
+            let start = argValues.count > 1 ? argValues[1] : .integer(0)
+            let sum = items.reduce(start) { acc, next in
+                try! addValues(acc, next)  // Should handle errors
+            }
+            return sum
+
+        case "truncate":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            let length = argValues.count > 1 ? (argValues[1].integer ?? 255) : 255
+            let killwords = argValues.count > 2 ? (argValues[2].isTruthy) : false
+            let end = argValues.count > 3 ? (argValues[3].string ?? "...") : "..."
+
+            if str.count <= length {
+                return .string(str)
+            }
+
+            if killwords {
+                return .string(str.prefix(length) + end)
+            } else {
+                let truncated = str.prefix(length)
+                if let lastSpace = truncated.lastIndex(where: { $0.isWhitespace }) {
+                    return .string(truncated[..<lastSpace] + end)
+                } else {
+                    return .string(truncated + end)
+                }
+            }
+
+        case "unique":
+            guard let value = argValues.first, let items = value.array else {
+                return .array([])
+            }
+            var seen = Set<Value>()
+            var result = [Value]()
+            for item in items {
+                if !seen.contains(item) {
+                    seen.insert(item)
+                    result.append(item)
+                }
+            }
+            return .array(result)
+
+        case "indent":
+            guard case let .string(str) = argValues.first else {
+                return .string("")
+            }
+            let width = argValues.count > 1 ? (argValues[1].integer ?? 4) : 4
+            let indentFirst = argValues.count > 2 ? (argValues[2].isTruthy) : true
+            let indentChar = String(repeating: " ", count: width)
+            let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(
+                String.init)
+            var result = ""
+            for (i, line) in lines.enumerated() {
+                if i == 0 && !indentFirst {
+                    result += line
+                } else if !line.isEmpty {
+                    result += indentChar + line
+                }
+                if i < lines.count - 1 {
+                    result += "\n"
+                }
+            }
+            return .string(result)
+
+        case "slice":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 1, let numSlices = argValues[1].integer, numSlices > 0
+            else {
+                return .array([])
+            }
+
+            let fillWith = argValues.count > 2 ? argValues[2] : .null
+            var result = Array(repeating: [Value](), count: numSlices)
+            let itemsPerSlice = (items.count + numSlices - 1) / numSlices
+
+            for i in 0..<itemsPerSlice {
+                for j in 0..<numSlices {
+                    let index = i * numSlices + j
+                    if index < items.count {
+                        result[j].append(items[index])
+                    } else {
+                        result[j].append(fillWith)
+                    }
+                }
+            }
+
+            return .array(result.map { .array($0) })
+
+        case "map":
+            guard let value = argValues.first, let items = value.array else {
+                return .array([])
+            }
+
+            if let filterName = argValues.count > 1 ? argValues[1].string : nil {
+                return .array(
+                    try items.map {
+                        try evaluateFilter(filterName, [$0], kwargs: [:], env: env)
+                    })
+            } else if let attribute = kwargs["attribute"]?.string {
+                return .array(
+                    try items.map {
+                        try evaluatePropertyMember($0, attribute)
+                    })
+            }
+
+            return .array([])
+
+        case "select":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 1, let testName = argValues[1].string
+            else {
+                return .array([])
+            }
+            let testArgs = Array(argValues.dropFirst(2))
+            return .array(
+                try items.filter {
+                    try evaluateTest(testName, [$0] + testArgs, env: env)
+                })
+
+        case "reject":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 1, let testName = argValues[1].string
+            else {
+                return .array([])
+            }
+            let testArgs = Array(argValues.dropFirst(2))
+            return .array(
+                try items.filter {
+                    try !evaluateTest(testName, [$0] + testArgs, env: env)
+                })
+
+        case "selectattr":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 2, let attribute = argValues[1].string,
+                let testName = argValues[2].string
+            else {
+                return .array([])
+            }
+            let testArgs = Array(argValues.dropFirst(3))
+            return .array(
+                try items.filter {
+                    let attrValue = try evaluatePropertyMember($0, attribute)
+                    return try evaluateTest(testName, [attrValue] + testArgs, env: env)
+                })
+
+        case "rejectattr":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 2, let attribute = argValues[1].string,
+                let testName = argValues[2].string
+            else {
+                return .array([])
+            }
+            let testArgs = Array(argValues.dropFirst(3))
+            return .array(
+                try items.filter {
+                    let attrValue = try evaluatePropertyMember($0, attribute)
+                    return try !evaluateTest(testName, [attrValue] + testArgs, env: env)
+                })
+
+        case "groupby":
+            guard let value = argValues.first, let items = value.array,
+                argValues.count > 1, let attribute = argValues[1].string
+            else {
+                return .array([])
+            }
+            var groups = OrderedDictionary<Value, [Value]>()
+            for item in items {
+                let key = try evaluatePropertyMember(item, attribute)
+                groups[key, default: []].append(item)
+            }
+            let result = groups.map { key, value in
+                Value.object([
+                    "grouper": key,
+                    "list": .array(value),
+                ])
+            }
+            return .array(result)
 
         case "dictsort":
             guard case let .object(dict) = argValues.first else {
@@ -1182,7 +1627,7 @@ public enum Interpreter {
             return items.contains { valuesEqual(value, $0) }
         case let .string(str):
             guard case let .string(substr) = value else { return false }
-            guard !substr.isEmpty else { return true } // '' in 'abc' -> true
+            guard !substr.isEmpty else { return true }  // '' in 'abc' -> true
             return str.contains(substr)
         case let .object(dict):
             guard case let .string(key) = value else { return false }
