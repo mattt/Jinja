@@ -64,6 +64,12 @@ public enum Lexer: Sendable {
                 break
             }
         }
+        
+        // Always add EOF token if not already present
+        if tokens.isEmpty || tokens.last?.kind != .eof {
+            tokens.append(Token(kind: .eof, value: "", position: position))
+        }
+        
         return tokens
     }
 

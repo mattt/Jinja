@@ -284,12 +284,27 @@ public struct Parser: Sendable {
 
         // Extract loop variable and iterable from "for var in iterable"
         let parts = forContent.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-        guard parts.count >= 4 && parts[0] == "for" && parts[2] == "in" else {
+        guard parts.count >= 4 && parts[0] == "for" else {
             throw JinjaError.parser("Invalid for loop syntax: \(forContent)")
         }
 
-        let loopVarName = parts[1]
-        let iterableContent = parts[3...].joined(separator: " ")
+        // Find the "in" keyword to separate variables from iterable
+        guard let inIndex = parts.firstIndex(of: "in") else {
+            throw JinjaError.parser("Invalid for loop syntax: \(forContent)")
+        }
+        
+        let loopVarParts = Array(parts[1..<inIndex])
+        let iterableContent = parts[(inIndex + 1)...].joined(separator: " ")
+        
+        // Handle both single variable and tuple unpacking
+        let loopVar: LoopVar
+        if loopVarParts.count == 1 {
+            loopVar = .single(loopVarParts[0])
+        } else {
+            // Handle comma-separated variables for tuple unpacking
+            let varNames = loopVarParts.joined(separator: " ").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            loopVar = .tuple(varNames)
+        }
 
         // Parse the iterable expression
         let iterableExpr = try ExpressionParser.parse(iterableContent)
@@ -308,7 +323,7 @@ public struct Parser: Sendable {
             }
         }
 
-        return .statement(.for(.single(loopVarName), iterableExpr, forBody, [], test: nil))
+        return .statement(.for(loopVar, iterableExpr, forBody, [], test: nil))
     }
 
     // Parse a complete macro/endmacro structure

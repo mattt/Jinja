@@ -661,6 +661,35 @@ public enum Interpreter {
             default:
                 return value
             }
+            
+        // Test filters (return boolean values for type checking)
+        case "defined":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value != .undefined)
+            
+        case "undefined":
+            guard let value = argValues.first else { return .boolean(true) }
+            return .boolean(value == .undefined)
+            
+        case "none":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value == .null)
+            
+        case "string":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value.isString)
+            
+        case "number":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value.isNumber)
+            
+        case "boolean":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value.isBoolean)
+            
+        case "iterable":
+            guard let value = argValues.first else { return .boolean(false) }
+            return .boolean(value.isIterable)
 
         default:
             throw JinjaError.runtime("Unknown filter: \(filterName)")
