@@ -2,7 +2,7 @@ import Foundation
 @_exported import OrderedCollections
 
 /// A node in the abstract syntax tree representing template content.
-public indirect enum Node: Sendable {
+public indirect enum Node: Sendable, Hashable {
     /// Plain text content to be output directly.
     case text(String)
     /// Expression to be evaluated and output.
@@ -12,7 +12,7 @@ public indirect enum Node: Sendable {
 }
 
 /// An expression that can be evaluated to produce a value.
-public indirect enum Expression: Sendable {
+public indirect enum Expression: Sendable, Hashable {
     /// String literal value.
     case string(String)
     /// Floating-point number literal.
@@ -54,7 +54,7 @@ public indirect enum Expression: Sendable {
 }
 
 /// A control flow statement that affects template execution.
-public enum Statement: Sendable {
+public enum Statement: Sendable, Hashable {
     /// Block of nodes to execute sequentially.
     case program([Node])
     /// Variable assignment statement.
@@ -68,7 +68,7 @@ public enum Statement: Sendable {
 }
 
 /// Loop variable specification for for-loops.
-public enum LoopVar: Sendable {
+public enum LoopVar: Sendable, Hashable {
     /// Single loop variable.
     case single(String)
     /// Multiple loop variables for unpacking.
@@ -76,7 +76,7 @@ public enum LoopVar: Sendable {
 }
 
 /// Binary operators for expressions.
-public enum BinaryOp: String, Sendable {
+public enum BinaryOp: String, Sendable, Hashable {
     // MARK: Arithmetic Operators
 
     /// Addition operator (`+`)
@@ -139,7 +139,7 @@ public enum BinaryOp: String, Sendable {
 }
 
 /// Unary operators for expressions.
-public enum UnaryOp: String, Sendable {
+public enum UnaryOp: String, Sendable, Hashable {
     /// Logical negation operator.
     case not = "not"
     /// Numeric negation operator.

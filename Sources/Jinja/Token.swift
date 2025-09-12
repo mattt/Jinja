@@ -1,7 +1,7 @@
 /// A lexical token produced by parsing Jinja template source code.
-public struct Token: Sendable {
+public struct Token: Sendable, Hashable {
     /// The specific type of token representing different syntactic elements.
-    public enum Kind: Sendable {
+    public enum Kind: Sendable, Hashable {
         /// Plain text content outside of Jinja template constructs.
         case text
         /// Expression content within `{{ }}` delimiters.
