@@ -76,7 +76,7 @@ public enum LoopVar: Sendable, Hashable {
 }
 
 /// Binary operators for expressions.
-public enum BinaryOp: String, Sendable, Hashable {
+public enum BinaryOp: String, Sendable, Hashable, CaseIterable {
     // MARK: Arithmetic Operators
 
     /// Addition operator (`+`)
@@ -139,7 +139,7 @@ public enum BinaryOp: String, Sendable, Hashable {
 }
 
 /// Unary operators for expressions.
-public enum UnaryOp: String, Sendable, Hashable {
+public enum UnaryOp: String, Sendable, Hashable, CaseIterable {
     /// Logical negation operator.
     case not = "not"
     /// Numeric negation operator.

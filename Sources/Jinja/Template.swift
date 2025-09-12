@@ -2,7 +2,7 @@ import Foundation
 import OrderedCollections
 
 /// A compiled Jinja template that can be rendered with context data.
-public struct Template: Sendable {
+public struct Template: Sendable, Hashable {
     let nodes: [Node]
 
     init(nodes: [Node]) {
