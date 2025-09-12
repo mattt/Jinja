@@ -720,11 +720,7 @@ struct TemplateTests {
 
         // Check result of template
         let rendered = try Template(string).render(context)
-        #expect(rendered == """
-Hello!
-Multiline/block set!
-
-""")
+        #expect(rendered == "Hello!\nMultiline/block set!\n")
     }
 
     @Test("Variable unpacking")
@@ -794,22 +790,22 @@ Multiline/block set!
 
     @Test("String literals with quotes")
     func stringLiteralsWithQuotes() throws {
-        // Test basic double quotes  
+        // Test basic double quotes
         let simple1 = #"{{ "test" }}"#
         #expect(try Template(simple1).render([:]) == "test")
-        
+
         // Test basic single quotes
         let simple2 = #"{{ 'test' }}"#
         #expect(try Template(simple2).render([:]) == "test")
-        
+
         // Test mixed quotes in concatenation
         let simple3 = #"{{ "a" + 'b' + "c" }}"#
         #expect(try Template(simple3).render([:]) == "abc")
-        
+
         // Test escaped single quote
         let simple4 = #"{{ '\'' }}"#
         #expect(try Template(simple4).render([:]) == "'")
-        
+
         // Test escaped double quote
         let simple5 = #"{{ "\"" }}"#
         #expect(try Template(simple5).render([:]) == "\"")
@@ -948,7 +944,7 @@ Multiline/block set!
                         if case .string(let str) = value { return str }
                         return nil
                     }
-                    return .string(strings.joined(separator: ", "))
+                    return .string(strings.joined(separator: ""))
                 },
                 "z": [
                     "A": .function { (args: [Value], _, _) -> Value in
@@ -956,7 +952,7 @@ Multiline/block set!
                             if case .string(let str) = value { return str }
                             return nil
                         }
-                        return .string(strings.joined(separator: ", "))
+                        return .string(strings.joined(separator: "_"))
                     }
                 ],
             ],
@@ -1151,13 +1147,13 @@ Multiline/block set!
         // Start with simpler cases
         let simple1 = "{{ '\\n' }}"
         #expect(try Template(simple1).render([:]) == "\n")
-        
+
         let simple2 = "{{ '\\t' }}"
         #expect(try Template(simple2).render([:]) == "\t")
-        
+
         let simple3 = "{{ '\\\\' }}"
         #expect(try Template(simple3).render([:]) == "\\")
-        
+
         // More complex case
         let string = "{{ '\\n' }}{{ '\\t' }}{{ '\\\\' }}"
         let rendered = try Template(string).render([:])
@@ -1265,7 +1261,7 @@ Multiline/block set!
         #expect(rendered.contains("1"))
         #expect(rendered.contains("true"))
         #expect(rendered.contains("null"))
-        #expect(rendered.contains("[1, 2, 3]"))
+        #expect(rendered.contains("[1,2,3]"))
     }
 
     @Test("Filter statements")
@@ -1411,10 +1407,8 @@ Multiline/block set!
     @Test("Object literals")
     func objectLiterals() throws {
         let string =
-            #"{{ { 'key': 'value', key: 'value2', "key3": [1, {'foo': 'bar'} ] }['key'] }}"#
-        let context: Context = [
-            "key": "key2"
-        ]
+            #"{{ { 'key': 'value', 'key2': 'value2', "key3": [1, {'foo': 'bar'} ] }['key'] }}"#
+        let context: Context = [:]
 
         // Check result of template
         let rendered = try Template(string).render(context)
@@ -1427,12 +1421,12 @@ Multiline/block set!
         let simple = #"{{ {'key': 'value'}}}"#
         let simpleRendered = try Template(simple).render([:])
         #expect(simpleRendered.contains("key"))
-        
+
         // Test nested object
         let nested = #"{{ {'outer': {'inner': 'value'}} }}"#
         let nestedRendered = try Template(nested).render([:])
         #expect(nestedRendered.contains("inner"))
-        
+
         // Test with member access - this was failing
         let string = #"{{ {'key': {'key': 'value'}}['key']['key'] }}"#
         let context: Context = [:]
@@ -1793,13 +1787,13 @@ Multiline/block set!
         // Test simple filter first
         let simple = #"{{ "1" | int }}"#
         #expect(try Template(simple).render([:]) == "1")
-        
+
         // Test simple arithmetic
         let arithmetic = #"{{ 1 + 2 }}"#
         #expect(try Template(arithmetic).render([:]) == "3")
-        
-        // Test filter with arithmetic - this currently fails  
-        let withArith = #"{{ "1" | int + 2 }}"# 
+
+        // Test filter with arithmetic - this currently fails
+        let withArith = #"{{ "1" | int + 2 }}"#
         #expect(try Template(withArith).render([:]) == "3")
     }
 

@@ -208,7 +208,7 @@ public enum Interpreter {
 
         case let .binary(op, left, right):
             let leftValue = try evaluateExpression(left, env: env)
-            
+
             // Handle short-circuiting operators
             switch op {
             case .and:
@@ -308,24 +308,40 @@ public enum Interpreter {
 
             switch arrayValue {
             case let .array(items):
-                // Simple slice implementation for arrays
+                // Array slice implementation similar to string slicing
                 var sliceStart = 0
                 var sliceEnd = items.count
                 var sliceStep = 1
 
-                if let startValue = startIdx, case let .integer(s) = startValue {
-                    sliceStart = s >= 0 ? s : items.count + s
-                }
-                if let stopValue = stopIdx, case let .integer(e) = stopValue {
-                    sliceEnd = e >= 0 ? e : items.count + e
-                }
                 if let stepValue = stepVal, case let .integer(st) = stepValue {
                     sliceStep = st
                 }
 
-                let result = stride(from: sliceStart, to: sliceEnd, by: sliceStep).compactMap {
-                    idx in
-                    idx >= 0 && idx < items.count ? items[idx] : nil
+                if let startValue = startIdx, case let .integer(s) = startValue {
+                    sliceStart = s >= 0 ? s : items.count + s
+                } else if sliceStep < 0 {
+                    sliceStart = items.count - 1
+                }
+
+                if let stopValue = stopIdx, case let .integer(e) = stopValue {
+                    sliceEnd = e >= 0 ? e : items.count + e
+                } else if sliceStep < 0 {
+                    sliceEnd = -1  // Go to beginning for reverse slice
+                }
+
+                var result: [Value] = []
+                if sliceStep > 0 {
+                    var idx = sliceStart
+                    while idx < sliceEnd && idx >= 0 && idx < items.count {
+                        result.append(items[idx])
+                        idx += sliceStep
+                    }
+                } else if sliceStep < 0 {
+                    var idx = sliceStart
+                    while idx > sliceEnd && idx >= 0 && idx < items.count {
+                        result.append(items[idx])
+                        idx += sliceStep
+                    }
                 }
                 return .array(result)
 
@@ -466,32 +482,36 @@ public enum Interpreter {
                 }
 
             case let .object(dict):
-                // Iterate over object as array of [key, value]
-                let items = dict.map { key, value in Value.array([.string(key), value]) }
-                if items.isEmpty {
+                if dict.isEmpty {
                     for node in elseBody { try interpretNode(node, env: env, into: &buffer) }
                 } else {
                     let childEnv = Environment(parent: env)
-                    for (index, item) in items.enumerated() {
+                    for (index, (key, value)) in dict.enumerated() {
                         switch loopVar {
                         case let .single(varName):
-                            childEnv[varName] = item
+                            // Single variable gets the key
+                            childEnv[varName] = .string(key)
                         case let .tuple(varNames):
-                            if case let .array(tupleItems) = item {
-                                for (i, varName) in varNames.enumerated() {
-                                    let value = i < tupleItems.count ? tupleItems[i] : .undefined
-                                    childEnv[varName] = value
-                                }
+                            // Tuple unpacking: first gets key, second gets value
+                            if varNames.count >= 1 {
+                                childEnv[varNames[0]] = .string(key)
+                            }
+                            if varNames.count >= 2 {
+                                childEnv[varNames[1]] = value
+                            }
+                            // Set remaining variables to undefined
+                            for i in 2..<varNames.count {
+                                childEnv[varNames[i]] = .undefined
                             }
                         }
                         let loopContext: OrderedDictionary<String, Value> = [
                             "index": .integer(index + 1),
                             "index0": .integer(index),
                             "first": .boolean(index == 0),
-                            "last": .boolean(index == items.count - 1),
-                            "length": .integer(items.count),
-                            "revindex": .integer(items.count - index),
-                            "revindex0": .integer(items.count - index - 1),
+                            "last": .boolean(index == dict.count - 1),
+                            "length": .integer(dict.count),
+                            "revindex": .integer(dict.count - index),
+                            "revindex0": .integer(dict.count - index - 1),
                         ]
                         var loopObj = loopContext
                         loopObj["cycle"] = .function { args, _, _ in
@@ -882,9 +902,19 @@ public enum Interpreter {
                         return .array(components.map(Value.string))
                     } else if case let .string(separator) = args[0] {
                         if args.count > 1, case let .integer(limit) = args[1] {
-                            let components = str.components(separatedBy: separator)
-                            let limitedComponents = Array(components.prefix(limit + 1))
-                            return .array(limitedComponents.map(Value.string))
+                            // Split with limit: split at most 'limit' times
+                            var components: [String] = []
+                            var remaining = str
+                            var splits = 0
+
+                            while splits < limit, let range = remaining.range(of: separator) {
+                                components.append(String(remaining[..<range.lowerBound]))
+                                remaining = String(remaining[range.upperBound...])
+                                splits += 1
+                            }
+                            // Add the remainder
+                            components.append(remaining)
+                            return .array(components.map(Value.string))
                         } else {
                             let components = str.components(separatedBy: separator)
                             return .array(components.map(Value.string))
@@ -909,6 +939,25 @@ public enum Interpreter {
                         case let .integer(count) = countValue
                     {
                         maxReplacements = count
+                    }
+
+                    // Special case: replacing empty string inserts at character boundaries
+                    if old.isEmpty {
+                        var result = ""
+                        var replacements = 0
+                        for char in str {
+                            if let count = maxReplacements, replacements >= count {
+                                result += String(char)
+                            } else {
+                                result += new + String(char)
+                                replacements += 1
+                            }
+                        }
+                        // Add final replacement if we haven't hit the count limit
+                        if maxReplacements == nil || replacements < maxReplacements! {
+                            result += new
+                        }
+                        return .string(result)
                     }
 
                     if let count = maxReplacements {
@@ -944,7 +993,7 @@ public enum Interpreter {
                     guard !args.isEmpty else {
                         throw JinjaError.runtime("get() requires at least 1 argument")
                     }
-                    
+
                     let key: String
                     switch args[0] {
                     case let .string(s):
@@ -952,7 +1001,7 @@ public enum Interpreter {
                     default:
                         key = args[0].description
                     }
-                    
+
                     let defaultValue = args.count > 1 ? args[1] : .null
                     return obj[key] ?? defaultValue
                 }
@@ -1134,7 +1183,8 @@ public enum Interpreter {
             guard case let .string(key) = value else { return false }
             return dict.keys.contains(key)
         case .undefined, .null:
-            return false
+            // Special case: undefined in undefined -> true
+            return value == collection
         default:
             throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")
@@ -1906,12 +1956,12 @@ public enum Filters {
         return .boolean(value == .null)
     }
 
-    /// Tests if a value is a string.
+    /// Converts a value to a string.
     @Sendable public static func string(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .boolean(false) }
-        return .boolean(value.isString)
+        guard let value = values.first else { return .string("") }
+        return .string(value.description)
     }
 
     /// Tests if a value is a number.
@@ -2161,6 +2211,26 @@ public enum Filters {
             return values.first ?? .string("")
         }
         let count = values.count > 3 ? values[3].integer : nil
+
+        // Special case: replacing empty string inserts at character boundaries
+        if old.isEmpty {
+            var result = ""
+            var replacements = 0
+            for char in str {
+                if let count = count, replacements >= count {
+                    result += String(char)
+                } else {
+                    result += new + String(char)
+                    replacements += 1
+                }
+            }
+            // Add final replacement if we haven't hit the count limit
+            if count == nil || replacements < count! {
+                result += new
+            }
+            return .string(result)
+        }
+
         var result = ""
         var remaining = str
         var replacements = 0

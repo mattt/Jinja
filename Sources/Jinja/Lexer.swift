@@ -173,6 +173,7 @@ public enum Lexer: Sendable {
 
             var position = 0
             var inTag = false
+            var curlyBracketDepth = 0
 
             while position < buffer.count {
                 if inTag {
@@ -183,13 +184,18 @@ public enum Lexer: Sendable {
                 }
 
                 let (token, newPosition) = try extractTokenFromBuffer(
-                    buffer, at: position, inTag: inTag)
+                    buffer, at: position, inTag: inTag, curlyBracketDepth: curlyBracketDepth)
 
                 switch token.kind {
                 case .openExpression, .openStatement:
                     inTag = true
+                    curlyBracketDepth = 0
                 case .closeExpression, .closeStatement:
                     inTag = false
+                case .openBrace:
+                    curlyBracketDepth += 1
+                case .closeBrace:
+                    curlyBracketDepth -= 1
                 default:
                     break
                 }
@@ -232,7 +238,7 @@ public enum Lexer: Sendable {
     }
 
     private static func extractTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool, curlyBracketDepth: Int = 0
     ) throws -> (
         Token, Int
     ) {
@@ -255,7 +261,7 @@ public enum Lexer: Sendable {
         // Check for closing delimiters
         if char == 0x7D, position + 1 < buffer.count {  // '}'
             let nextChar = buffer[position + 1]
-            if nextChar == 0x7D {  // '}' -> "}}"
+            if nextChar == 0x7D && curlyBracketDepth == 0 {  // '}' -> "}}" (only if not inside object literal)
                 return (
                     Token(kind: .closeExpression, value: "}}", position: position), position + 2
                 )

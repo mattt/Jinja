@@ -525,12 +525,20 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseAnd() throws -> Expression {
-        var expr = try parseComparison()
+        var expr = try parseNot()
         while match(.and) {
-            let right = try parseComparison()
+            let right = try parseNot()
             expr = .binary(.and, expr, right)
         }
         return expr
+    }
+    
+    private mutating func parseNot() throws -> Expression {
+        if match(.not) {
+            let expr = try parseNot()
+            return .unary(.not, expr)
+        }
+        return try parseComparison()
     }
 
     private mutating func parseComparison() throws -> Expression {
@@ -568,15 +576,25 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseTerm() throws -> Expression {
-        var expr = try parseFilter()
+        var expr = try parseConcat()
         while true {
             if match(.plus) {
-                let right = try parseFilter()
+                let right = try parseConcat()
                 expr = .binary(.add, expr, right)
             } else if match(.minus) {
-                let right = try parseFilter()
+                let right = try parseConcat()
                 expr = .binary(.subtract, expr, right)
-            } else if match(.concat) {
+            } else {
+                break
+            }
+        }
+        return expr
+    }
+    
+    private mutating func parseConcat() throws -> Expression {
+        var expr = try parseFilter()
+        while true {
+            if match(.concat) {
                 let right = try parseFilter()
                 expr = .binary(.concat, expr, right)
             } else if check(.string) || check(.identifier) || check(.number) || check(.boolean)
@@ -612,10 +630,6 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseUnary() throws -> Expression {
-        if match(.not) {
-            let expr = try parseUnary()
-            return .unary(.not, expr)
-        }
         if match(.minus) {
             let expr = try parseUnary()
             return .unary(.minus, expr)
