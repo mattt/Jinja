@@ -562,16 +562,44 @@ struct TemplateTests {
         let string = #"|{{ '{{ "hi" }}' }}|{{ '{% if true %}{% endif %}' }}|"#
         let context: Context = [:]
 
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .text, value: "|", position: 0),
+                Token(kind: .expression, value: " '{{ \"hi\" }}' ", position: 1),
+                Token(kind: .text, value: "|", position: 19),
+                Token(kind: .expression, value: " '{% if true %}{% endif %}' ", position: 20),
+                Token(kind: .text, value: "|", position: 52),
+                Token(kind: .eof, value: "", position: 53),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .text("|"),
+                .expression(.string(" '{{ \"hi\" }}' ")),
+                .text("|"),
+                .expression(.string(" '{% if true %}{% endif %}' ")),
+                .text("|"),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "|{{ \"hi\" }}|{% if true %}{% endif %}|")
+
+        // Check result of template initialized with nodes
+        #expect(rendered == (try Template(nodes: nodes).render(context)))
     }
 
     @Test("String concatenation")
     func stringConcatenation() throws {
         let string = #"{{ 'a' + 'b' 'c' }}"#
         let context: Context = [:]
-        
+
         // Check result of lexer
         let tokens = try Lexer.tokenize(string)
         #expect(
@@ -586,14 +614,15 @@ struct TemplateTests {
         #expect(
             nodes == [
                 .expression(
-                    .binary(.add,
+                    .binary(
+                        .add,
                         .string("a"),
                         .binary(.concat, .string("b"), .string("c"))
                     )
                 )
             ]
         )
-        
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "abc")

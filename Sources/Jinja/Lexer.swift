@@ -286,16 +286,32 @@ public enum Lexer: Sendable {
             Token, Int
         )
     {
-        // Find closing "}}"
+        // Find closing "}}" while respecting string literals
         var pos = position + 2
+        var inString = false
+        var stringChar: UInt8 = 0
 
         while pos < buffer.count - 1 {
-            if buffer[pos] == 0x7D && buffer[pos + 1] == 0x7D {  // "}}"
+            let char = buffer[pos]
+
+            // Handle string literals
+            if !inString && (char == 0x27 || char == 0x22) {  // ' or "
+                inString = true
+                stringChar = char
+            } else if inString && char == stringChar {
+                // Check for escaped quotes
+                if pos > 0 && buffer[pos - 1] == 0x5C {  // backslash
+                    // This is an escaped quote, continue
+                } else {
+                    inString = false
+                }
+            } else if !inString && char == 0x7D && buffer[pos + 1] == 0x7D {  // "}}"
                 let contentBytes = buffer[(position + 2)..<pos]
                 let content = String(decoding: contentBytes, as: UTF8.self).trimmingCharacters(
                     in: .whitespaces)
                 return (Token(kind: .expression, value: content, position: position), pos + 2)
             }
+
             pos += 1
         }
 
@@ -309,16 +325,32 @@ public enum Lexer: Sendable {
             Token, Int
         )
     {
-        // Find closing "%}"
+        // Find closing "%}" while respecting string literals
         var pos = position + 2
+        var inString = false
+        var stringChar: UInt8 = 0
 
         while pos < buffer.count - 1 {
-            if buffer[pos] == 0x25 && buffer[pos + 1] == 0x7D {  // "%}"
+            let char = buffer[pos]
+
+            // Handle string literals
+            if !inString && (char == 0x27 || char == 0x22) {  // ' or "
+                inString = true
+                stringChar = char
+            } else if inString && char == stringChar {
+                // Check for escaped quotes
+                if pos > 0 && buffer[pos - 1] == 0x5C {  // backslash
+                    // This is an escaped quote, continue
+                } else {
+                    inString = false
+                }
+            } else if !inString && char == 0x25 && buffer[pos + 1] == 0x7D {  // "%}"
                 let contentBytes = buffer[(position + 2)..<pos]
                 let content = String(decoding: contentBytes, as: UTF8.self).trimmingCharacters(
                     in: .whitespaces)
                 return (Token(kind: .statement, value: content, position: position), pos + 2)
             }
+
             pos += 1
         }
 
