@@ -972,8 +972,7 @@ public enum Interpreter {
             case let .number(n):
                 return .number(abs(n))
             default:
-                // TODO: check what python jinja does
-                return .integer(0)
+                throw JinjaError.runtime("abs filter requires number or integer")
             }
 
         case "capitalize":

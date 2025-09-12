@@ -293,19 +293,55 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseTernary() throws -> Expression {
-        let expr = try parseOr()
+        let expr = try parseFilter()
 
         if match(.if) {
-            let test = try parseOr()
+            let test = try parseFilter()
             var alternate: Expression?
 
             if match(.else) {
-                alternate = try parseOr()
+                alternate = try parseExpression()
             }
 
             return .ternary(expr, test: test, alternate: alternate)
         }
 
+        return expr
+    }
+
+    private mutating func parseFilter() throws -> Expression {
+        var expr = try parseTest()
+        while match(.pipe) {
+            let filterName = try consumeIdentifier()
+            var args: [Expression] = []
+            var kwargs: [String: Expression] = [:]
+
+            if match(.openParen) {
+                (args, kwargs) = try parseArguments()
+                try consume(.closeParen, message: "Expected ')' after filter arguments.")
+            }
+
+            expr = .filter(expr, filterName, args, kwargs)
+        }
+        return expr
+    }
+
+    private mutating func parseTest() throws -> Expression {
+        var expr = try parseOr()
+        if match(.is) {
+            let negated = match(.not)
+            let testName = try consumeIdentifier()
+            var args: [Expression] = []
+            if match(.openParen) {
+                (args, _) = try parseArguments()
+                try consume(.closeParen, message: "Expected ')' after test arguments.")
+            }
+            if args.isEmpty {
+                expr = .test(expr, testName, negated: negated)
+            } else {
+                expr = .testArgs(expr, testName, args, negated: negated)
+            }
+        }
         return expr
     }
 
@@ -412,10 +448,10 @@ public struct Parser: Sendable {
             let expr = try parseUnary()
             return .unary(.plus, expr)
         }
-        return try parsePostfix()
+        return try parseAccess()
     }
 
-    private mutating func parsePostfix() throws -> Expression {
+    private mutating func parseAccess() throws -> Expression {
         var expr = try parsePrimary()
 
         while true {
@@ -439,30 +475,6 @@ public struct Parser: Sendable {
                 let (args, kwargs) = try parseArguments()
                 try consume(.closeParen, message: "Expected ')' after arguments.")
                 expr = .call(expr, args, kwargs)
-            } else if match(.pipe) {
-                let filterName = try consumeIdentifier()
-                var args: [Expression] = []
-                var kwargs: [String: Expression] = [:]
-
-                if match(.openParen) {
-                    (args, kwargs) = try parseArguments()
-                    try consume(.closeParen, message: "Expected ')' after filter arguments.")
-                }
-
-                expr = .filter(expr, filterName, args, kwargs)
-            } else if match(.is) {
-                let negated = match(.not)
-                let testName = try consumeIdentifier()
-                var args: [Expression] = []
-                if match(.openParen) {
-                    (args, _) = try parseArguments()
-                    try consume(.closeParen, message: "Expected ')' after test arguments.")
-                }
-                if args.isEmpty {
-                    expr = .test(expr, testName, negated: negated)
-                } else {
-                    expr = .testArgs(expr, testName, args, negated: negated)
-                }
             } else {
                 break
             }

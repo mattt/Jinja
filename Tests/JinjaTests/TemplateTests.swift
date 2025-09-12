@@ -906,6 +906,77 @@ struct TemplateTests {
             "arr": [0, true, "a"]
         ]
 
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .text, value: "|", position: 0),
+                Token(kind: .openExpression, value: "{{", position: 1),
+                Token(kind: .number, value: "0", position: 4),
+                Token(kind: .not, value: "not", position: 6),
+                Token(kind: .in, value: "in", position: 10),
+                Token(kind: .identifier, value: "arr", position: 13),
+                Token(kind: .closeExpression, value: "}}", position: 17),
+                Token(kind: .text, value: "|", position: 19),
+                Token(kind: .openExpression, value: "{{", position: 20),
+                Token(kind: .number, value: "1", position: 23),
+                Token(kind: .not, value: "not", position: 25),
+                Token(kind: .in, value: "in", position: 29),
+                Token(kind: .identifier, value: "arr", position: 32),
+                Token(kind: .closeExpression, value: "}}", position: 36),
+                Token(kind: .text, value: "|", position: 38),
+                Token(kind: .openExpression, value: "{{", position: 39),
+                Token(kind: .boolean, value: "true", position: 42),
+                Token(kind: .not, value: "not", position: 47),
+                Token(kind: .in, value: "in", position: 51),
+                Token(kind: .identifier, value: "arr", position: 54),
+                Token(kind: .closeExpression, value: "}}", position: 58),
+                Token(kind: .text, value: "|", position: 60),
+                Token(kind: .openExpression, value: "{{", position: 61),
+                Token(kind: .boolean, value: "false", position: 64),
+                Token(kind: .not, value: "not", position: 70),
+                Token(kind: .in, value: "in", position: 74),
+                Token(kind: .identifier, value: "arr", position: 77),
+                Token(kind: .closeExpression, value: "}}", position: 81),
+                Token(kind: .text, value: "|", position: 83),
+                Token(kind: .openExpression, value: "{{", position: 84),
+                Token(kind: .string, value: "a", position: 87),
+                Token(kind: .not, value: "not", position: 91),
+                Token(kind: .in, value: "in", position: 95),
+                Token(kind: .identifier, value: "arr", position: 98),
+                Token(kind: .closeExpression, value: "}}", position: 102),
+                Token(kind: .text, value: "|", position: 104),
+                Token(kind: .openExpression, value: "{{", position: 105),
+                Token(kind: .string, value: "b", position: 108),
+                Token(kind: .not, value: "not", position: 112),
+                Token(kind: .in, value: "in", position: 116),
+                Token(kind: .identifier, value: "arr", position: 119),
+                Token(kind: .closeExpression, value: "}}", position: 123),
+                Token(kind: .text, value: "|", position: 125),
+                Token(kind: .eof, value: "", position: 126),
+            ]
+        )
+
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .text("|"),
+                .expression(.binary(.notIn, .integer(0), .identifier("arr"))),
+                .text("|"),
+                .expression(.binary(.notIn, .integer(1), .identifier("arr"))),
+                .text("|"),
+                .expression(.binary(.notIn, .boolean(true), .identifier("arr"))),
+                .text("|"),
+                .expression(.binary(.notIn, .boolean(false), .identifier("arr"))),
+                .text("|"),
+                .expression(.binary(.notIn, .string("a"), .identifier("arr"))),
+                .text("|"),
+                .expression(.binary(.notIn, .string("b"), .identifier("arr"))),
+                .text("|"),
+            ]
+        )
+
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "|false|true|false|true|false|true|")
