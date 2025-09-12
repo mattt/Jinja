@@ -156,6 +156,8 @@ public enum UnaryOp: String, Sendable, Hashable, CaseIterable {
     case minus = "-"
     /// Numeric identity operator.
     case plus = "+"
+    /// Unpacking operator.
+    case multiply = "*"
 }
 
 // MARK: - Parser
@@ -718,12 +720,44 @@ public struct Parser: Sendable {
             return .object(pairs)
         case .openParen:
             advance()
-            let expr = try parseExpression()
-            try consume(.closeParen, message: "Expected ')' after expression.")
-            return expr
+            // Handle empty tuple
+            if check(.closeParen) {
+                advance()
+                return .tuple([])
+            }
+            
+            let firstExpr = try parseExpression()
+            
+            // Check if this is a tuple (has comma) or just a parenthesized expression
+            if match(.comma) {
+                var expressions = [firstExpr]
+                
+                // Handle trailing comma case like (a,)
+                if !check(.closeParen) {
+                    repeat {
+                        expressions.append(try parseExpression())
+                    } while match(.comma) && !check(.closeParen)
+                }
+                
+                try consume(.closeParen, message: "Expected ')' after tuple.")
+                return .tuple(expressions)
+            } else {
+                try consume(.closeParen, message: "Expected ')' after expression.")
+                return firstExpr
+            }
+        
         case .identifier:
             advance()
             return .identifier(token.value)
+        // Handle context-specific keywords that can be used as identifiers in expressions
+        case .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue:
+            advance()
+            return .identifier(token.value)
+        case .multiply:
+            // Handle unpacking operator *
+            advance()
+            let expr = try parsePrimary()
+            return .unary(.multiply, expr)
         default:
             throw JinjaError.parser("Unexpected token for primary expression: \(token.kind)")
         }
@@ -742,7 +776,8 @@ public struct Parser: Sendable {
                     let value = try parseExpression()
                     kwargs[key] = value
                 } else {
-                    args.append(try parseExpression())
+                    let arg = try parseExpression()
+                    args.append(arg)
                 }
             } while match(.comma)
         }
@@ -807,7 +842,11 @@ public struct Parser: Sendable {
     @discardableResult
     private mutating func consumeIdentifier(_ name: String? = nil) throws -> String {
         let token = peek()
-        if token.kind == .identifier {
+        let allowedAsIdentifier: Set<Token.Kind> = [
+            .identifier, .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue
+        ]
+        
+        if allowedAsIdentifier.contains(token.kind) {
             if let name = name, token.value != name {
                 throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
             }

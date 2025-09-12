@@ -39,6 +39,13 @@ private let builtinValues: Context = [
 
         throw JinjaError.runtime("Invalid arguments to range function")
     },
+    "namespace": .function { _, kwargs, _ in
+        var ns: OrderedDictionary<String, Value> = [:]
+        for (key, value) in kwargs {
+            ns[key] = value
+        }
+        return .object(ns)
+    },
 ]
 
 // MARK: - Environment
@@ -92,6 +99,14 @@ public final class Environment: @unchecked Sendable {
 }
 
 // MARK: - Interpreter
+
+/// Internal control flow exceptions for loop statements.
+enum ControlFlow: Error, Sendable {
+    /// Control flow exception for break statement.
+    case `break`
+    /// Control flow exception for continue statement.
+    case `continue`
+}
 
 /// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
@@ -246,7 +261,23 @@ public enum Interpreter {
             guard case let .function(function) = callableValue else {
                 throw JinjaError.runtime("Cannot call non-function value")
             }
-            let argValues = try argsExpr.map { try evaluateExpression($0, env: env) }
+
+            // Handle unpacking in arguments
+            var argValues: [Value] = []
+            for argExpr in argsExpr {
+                if case let .unary(.multiply, expr) = argExpr {
+                    // Unpack the array/tuple
+                    let value = try evaluateExpression(expr, env: env)
+                    if case let .array(items) = value {
+                        argValues.append(contentsOf: items)
+                    } else {
+                        throw JinjaError.runtime("Cannot unpack non-array value")
+                    }
+                } else {
+                    argValues.append(try evaluateExpression(argExpr, env: env))
+                }
+            }
+
             let kwargs = try kwargsExpr.mapValues { try evaluateExpression($0, env: env) }
             return try function(argValues, kwargs, env)
 
@@ -384,9 +415,18 @@ public enum Interpreter {
                         }
 
                         // Execute body
+                        var shouldBreak = false
                         for node in body {
-                            try interpretNode(node, env: childEnv, into: &buffer)
+                            do {
+                                try interpretNode(node, env: childEnv, into: &buffer)
+                            } catch ControlFlow.break {
+                                shouldBreak = true
+                                break
+                            } catch ControlFlow.continue {
+                                break  // Break from inner loop (current iteration)
+                            }
                         }
+                        if shouldBreak { break }
                     }
                 }
 
@@ -571,9 +611,10 @@ public enum Interpreter {
                 throw JinjaError.runtime("Invalid filter expression in filter statement")
             }
 
-        case .break, .continue:
-            // These are handled by executeStatementWithControlFlow, this path shouldn't be hit.
-            throw JinjaError.runtime("Unexpected statement type for executeStatementWithOutput")
+        case .break:
+            throw ControlFlow.break
+        case .continue:
+            throw ControlFlow.continue
         }
     }
 
@@ -647,6 +688,34 @@ public enum Interpreter {
             for (expr, val) in zip(expressions, values) {
                 try assign(target: expr, value: val, env: env)
             }
+        case .member(let objectExpr, let propertyExpr, let computed):
+            // Handle property assignment like ns.foo = 'bar'
+            let objectValue = try evaluateExpression(objectExpr, env: env)
+
+            if computed {
+                let propertyValue = try evaluateExpression(propertyExpr, env: env)
+                guard case let .string(key) = propertyValue else {
+                    throw JinjaError.runtime("Computed property key must be a string")
+                }
+                if case var .object(dict) = objectValue {
+                    dict[key] = value
+                    // Update the object in the environment
+                    if case let .identifier(name) = objectExpr {
+                        env[name] = .object(dict)
+                    }
+                }
+            } else {
+                guard case let .identifier(propertyName) = propertyExpr else {
+                    throw JinjaError.runtime("Property assignment requires identifier")
+                }
+                if case var .object(dict) = objectValue {
+                    dict[propertyName] = value
+                    // Update the object in the environment
+                    if case let .identifier(name) = objectExpr {
+                        env[name] = .object(dict)
+                    }
+                }
+            }
         default:
             throw JinjaError.runtime("Invalid target for assignment: \(target)")
         }
@@ -697,6 +766,9 @@ public enum Interpreter {
         switch op {
         case .not:
             return .boolean(!value.isTruthy)
+        case .multiply:
+            // This should not be evaluated directly - it's only used for unpacking in calls
+            throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         case .minus:
             switch value {
             case let .number(n):
@@ -786,22 +858,31 @@ public enum Interpreter {
                     return .array([.string(str)])
                 }
             case "replace":
-                return .function { args, _, _ in
+                return .function { args, kwargs, _ in
                     guard args.count >= 2,
                         case let .string(old) = args[0],
                         case let .string(new) = args[1]
                     else {
                         return .string(str)
                     }
+
+                    // Check for count parameter in args or kwargs
+                    var maxReplacements: Int? = nil
                     if args.count > 2, case let .integer(count) = args[2] {
+                        maxReplacements = count
+                    } else if let countValue = kwargs["count"],
+                        case let .integer(count) = countValue
+                    {
+                        maxReplacements = count
+                    }
+
+                    if let count = maxReplacements {
                         // Replace only the first 'count' occurrences
                         var result = str
-                        for _ in 0..<count {
-                            if let range = result.range(of: old) {
-                                result.replaceSubrange(range, with: new)
-                            } else {
-                                break
-                            }
+                        var replacements = 0
+                        while replacements < count, let range = result.range(of: old) {
+                            result.replaceSubrange(range, with: new)
+                            replacements += 1
                         }
                         return .string(result)
                     } else {

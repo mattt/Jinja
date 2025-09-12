@@ -376,7 +376,7 @@ public enum Lexer: Sendable {
                 case 0x22: value += "\""  // '"'
                 case 0x27: value += "'"  // "'"
                 default: 
-                    // Treat backslash as escape for any character (like TS implementation)
+                    // For any other character, just add it as-is (including the backslash in some cases)
                     value += String(decoding: [escaped], as: UTF8.self)
                 }
             } else {
