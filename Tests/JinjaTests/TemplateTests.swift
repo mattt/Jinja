@@ -138,8 +138,8 @@ struct TemplateTests {
                 Token(kind: .expression, value: "true and true", position: 0),
                 Token(kind: .expression, value: "true and false", position: 19),
                 Token(kind: .expression, value: "false and true", position: 39),
-                Token(kind: .expression, value: "false and false", position: 60),
-                Token(kind: .eof, value: "", position: 82),
+                Token(kind: .expression, value: "false and false", position: 59),
+                Token(kind: .eof, value: "", position: 80),
             ]
         )
 
@@ -171,9 +171,9 @@ struct TemplateTests {
             tokens == [
                 Token(kind: .expression, value: "true or true", position: 0),
                 Token(kind: .expression, value: "true or false", position: 18),
-                Token(kind: .expression, value: "false or true", position: 38),
-                Token(kind: .expression, value: "false or false", position: 59),
-                Token(kind: .eof, value: "", position: 81),
+                Token(kind: .expression, value: "false or true", position: 37),
+                Token(kind: .expression, value: "false or false", position: 56),
+                Token(kind: .eof, value: "", position: 76),
             ]
         )
 
@@ -204,7 +204,7 @@ struct TemplateTests {
             tokens == [
                 Token(kind: .expression, value: "not true", position: 0),
                 Token(kind: .expression, value: "not false", position: 14),
-                Token(kind: .eof, value: "", position: 30),
+                Token(kind: .eof, value: "", position: 29),
             ]
         )
 
@@ -287,7 +287,7 @@ struct TemplateTests {
                 Token(kind: .statement, value: "if 1 == 1", position: 0),
                 Token(kind: .expression, value: "'A'", position: 15),
                 Token(kind: .statement, value: "endif", position: 24),
-                Token(kind: .expression, value: "'B'", position: 36),
+                Token(kind: .expression, value: "'B'", position: 35),
                 Token(kind: .eof, value: "", position: 44),
             ]
         )
@@ -571,7 +571,29 @@ struct TemplateTests {
     func stringConcatenation() throws {
         let string = #"{{ 'a' + 'b' 'c' }}"#
         let context: Context = [:]
+        
+        // Check result of lexer
+        let tokens = try Lexer.tokenize(string)
+        #expect(
+            tokens == [
+                Token(kind: .expression, value: "\'a\' + \'b\' \'c\'", position: 0),
+                Token(kind: .eof, value: "", position: 19),
+            ]
+        )
 
+        // Check result of parser
+        let nodes = try Parser.parse(tokens)
+        #expect(
+            nodes == [
+                .expression(
+                    .binary(.add,
+                        .string("a"),
+                        .binary(.concat, .string("b"), .string("c"))
+                    )
+                )
+            ]
+        )
+        
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "abc")

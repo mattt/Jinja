@@ -790,7 +790,15 @@ private struct ExpressionParser {
             return .unary(.plus, expr)
         }
 
-        return try parsePostfix()
+        var expr = try parsePostfix()
+
+        // Handle adjacent string literals as implicit concatenation
+        while isAdjacentStringLiteral() {
+            let right = try parsePostfix()
+            expr = .binary(.concat, expr, right)
+        }
+
+        return expr
     }
 
     private mutating func parsePostfix() throws -> Expression {
@@ -1023,6 +1031,15 @@ private struct ExpressionParser {
         }
 
         return nil
+    }
+
+    private func isAdjacentStringLiteral() -> Bool {
+        guard current < tokens.count else { return false }
+        let token = tokens[current]
+
+        // Check if the current token is a string literal
+        return (token.hasPrefix("\"") && token.hasSuffix("\""))
+            || (token.hasPrefix("'") && token.hasSuffix("'"))
     }
 }
 

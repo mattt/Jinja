@@ -968,7 +968,7 @@ public enum Interpreter {
         case let (.array(a), .array(b)):
             return .array(a + b)
         default:
-            throw JinjaError.runtime("Cannot add values of different types")
+            throw JinjaError.runtime("Cannot add values of different types (\(left) and \(right))")
         }
     }
 
@@ -983,7 +983,7 @@ public enum Interpreter {
         case let (.number(a), .integer(b)):
             return .number(a - Double(b))
         default:
-            throw JinjaError.runtime("Cannot subtract non-numeric values")
+            throw JinjaError.runtime("Cannot subtract non-numeric values (\(left) and \(right))")
         }
     }
 
@@ -1002,7 +1002,7 @@ public enum Interpreter {
         case let (.integer(n), .string(s)):
             return .string(String(repeating: s, count: n))
         default:
-            throw JinjaError.runtime("Cannot multiply values of these types")
+            throw JinjaError.runtime("Cannot multiply values of these types (\(left) and \(right))")
         }
     }
 
@@ -1021,7 +1021,7 @@ public enum Interpreter {
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .number(a / Double(b))
         default:
-            throw JinjaError.runtime("Cannot divide non-numeric values")
+            throw JinjaError.runtime("Cannot divide non-numeric values (\(left) and \(right))")
         }
     }
 
@@ -1031,7 +1031,7 @@ public enum Interpreter {
             guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
             return .integer(a % b)
         default:
-            throw JinjaError.runtime("Modulo operation requires integers")
+            throw JinjaError.runtime("Modulo operation requires integers (\(left) and \(right))")
         }
     }
 
@@ -1044,7 +1044,8 @@ public enum Interpreter {
         case let (.string(a), .string(b)):
             return a < b ? -1 : a > b ? 1 : 0
         default:
-            throw JinjaError.runtime("Cannot compare values of different types")
+            throw JinjaError.runtime(
+                "Cannot compare values of different types (\(left) and \(right))")
         }
     }
 
@@ -1078,7 +1079,8 @@ public enum Interpreter {
             guard case let .string(key) = value else { return false }
             return dict.keys.contains(key)
         default:
-            throw JinjaError.runtime("'in' operator requires iterable on right side")
+            throw JinjaError.runtime(
+                "'in' operator requires iterable on right side (\(collection))")
         }
     }
 }
