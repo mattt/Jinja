@@ -5,6 +5,8 @@ import Testing
 @Suite("Integration Tests with Real Chat Templates", .enabled(if: true))
 struct IntegrationTests {
 
+    let options = Template.Options(lstripBlocks: true, trimBlocks: true)
+
     // MARK: - Chat Template Data
 
     private static let sampleMessages: [String: Value] = [
@@ -124,7 +126,7 @@ struct IntegrationTests {
             <|start_header_id|>assistant<|end_header_id|>
 
             {% endif %}
-            """)
+            """, with: options)
 
         var context = Self.sampleMessages
         context["add_generation_prompt"] = .boolean(false)
@@ -157,7 +159,7 @@ struct IntegrationTests {
             {% if add_generation_prompt %}
             <|im_start|>assistant
             {% endif %}
-            """)
+            """, with: options)
 
         var context = Self.sampleMessages
         context["add_generation_prompt"] = .boolean(true)
@@ -200,7 +202,7 @@ struct IntegrationTests {
             {% endfor %}
             {% if add_generation_prompt %}
             [INST] {% endif %}
-            """)
+            """, with: options)
 
         var context = Self.sampleMessages
         context["add_generation_prompt"] = .boolean(false)
@@ -234,7 +236,7 @@ struct IntegrationTests {
             {% endfor %}
             {% if add_generation_prompt %}
             ASSISTANT:{% endif %}
-            """)
+            """, with: options)
 
         var context = Self.sampleMessages
         context["add_generation_prompt"] = .boolean(true)
@@ -276,7 +278,7 @@ struct IntegrationTests {
             {% if add_generation_prompt %}
             <|assistant|>
             {% endif %}
-            """)
+            """, with: options)
 
         var context = Self.sampleMessages
         context["add_generation_prompt"] = .boolean(true)
@@ -313,7 +315,7 @@ struct IntegrationTests {
             {{ message['content'] }}<|eot_id|>
                 {% endif %}
             {% endfor %}
-            """)
+            """, with: options)
 
         let result = try template.render(Self.multiTurnConversation)
 
@@ -362,7 +364,7 @@ struct IntegrationTests {
             {{ message['content'] }}<|eot_id|>
             {% endif %}
             {% endfor %}
-            """)
+            """, with: options)
 
         let context: [String: Value] = [
             "bos_token": .string("<|begin_of_text|>"),
@@ -409,7 +411,7 @@ struct IntegrationTests {
             {% if loop.last %}[LAST]{% endif %}
 
             {% endfor %}
-            """)
+            """, with: options)
 
         let result = try template.render(Self.sampleMessages)
 
@@ -446,7 +448,7 @@ struct IntegrationTests {
 
             {% endif %}
             {% endfor %}
-            """)
+            """, with: options)
 
         // Test with system message
         let resultWithSystem = try template.render(Self.sampleMessages)
@@ -486,7 +488,7 @@ struct IntegrationTests {
             [INVALID MESSAGE]
             {% endif %}
             {% endfor %}
-            """)
+            """, with: options)
 
         let messagesWithMissing: [String: Value] = [
             "messages": .array([
@@ -526,7 +528,7 @@ struct IntegrationTests {
             {% else %}
             No messages to display.
             {% endif %}
-            """)
+            """, with: options)
 
         let emptyContext: [String: Value] = [
             "messages": .array([])
@@ -555,7 +557,7 @@ struct IntegrationTests {
 
             {% endif %}
             {% endfor %}
-            """)
+            """, with: options)
 
         let result = try template.render(Self.sampleMessages)
 
@@ -586,7 +588,7 @@ struct IntegrationTests {
             {% for message in messages %}
             {{ loop.index }}. {{ message.role|upper }}: {{ message.content }}
             {% endfor %}
-            """)
+            """, with: options)
 
         let context: [String: Value] = [
             "messages": .array(largeMessages)
@@ -618,7 +620,7 @@ struct IntegrationTests {
             {% elif message['role'] == 'assistant' %}{{ message['content'] }}{% if not loop.last %}
 
             {% endif %}{% endif %}{% endfor %}
-            """)
+            """, with: options)
 
         let context: [String: Value] = [
             "system_message": .string(

@@ -1,9 +1,4 @@
-//
-//  PerformanceTests.swift
-//
-//
-//  Created by Terence Pae on 2025/09/05.
-//
+// https://github.com/johnmai-dev/Jinja/blob/main/Tests/PerformanceTests.swift
 
 import Foundation
 import Testing
