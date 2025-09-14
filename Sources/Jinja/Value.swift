@@ -278,6 +278,10 @@ extension Value: Decodable {
                 orderedDictionary[key] = value[key]
             }
             self = .object(orderedDictionary)
+        } else if let macro = try? container.decode(Macro.self) {
+            self = .macro(macro)
+        } else if let global = try? container.decode(Global.self) {
+            self = .global(global)
         } else {
             throw DecodingError.typeMismatch(
                 Value.self,
@@ -290,11 +294,19 @@ extension Value: Decodable {
     }
 }
 
-// MARK: - ExpressibleByStringLiteral
+// MARK: - ExpressibleByNilLiteral
 
-extension Value: ExpressibleByStringLiteral {
-    public init(stringLiteral value: String) {
-        self = .string(value)
+extension Value: ExpressibleByNilLiteral {
+    public init(nilLiteral: ()) {
+        self = .null
+    }
+}
+
+// MARK: - ExpressibleByBooleanLiteral
+
+extension Value: ExpressibleByBooleanLiteral {
+    public init(booleanLiteral value: Bool) {
+        self = .boolean(value)
     }
 }
 
@@ -314,11 +326,11 @@ extension Value: ExpressibleByFloatLiteral {
     }
 }
 
-// MARK: - ExpressibleByBooleanLiteral
+// MARK: - ExpressibleByStringLiteral
 
-extension Value: ExpressibleByBooleanLiteral {
-    public init(booleanLiteral value: Bool) {
-        self = .boolean(value)
+extension Value: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self = .string(value)
     }
 }
 
@@ -339,13 +351,5 @@ extension Value: ExpressibleByDictionaryLiteral {
             dict[key] = value
         }
         self = .object(dict)
-    }
-}
-
-// MARK: - ExpressibleByNilLiteral
-
-extension Value: ExpressibleByNilLiteral {
-    public init(nilLiteral: ()) {
-        self = .null
     }
 }
