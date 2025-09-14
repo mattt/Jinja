@@ -1184,8 +1184,7 @@ public enum Interpreter {
             guard case let .string(key) = value else { return false }
             return dict.keys.contains(key)
         case .undefined, .null:
-            // Special case: undefined in undefined -> true
-            return value == collection
+            return false
         default:
             throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")
@@ -1212,57 +1211,57 @@ public enum Tests {
 
     /// Tests if a value is defined (not undefined).
     @Sendable public static func defined(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value != .undefined
     }
 
     /// Tests if a value is undefined.
     @Sendable public static func undefined(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return true }
+        guard let value = args.first else { return true }
         return value == .undefined
     }
 
     /// Tests if a value is none/null.
     @Sendable public static func none(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value == .null
     }
 
     /// Tests if a value is a string.
     @Sendable public static func string(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value.isString
     }
 
     /// Tests if a value is a number.
     @Sendable public static func number(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value.isInt || value.isDouble
     }
 
     /// Tests if a value is a boolean.
     @Sendable public static func boolean(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value.isBoolean
     }
 
     /// Tests if a value is iterable.
     @Sendable public static func iterable(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value.isIterable
     }
 
@@ -1270,9 +1269,9 @@ public enum Tests {
 
     /// Tests if a number is even.
     @Sendable public static func even(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         switch value {
         case let .int(num):
             return num % 2 == 0
@@ -1285,9 +1284,9 @@ public enum Tests {
 
     /// Tests if a number is odd.
     @Sendable public static func odd(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         switch value {
         case let .int(num):
             return num % 2 != 0
@@ -1300,10 +1299,10 @@ public enum Tests {
 
     /// Tests if a number is divisible by another number.
     @Sendable public static func divisibleby(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
-        switch (values[0], values[1]) {
+        guard args.count >= 2 else { return false }
+        switch (args[0], args[1]) {
         case let (.int(a), .int(b)):
             return b != 0 && a % b == 0
         case let (.double(a), .double(b)):
@@ -1317,17 +1316,17 @@ public enum Tests {
 
     /// Tests if two values are equal.
     @Sendable public static func equalto(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
-        return Interpreter.valuesEqual(values[0], values[1])
+        guard args.count >= 2 else { return false }
+        return Interpreter.valuesEqual(args[0], args[1])
     }
 
     /// Tests if a value is a mapping (dictionary/object).
     @Sendable public static func mapping(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case .object(_) = value {
             return true
         }
@@ -1336,9 +1335,9 @@ public enum Tests {
 
     /// Tests if a value is callable (function).
     @Sendable public static func callable(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case .function(_) = value {
             return true
         }
@@ -1347,9 +1346,9 @@ public enum Tests {
 
     /// Tests if a value is an integer.
     @Sendable public static func integer(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case .int(_) = value {
             return true
         }
@@ -1358,9 +1357,9 @@ public enum Tests {
 
     /// Tests if a string is all lowercase.
     @Sendable public static func lower(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case let .string(str) = value {
             return str == str.lowercased() && str != str.uppercased()
         }
@@ -1369,9 +1368,9 @@ public enum Tests {
 
     /// Tests if a string is all uppercase.
     @Sendable public static func upper(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case let .string(str) = value {
             return str == str.uppercased() && str != str.lowercased()
         }
@@ -1380,25 +1379,25 @@ public enum Tests {
 
     /// Tests if a value is true.
     @Sendable public static func `true`(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value == .boolean(true)
     }
 
     /// Tests if a value is false.
     @Sendable public static func `false`(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         return value == .boolean(false)
     }
 
     /// Tests if a value is a float.
     @Sendable public static func float(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         if case .double(_) = value {
             return true
         }
@@ -1407,9 +1406,9 @@ public enum Tests {
 
     /// Tests if a value is a sequence (array or string).
     @Sendable public static func sequence(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first else { return false }
+        guard let value = args.first else { return false }
         switch value {
         case .array(_), .string(_):
             return true
@@ -1420,7 +1419,7 @@ public enum Tests {
 
     /// Tests if a value is escaped (always returns false for basic implementation).
     @Sendable public static func escaped(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         // In basic implementation, values are not escaped by default
         return false
@@ -1428,37 +1427,37 @@ public enum Tests {
 
     /// Tests if a filter exists by name.
     @Sendable public static func filter(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, case let .string(filterName) = value else { return false }
+        guard let value = args.first, case let .string(filterName) = value else { return false }
         return Filters.builtIn[filterName] != nil
     }
 
     /// Tests if a test exists by name.
     @Sendable public static func test(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, case let .string(testName) = value else { return false }
+        guard let value = args.first, case let .string(testName) = value else { return false }
         return Tests.builtIn[testName] != nil
     }
 
     /// Tests if two values point to the same memory address (identity test).
     @Sendable public static func sameas(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
+        guard args.count >= 2 else { return false }
         // For basic implementation, this is the same as equality
         // In a more advanced implementation, this would check object identity
-        return Interpreter.valuesEqual(values[0], values[1])
+        return Interpreter.valuesEqual(args[0], args[1])
     }
 
     /// Tests if a value is in a sequence.
     @Sendable public static func `in`(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
-        let value = values[0]
-        let container = values[1]
+        guard args.count >= 2 else { return false }
+        let value = args[0]
+        let container = args[1]
 
         switch container {
         case let .array(arr):
@@ -1482,26 +1481,26 @@ public enum Tests {
 
     /// Tests if a == b.
     @Sendable public static func eq(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        return try equalto(values, kwargs: kwargs, env: env)
+        return try equalto(args, kwargs: kwargs, env: env)
     }
 
     /// Tests if a != b.
     @Sendable public static func ne(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
-        return !Interpreter.valuesEqual(values[0], values[1])
+        guard args.count >= 2 else { return false }
+        return !Interpreter.valuesEqual(args[0], args[1])
     }
 
     /// Tests if a > b.
     @Sendable public static func gt(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
+        guard args.count >= 2 else { return false }
         do {
-            return try Interpreter.compareValues(values[0], values[1]) > 0
+            return try Interpreter.compareValues(args[0], args[1]) > 0
         } catch {
             return false
         }
@@ -1509,11 +1508,11 @@ public enum Tests {
 
     /// Tests if a >= b.
     @Sendable public static func ge(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
+        guard args.count >= 2 else { return false }
         do {
-            return try Interpreter.compareValues(values[0], values[1]) >= 0
+            return try Interpreter.compareValues(args[0], args[1]) >= 0
         } catch {
             return false
         }
@@ -1521,11 +1520,11 @@ public enum Tests {
 
     /// Tests if a < b.
     @Sendable public static func lt(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
+        guard args.count >= 2 else { return false }
         do {
-            return try Interpreter.compareValues(values[0], values[1]) < 0
+            return try Interpreter.compareValues(args[0], args[1]) < 0
         } catch {
             return false
         }
@@ -1533,11 +1532,11 @@ public enum Tests {
 
     /// Tests if a <= b.
     @Sendable public static func le(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard values.count >= 2 else { return false }
+        guard args.count >= 2 else { return false }
         do {
-            return try Interpreter.compareValues(values[0], values[1]) <= 0
+            return try Interpreter.compareValues(args[0], args[1]) <= 0
         } catch {
             return false
         }
@@ -1596,9 +1595,9 @@ public enum Filters {
 
     /// Converts a string to uppercase.
     @Sendable public static func upper(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             throw JinjaError.runtime("upper filter requires string")
         }
         return .string(str.uppercased())
@@ -1606,9 +1605,9 @@ public enum Filters {
 
     /// Converts a string to lowercase.
     @Sendable public static func lower(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             throw JinjaError.runtime("lower filter requires string")
         }
         return .string(str.lowercased())
@@ -1616,9 +1615,9 @@ public enum Filters {
 
     /// Returns the length of a string, array, or object.
     @Sendable public static func length(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        switch values.first {
+        switch args.first {
         case let .string(str):
             return .int(str.count)
         case let .array(arr):
@@ -1632,11 +1631,11 @@ public enum Filters {
 
     /// Joins an array of values with a separator.
     @Sendable public static func join(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count >= 2,
-            case let .array(array) = values[0],
-            case let .string(separator) = values[1]
+        guard args.count >= 2,
+            case let .array(array) = args[0],
+            case let .string(separator) = args[1]
         else {
             throw JinjaError.runtime("join filter requires array and separator")
         }
@@ -1684,9 +1683,9 @@ public enum Filters {
 
     /// Returns the first item from an array.
     @Sendable public static func first(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .undefined
         }
 
@@ -1702,9 +1701,9 @@ public enum Filters {
 
     /// Returns the last item from an array.
     @Sendable public static func last(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .undefined
         }
 
@@ -1720,9 +1719,9 @@ public enum Filters {
 
     /// Returns a random item from an array.
     @Sendable public static func random(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .undefined
         }
         switch value {
@@ -1742,9 +1741,9 @@ public enum Filters {
 
     /// Reverses an array or string.
     @Sendable public static func reverse(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .undefined
         }
 
@@ -1760,9 +1759,9 @@ public enum Filters {
 
     /// Sorts an array.
     @Sendable public static func sort(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
 
@@ -1796,10 +1795,10 @@ public enum Filters {
 
     /// Groups items by a given attribute.
     @Sendable public static func groupby(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 1, case let .string(attribute) = values[1]
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 1, case let .string(attribute) = args[1]
         else {
             return .array([])
         }
@@ -1819,15 +1818,15 @@ public enum Filters {
 
     /// Slices an array into multiple slices.
     @Sendable public static func slice(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 1, case let .int(numSlices) = values[1], numSlices > 0
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 1, case let .int(numSlices) = args[1], numSlices > 0
         else {
             return .array([])
         }
 
-        let fillWith = values.count > 2 ? values[2] : .null
+        let fillWith = args.count > 2 ? args[2] : .null
         var result = Array(repeating: [Value](), count: numSlices)
         let itemsPerSlice = (items.count + numSlices - 1) / numSlices
 
@@ -1847,13 +1846,13 @@ public enum Filters {
 
     /// Maps items through a filter or extracts attribute values.
     @Sendable public static func map(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
 
-        if values.count > 1, case let .string(filterName) = values[1] {
+        if args.count > 1, case let .string(filterName) = args[1] {
             return .array(
                 try items.map {
                     try Interpreter.evaluateFilter(filterName, [$0], kwargs: [:], env: env)
@@ -1870,14 +1869,14 @@ public enum Filters {
 
     /// Selects items that pass a test.
     @Sendable public static func select(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 1, case let .string(testName) = values[1]
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 1, case let .string(testName) = args[1]
         else {
             return .array([])
         }
-        let testArgs = Array(values.dropFirst(2))
+        let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
                 try Interpreter.evaluateTest(testName, [$0] + testArgs, env: env)
@@ -1886,14 +1885,14 @@ public enum Filters {
 
     /// Rejects items that pass a test.
     @Sendable public static func reject(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 1, case let .string(testName) = values[1]
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 1, case let .string(testName) = args[1]
         else {
             return .array([])
         }
-        let testArgs = Array(values.dropFirst(2))
+        let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
                 try !Interpreter.evaluateTest(testName, [$0] + testArgs, env: env)
@@ -1906,6 +1905,27 @@ public enum Filters {
     @Sendable public static func selectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
+        guard case let .array(items)? = args.first,
+              args.count >= 2, case let .string(attribute) = args[1]
+        else {
+            return .array([])
+        }
+                
+        let testArgs = Array(args.dropFirst(2))
+        return .array(
+            try items.filter {
+                let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
+                guard !testArgs.isEmpty else {
+                    return attrValue.isTruthy
+                }
+                return try Interpreter.evaluateTest(attribute, [attrValue] + testArgs, env: env)
+            })
+    }
+
+    /// Rejects items with an attribute that passes a test.
+    @Sendable public static func rejectattr(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Value {
         guard let value = args.first, case let .array(items) = value,
             args.count > 2, case let .string(attribute) = args[1],
             case let .string(testName) = args[2]
@@ -1913,24 +1933,6 @@ public enum Filters {
             return .array([])
         }
         let testArgs = Array(args.dropFirst(3))
-        return .array(
-            try items.filter {
-                let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
-                return try Interpreter.evaluateTest(testName, [attrValue] + testArgs, env: env)
-            })
-    }
-
-    /// Rejects items with an attribute that passes a test.
-    @Sendable public static func rejectattr(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 2, case let .string(attribute) = values[1],
-            case let .string(testName) = values[2]
-        else {
-            return .array([])
-        }
-        let testArgs = Array(values.dropFirst(3))
         return .array(
             try items.filter {
                 let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
@@ -1942,10 +1944,10 @@ public enum Filters {
 
     /// Gets an attribute from an object.
     @Sendable public static func attr(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let obj = values.first, values.count > 1,
-            case let .string(attribute) = values[1]
+        guard let obj = args.first, args.count > 1,
+            case let .string(attribute) = args[1]
         else {
             return .undefined
         }
@@ -1954,23 +1956,23 @@ public enum Filters {
 
     /// Sorts a dictionary by keys and returns key-value pairs.
     @Sendable public static func dictsort(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .object(dict) = values.first else {
+        guard case let .object(dict) = args.first else {
             return .array([])
         }
 
         let caseSensitive =
-            kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
+            kwargs["case_sensitive"]?.isTruthy ?? (args.count > 1 ? args[1].isTruthy : false)
         let by: String
         if case let .string(s)? = kwargs["by"] {
             by = s
-        } else if values.count > 2, case let .string(s) = values[2] {
+        } else if args.count > 2, case let .string(s) = args[2] {
             by = s
         } else {
             by = "key"
         }
-        let reverse = kwargs["reverse"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
+        let reverse = kwargs["reverse"]?.isTruthy ?? (args.count > 3 ? args[3].isTruthy : false)
 
         let sortedPairs: [(key: String, value: Value)]
         if by == "value" {
@@ -2001,9 +2003,9 @@ public enum Filters {
 
     /// Escapes HTML characters.
     @Sendable public static func forceescape(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         let escaped =
@@ -2018,16 +2020,16 @@ public enum Filters {
 
     /// Marks a string as safe (no-op for basic implementation).
     @Sendable public static func safe(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        return values.first ?? .string("")
+        return args.first ?? .string("")
     }
 
     /// Strips HTML tags from a string.
     @Sendable public static func striptags(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         let regex = try! NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive)
@@ -2040,12 +2042,12 @@ public enum Filters {
 
     /// Basic string formatting.
     @Sendable public static func format(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count > 1, case let .string(formatString) = values[0] else {
-            return values.first ?? .string("")
+        guard args.count > 1, case let .string(formatString) = args[0] else {
+            return args.first ?? .string("")
         }
-        let args = Array(values.dropFirst())
+        let args = Array(args.dropFirst())
         var result = ""
         var formatIdx = formatString.startIndex
         var argIdx = 0
@@ -2075,18 +2077,18 @@ public enum Filters {
 
     /// Wraps text to a specified width.
     @Sendable public static func wordwrap(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .string(str) = value else {
+        guard let value = args.first, case let .string(str) = value else {
             return .string("")
         }
         let width: Int
-        if values.count > 1, case let .int(w) = values[1] {
+        if args.count > 1, case let .int(w) = args[1] {
             width = w
         } else {
             width = 79
         }
-        _ = values.count > 2 ? (values[2].isTruthy) : true
+        _ = args.count > 2 ? (args[2].isTruthy) : true
 
         var lines = [String]()
         let paragraphs = str.components(separatedBy: .newlines)
@@ -2112,9 +2114,9 @@ public enum Filters {
 
     /// Formats file size in human readable format.
     @Sendable public static func filesizeformat(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .double(num) = value else {
+        guard let value = args.first, case let .double(num) = value else {
             return .string("")
         }
         let binary = kwargs["binary"]?.isTruthy ?? false
@@ -2134,13 +2136,13 @@ public enum Filters {
 
     /// Formats object attributes as XML attributes.
     @Sendable public static func xmlattr(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .object(dict) = value else {
+        guard let value = args.first, case let .object(dict) = value else {
             return .string("")
         }
         let autospace =
-            kwargs["autospace"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : true)
+            kwargs["autospace"]?.isTruthy ?? (args.count > 1 ? args[1].isTruthy : true)
         var result = ""
         for (key, value) in dict {
             if value == .null || value == .undefined { continue }
@@ -2163,9 +2165,9 @@ public enum Filters {
 
     /// Converts a value to a string.
     @Sendable public static func string(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .string("") }
+        guard let value = args.first else { return .string("") }
         return .string(value.description)
     }
 
@@ -2173,9 +2175,9 @@ public enum Filters {
 
     /// Trims whitespace from a string.
     @Sendable public static func trim(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         return .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -2183,16 +2185,16 @@ public enum Filters {
 
     /// Escapes HTML characters (alias for forceescape).
     @Sendable public static func escape(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        return try forceescape(values, kwargs: kwargs, env: env)
+        return try forceescape(args, kwargs: kwargs, env: env)
     }
 
     /// Converts value to JSON string.
     @Sendable public static func tojson(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .string("null") }
+        guard let value = args.first else { return .string("null") }
 
         let encoder = JSONEncoder()
         if kwargs["indent"]?.isTruthy ?? false {
@@ -2210,9 +2212,9 @@ public enum Filters {
 
     /// Returns absolute value of a number.
     @Sendable public static func abs(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .int(0)
         }
         switch value {
@@ -2227,9 +2229,9 @@ public enum Filters {
 
     /// Capitalizes the first letter and lowercases the rest.
     @Sendable public static func capitalize(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         return .string(str.prefix(1).uppercased() + str.dropFirst().lowercased())
@@ -2237,13 +2239,13 @@ public enum Filters {
 
     /// Centers a string within a specified width.
     @Sendable public static func center(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first,
-            values.count > 1,
-            case let .int(width) = values[1]
+        guard case let .string(str) = args.first,
+            args.count > 1,
+            case let .int(width) = args[1]
         else {
-            return values.first ?? .string("")
+            return args.first ?? .string("")
         }
 
         let padCount = width - str.count
@@ -2257,9 +2259,9 @@ public enum Filters {
 
     /// Converts a value to float.
     @Sendable public static func float(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .double(0.0) }
+        guard let value = args.first else { return .double(0.0) }
         switch value {
         case let .int(i):
             return .double(Double(i))
@@ -2274,9 +2276,9 @@ public enum Filters {
 
     /// Converts a value to integer.
     @Sendable public static func int(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .int(0) }
+        guard let value = args.first else { return .int(0) }
         switch value {
         case let .int(i):
             return .int(i)
@@ -2291,9 +2293,9 @@ public enum Filters {
 
     /// Converts a value to list.
     @Sendable public static func list(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .array([]) }
+        guard let value = args.first else { return .array([]) }
         switch value {
         case let .array(arr):
             return .array(arr)
@@ -2308,9 +2310,9 @@ public enum Filters {
 
     /// Returns the maximum value from an array.
     @Sendable public static func max(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else { return .undefined }
+        guard let value = args.first, case let .array(items) = value else { return .undefined }
         return items.max(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2322,9 +2324,9 @@ public enum Filters {
 
     /// Returns the minimum value from an array.
     @Sendable public static func min(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else { return .undefined }
+        guard let value = args.first, case let .array(items) = value else { return .undefined }
         return items.min(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2336,17 +2338,17 @@ public enum Filters {
 
     /// Rounds a number to specified precision.
     @Sendable public static func round(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .double(0.0) }
+        guard let value = args.first else { return .double(0.0) }
         let precision: Int
-        if values.count > 1, case let .int(p) = values[1] {
+        if args.count > 1, case let .int(p) = args[1] {
             precision = p
         } else {
             precision = 0
         }
         let method: String
-        if values.count > 2, case let .string(m) = values[2] {
+        if args.count > 2, case let .string(m) = args[2] {
             method = m
         } else {
             method = "common"
@@ -2371,9 +2373,9 @@ public enum Filters {
 
     /// Capitalizes each word in a string.
     @Sendable public static func title(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         return .string(str.capitalized)
@@ -2381,9 +2383,9 @@ public enum Filters {
 
     /// Counts words in a string.
     @Sendable public static func wordcount(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .int(0)
         }
         let words = str.split { $0.isWhitespace || $0.isNewline }
@@ -2461,9 +2463,9 @@ public enum Filters {
 
     /// URL encodes a string or object.
     @Sendable public static func urlencode(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .string("")
         }
 
@@ -2488,15 +2490,15 @@ public enum Filters {
 
     /// Batches items into groups.
     @Sendable public static func batch(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value,
-            values.count > 1, case let .int(batchSize) = values[1], batchSize > 0
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 1, case let .int(batchSize) = args[1], batchSize > 0
         else {
             return .array([])
         }
 
-        let fillWith = values.count > 2 ? values[2] : .null
+        let fillWith = args.count > 2 ? args[2] : .null
 
         var result = [Value]()
         var batch = [Value]()
@@ -2518,21 +2520,21 @@ public enum Filters {
 
     /// Sums values in an array.
     @Sendable public static func sum(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else {
+        guard let value = args.first, case let .array(items) = value else {
             return .int(0)
         }
 
         let attribute: String?
         if case let .string(a)? = kwargs["attribute"] {
             attribute = a
-        } else if values.count > 1, case let .string(a) = values[1] {
+        } else if args.count > 1, case let .string(a) = args[1] {
             attribute = a
         } else {
             attribute = nil
         }
-        let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .int(0))
+        let start = kwargs["start"] ?? (args.count > 2 ? args[2] : .int(0))
 
         let valuesToSum: [Value]
         if let attr = attribute {
@@ -2551,20 +2553,20 @@ public enum Filters {
 
     /// Truncates a string to a specified length.
     @Sendable public static func truncate(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
         let length: Int
-        if values.count > 1, case let .int(l) = values[1] {
+        if args.count > 1, case let .int(l) = args[1] {
             length = l
         } else {
             length = 255
         }
-        let killwords = values.count > 2 ? (values[2].isTruthy) : false
+        let killwords = args.count > 2 ? (args[2].isTruthy) : false
         let end: String
-        if values.count > 3, case let .string(e) = values[3] {
+        if args.count > 3, case let .string(e) = args[3] {
             end = e
         } else {
             end = "..."
@@ -2588,9 +2590,9 @@ public enum Filters {
 
     /// Returns unique items from an array.
     @Sendable public static func unique(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, case let .array(items) = value else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
         var seen = Set<Value>()
@@ -2606,9 +2608,9 @@ public enum Filters {
 
     /// Indents text.
     @Sendable public static func indent(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = values.first else {
+        guard case let .string(str) = args.first else {
             return .string("")
         }
 
@@ -2621,10 +2623,10 @@ public enum Filters {
             } else {
                 width = "    "
             }
-        } else if values.count > 1 {
-            if case let .int(intWidth) = values[1] {
+        } else if args.count > 1 {
+            if case let .int(intWidth) = args[1] {
                 width = String(repeating: " ", count: intWidth)
-            } else if case let .string(s) = values[1] {
+            } else if case let .string(s) = args[1] {
                 width = s
             } else {
                 width = "    "
@@ -2633,8 +2635,8 @@ public enum Filters {
             width = "    "
         }
 
-        let first = kwargs["first"]?.isTruthy ?? (values.count > 2 ? values[2].isTruthy : false)
-        let blank = kwargs["blank"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
+        let first = kwargs["first"]?.isTruthy ?? (args.count > 2 ? args[2].isTruthy : false)
+        let blank = kwargs["blank"]?.isTruthy ?? (args.count > 3 ? args[3].isTruthy : false)
 
         let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var result = ""
@@ -2656,9 +2658,9 @@ public enum Filters {
 
     /// Returns items (key-value pairs) of a dictionary/object.
     @Sendable public static func items(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else {
+        guard let value = args.first else {
             return .array([])
         }
 
@@ -2674,9 +2676,9 @@ public enum Filters {
 
     /// Pretty prints a variable (useful for debugging).
     @Sendable public static func pprint(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .string("") }
+        guard let value = args.first else { return .string("") }
 
         func prettyPrint(_ val: Value, indent: Int = 0) -> String {
             let indentString = String(repeating: "  ", count: indent)
@@ -2704,9 +2706,9 @@ public enum Filters {
 
     /// Converts URLs in text into clickable links.
     @Sendable public static func urlize(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(text) = values.first else {
+        guard case let .string(text) = args.first else {
             return .string("")
         }
 
