@@ -64,6 +64,10 @@ public final class Environment: @unchecked Sendable {
     }
     var macros: [String: Macro] = [:]
 
+    var namespace: Namespace?
+    var cycler: Cycler?
+    var joiner: Joiner?
+
     /// Creates a new environment with optional parent and initial variables.
     /// - Parameters:
     ///   - parent: The parent environment
@@ -94,6 +98,89 @@ public final class Environment: @unchecked Sendable {
         }
         set {
             variables[name] = newValue
+        }
+    }
+}
+
+// MARK: - Globals
+
+final class Cycler: Identifiable, @unchecked Sendable {
+    public let id = UUID()
+    private let items: [Value]
+    private var currentIndex: Int = 0
+
+    public init(items: [Value]) {
+        self.items = items
+    }
+
+    public var current: Value {
+        guard !items.isEmpty else { return .undefined }
+        return items[currentIndex]
+    }
+
+    public func next() -> Value {
+        guard !items.isEmpty else { return .undefined }
+        let item = items[currentIndex]
+        currentIndex = (currentIndex + 1) % items.count
+        return item
+    }
+
+    public func reset() {
+        currentIndex = 0
+    }
+
+    public subscript(name: String) -> Value {
+        switch name {
+        case "current":
+            return current
+        case "next":
+            return .function { _, _, _ in
+                self.next()
+            }
+        case "reset":
+            return .function { _, _, _ in
+                self.reset()
+                return .null
+            }
+        default:
+            return nil
+        }
+    }
+}
+
+final class Joiner: Identifiable, @unchecked Sendable {
+    public let id = UUID()
+    private let separator: String
+    private var isFirstCall = true
+
+    public init(separator: String = ", ") {
+        self.separator = separator
+    }
+
+    public func call(arguments: [Value], kwargs: [String: Value]) throws -> Value {
+        if isFirstCall {
+            isFirstCall = false
+            return .string("")
+        } else {
+            return .string(separator)
+        }
+    }
+}
+
+final class Namespace: Identifiable, @unchecked Sendable {
+    public let id = UUID()
+    private var attributes: [String: Value]
+
+    public init(attributes: [String: Value] = [:]) {
+        self.attributes = attributes
+    }
+
+    public subscript(name: String) -> Value {
+        get {
+            return attributes[name] ?? .undefined
+        }
+        set {
+            attributes[name] = newValue
         }
     }
 }
@@ -1906,11 +1993,11 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard case let .array(items)? = args.first,
-              args.count >= 2, case let .string(attribute) = args[1]
+            args.count >= 2, case let .string(attribute) = args[1]
         else {
             return .array([])
         }
-                
+
         let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
