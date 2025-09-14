@@ -55,6 +55,19 @@ public final class Environment: @unchecked Sendable {
     private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
 
+    // Options
+
+    /// Whether leading spaces and tabs are stripped from the start of a line to a block.
+    /// The default value is `false`.
+    public var lstripBlocks: Bool = false
+
+    /// Whether the first newline after a block is removed.
+    /// This applies to block tags, not variable tags.
+    /// The default value is `false`.
+    public var trimBlocks: Bool = false
+
+    // Globals
+
     var namespace: Namespace?
     var cycler: Cycler?
     var joiner: Joiner?
@@ -1184,8 +1197,10 @@ public enum Interpreter {
 
     static func valueInCollection(_ value: Value, _ collection: Value) throws -> Bool {
         switch collection {
-        case .undefined, .null:
-            return value == collection
+        case .undefined:
+            return value.isUndefined
+        case .null:
+            return false
         case let .array(items):
             return items.contains { valuesEqual(value, $0) }
         case let .string(str):

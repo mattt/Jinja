@@ -11,6 +11,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             throw JinjaError.runtime("upper filter requires string")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(str.uppercased())
     }
 
@@ -21,6 +29,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             throw JinjaError.runtime("lower filter requires string")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(str.lowercased())
     }
 
@@ -28,6 +44,13 @@ public enum Filters {
     @Sendable public static func length(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch args.first {
         case let .string(str):
             return .int(str.count)
@@ -44,11 +67,19 @@ public enum Filters {
     @Sendable public static func join(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard args.count >= 2,
-            case let .array(array) = args[0],
-            case let .string(separator) = args[1]
-        else {
-            throw JinjaError.runtime("join filter requires array and separator")
+        guard case let .array(array) = args.first else {
+            throw JinjaError.runtime("join filter requires array")
+        }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["separator"],
+            defaults: ["separator": .string("")]
+        )
+
+        guard case let .string(separator) = arguments["separator"] else {
+            throw JinjaError.runtime("join filter requires string separator")
         }
 
         let strings = array.map { $0.description }
@@ -96,6 +127,13 @@ public enum Filters {
             return .undefined
         }
 
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .array(arr):
             return arr.first ?? .undefined
@@ -114,6 +152,13 @@ public enum Filters {
             return .undefined
         }
 
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .array(arr):
             return arr.last ?? .undefined
@@ -131,6 +176,14 @@ public enum Filters {
         guard let value = args.first else {
             return .undefined
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .array(arr):
             return arr.randomElement() ?? .undefined
@@ -153,6 +206,13 @@ public enum Filters {
         guard let value = args.first else {
             return .undefined
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
 
         switch value {
         case let .array(arr):
@@ -215,11 +275,21 @@ public enum Filters {
     @Sendable public static func groupby(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 1, case let .string(attribute) = args[1]
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["attribute"],
+            defaults: [:]
+        )
+
+        guard case let .string(attribute) = arguments["attribute"] else {
+            throw JinjaError.runtime("groupby filter requires attribute parameter")
+        }
+
         var groups = OrderedDictionary<Value, [Value]>()
         for item in items {
             let key = try Interpreter.evaluatePropertyMember(item, attribute)
@@ -238,13 +308,22 @@ public enum Filters {
     @Sendable public static func slice(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 1, case let .int(numSlices) = args[1], numSlices > 0
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
 
-        let fillWith = args.count > 2 ? args[2] : .null
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["numSlices", "fillWith"],
+            defaults: ["fillWith": .null]
+        )
+
+        guard case let .int(numSlices) = arguments["numSlices"], numSlices > 0 else {
+            throw JinjaError.runtime("slice filter requires positive integer numSlices parameter")
+        }
+
+        let fillWith = arguments["fillWith"]!
         var result = Array(repeating: [Value](), count: numSlices)
         let itemsPerSlice = (items.count + numSlices - 1) / numSlices
 
@@ -270,12 +349,19 @@ public enum Filters {
             return .array([])
         }
 
-        if args.count > 1, case let .string(filterName) = args[1] {
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["filterName", "attribute"],
+            defaults: ["filterName": .null, "attribute": .null]
+        )
+
+        if case let .string(filterName) = arguments["filterName"] {
             return .array(
                 try items.map {
                     try Interpreter.evaluateFilter(filterName, [$0], kwargs: [:], env: env)
                 })
-        } else if case let .string(attribute)? = kwargs["attribute"] {
+        } else if case let .string(attribute) = arguments["attribute"] {
             return .array(
                 try items.map {
                     try Interpreter.evaluatePropertyMember($0, attribute)
@@ -289,11 +375,21 @@ public enum Filters {
     @Sendable public static func select(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 1, case let .string(testName) = args[1]
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["testName"],
+            defaults: [:]
+        )
+
+        guard case let .string(testName) = arguments["testName"] else {
+            throw JinjaError.runtime("select filter requires testName parameter")
+        }
+
         let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
@@ -305,11 +401,21 @@ public enum Filters {
     @Sendable public static func reject(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 1, case let .string(testName) = args[1]
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["testName"],
+            defaults: [:]
+        )
+
+        guard case let .string(testName) = arguments["testName"] else {
+            throw JinjaError.runtime("reject filter requires testName parameter")
+        }
+
         let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
@@ -319,21 +425,30 @@ public enum Filters {
 
     /// Selects items with an attribute that passes a test.
     /// If no test is specified,
-    /// the attribute’s value will be evaluated as a boolean.
+    /// the attribute's value will be evaluated as a boolean.
     @Sendable public static func selectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .array(items)? = args.first,
-            args.count >= 2, case let .string(attribute) = args[1]
-        else {
+        guard case let .array(items)? = args.first else {
             return .array([])
+        }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["attribute", "testName"],
+            defaults: ["testName": .null]
+        )
+
+        guard case let .string(attribute) = arguments["attribute"] else {
+            throw JinjaError.runtime("selectattr filter requires attribute parameter")
         }
 
         let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
                 let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
-                guard case let .string(testName) = testArgs.first else {
+                guard case let .string(testName) = arguments["testName"] else {
                     return attrValue.isTruthy
                 }
 
@@ -343,20 +458,36 @@ public enum Filters {
     }
 
     /// Rejects items with an attribute that passes a test.
+    /// If no test is specified,
+    /// the attribute's value will be evaluated as a boolean.
     @Sendable public static func rejectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 2, case let .string(attribute) = args[1],
-            case let .string(testName) = args[2]
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
-        let testArgs = Array(args.dropFirst(3))
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["attribute", "testName"],
+            defaults: ["testName": .null]
+        )
+
+        guard case let .string(attribute) = arguments["attribute"] else {
+            throw JinjaError.runtime("rejectattr filter requires attribute parameter")
+        }
+
+        let testArgs = Array(args.dropFirst(2))
         return .array(
             try items.filter {
                 let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
-                return try !Interpreter.evaluateTest(testName, [attrValue] + testArgs, env: env)
+                guard case let .string(testName) = arguments["testName"] else {
+                    return !attrValue.isTruthy
+                }
+
+                return try !Interpreter.evaluateTest(
+                    testName, [attrValue] + testArgs.dropFirst(1), env: env)
             })
     }
 
@@ -366,11 +497,21 @@ public enum Filters {
     @Sendable public static func attr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let obj = args.first, args.count > 1,
-            case let .string(attribute) = args[1]
-        else {
+        guard let obj = args.first else {
             return .undefined
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["attribute"],
+            defaults: [:]
+        )
+
+        guard case let .string(attribute) = arguments["attribute"] else {
+            throw JinjaError.runtime("attr filter requires attribute parameter")
+        }
+
         return try Interpreter.evaluatePropertyMember(obj, attribute)
     }
 
@@ -382,17 +523,25 @@ public enum Filters {
             return .array([])
         }
 
-        let caseSensitive =
-            kwargs["case_sensitive"]?.isTruthy ?? (args.count > 1 ? args[1].isTruthy : false)
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["case_sensitive", "by", "reverse"],
+            defaults: [
+                "case_sensitive": .boolean(false),
+                "by": .string("key"),
+                "reverse": .boolean(false),
+            ]
+        )
+
+        let caseSensitive = arguments["case_sensitive"]!.isTruthy
         let by: String
-        if case let .string(s)? = kwargs["by"] {
-            by = s
-        } else if args.count > 2, case let .string(s) = args[2] {
+        if case let .string(s) = arguments["by"] {
             by = s
         } else {
             by = "key"
         }
-        let reverse = kwargs["reverse"]?.isTruthy ?? (args.count > 3 ? args[3].isTruthy : false)
+        let reverse = arguments["reverse"]!.isTruthy
 
         let sortedPairs: [(key: String, value: Value)]
         if by == "value" {
@@ -428,6 +577,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         let escaped =
             str
             .replacingOccurrences(of: "&", with: "&amp;")
@@ -442,6 +599,13 @@ public enum Filters {
     @Sendable public static func safe(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return args.first ?? .string("")
     }
 
@@ -452,6 +616,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         let regex = try! NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive)
         let range = NSRange(location: 0, length: str.utf16.count)
         let noTags = regex.stringByReplacingMatches(
@@ -467,18 +639,26 @@ public enum Filters {
         guard args.count > 1, case let .string(formatString) = args[0] else {
             return args.first ?? .string("")
         }
-        let args = Array(args.dropFirst())
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
+        let formatArgs = Array(args.dropFirst())
         var result = ""
         var formatIdx = formatString.startIndex
         var argIdx = 0
         while formatIdx < formatString.endIndex {
             let char = formatString[formatIdx]
-            if char == "%", argIdx < args.count {
+            if char == "%", argIdx < formatArgs.count {
                 formatIdx = formatString.index(after: formatIdx)
                 if formatIdx < formatString.endIndex {
                     let specifier = formatString[formatIdx]
                     if specifier == "s" {
-                        result += args[argIdx].description
+                        result += formatArgs[argIdx].description
                         argIdx += 1
                     } else {
                         result.append("%")
@@ -502,13 +682,24 @@ public enum Filters {
         guard let value = args.first, case let .string(str) = value else {
             return .string("")
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["width", "break_long_words"],
+            defaults: [
+                "width": .int(79),
+                "break_long_words": .boolean(true),
+            ]
+        )
+
         let width: Int
-        if args.count > 1, case let .int(w) = args[1] {
+        if case let .int(w) = arguments["width"] {
             width = w
         } else {
             width = 79
         }
-        _ = args.count > 2 ? (args[2].isTruthy) : true
+        _ = arguments["break_long_words"]!.isTruthy
 
         var lines = [String]()
         let paragraphs = str.components(separatedBy: .newlines)
@@ -607,6 +798,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .string("") }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(value.description)
     }
 
@@ -619,6 +818,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(str.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
@@ -626,6 +833,13 @@ public enum Filters {
     @Sendable public static func escape(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return try forceescape(args, kwargs: kwargs, env: env)
     }
 
@@ -666,6 +880,14 @@ public enum Filters {
         guard let value = args.first else {
             return .int(0)
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .int(i):
             return .int(Swift.abs(i))
@@ -683,6 +905,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(str.prefix(1).uppercased() + str.dropFirst().lowercased())
     }
 
@@ -690,11 +920,19 @@ public enum Filters {
     @Sendable public static func center(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard case let .string(str) = args.first,
-            args.count > 1,
-            case let .int(width) = args[1]
-        else {
+        guard case let .string(str) = args.first else {
             return args.first ?? .string("")
+        }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["width"],
+            defaults: [:]
+        )
+
+        guard case let .int(width) = arguments["width"] else {
+            throw JinjaError.runtime("center filter requires width parameter")
         }
 
         let padCount = width - str.count
@@ -711,6 +949,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .double(0.0) }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .int(i):
             return .double(Double(i))
@@ -728,6 +974,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .int(0) }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .int(i):
             return .int(i)
@@ -745,6 +999,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .array([]) }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         switch value {
         case let .array(arr):
             return .array(arr)
@@ -762,6 +1024,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first, case let .array(items) = value else { return .undefined }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return items.max(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -776,6 +1046,14 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first, case let .array(items) = value else { return .undefined }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return items.min(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -842,6 +1120,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         return .string(str.capitalized)
     }
 
@@ -852,6 +1138,14 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .int(0)
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         let words = str.split { $0.isWhitespace || $0.isNewline }
         return .int(words.count)
     }
@@ -940,6 +1234,13 @@ public enum Filters {
             return .string("")
         }
 
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         let str: String
         if case let .string(s) = value {
             str = s
@@ -963,13 +1264,22 @@ public enum Filters {
     @Sendable public static func batch(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .array(items) = value,
-            args.count > 1, case let .int(batchSize) = args[1], batchSize > 0
-        else {
+        guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
 
-        let fillWith = args.count > 2 ? args[2] : .null
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["batchSize", "fillWith"],
+            defaults: ["fillWith": .null]
+        )
+
+        guard case let .int(batchSize) = arguments["batchSize"], batchSize > 0 else {
+            throw JinjaError.runtime("batch filter requires positive integer batchSize parameter")
+        }
+
+        let fillWith = arguments["fillWith"]!
 
         var result = [Value]()
         var batch = [Value]()
@@ -1075,6 +1385,14 @@ public enum Filters {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         var seen = Set<Value>()
         var result = [Value]()
         for item in items {
@@ -1140,6 +1458,13 @@ public enum Filters {
             return .array([])
         }
 
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
+
         if case let .object(obj) = value {
             let pairs = obj.map { key, value in
                 Value.array([.string(key), value])
@@ -1155,6 +1480,13 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .string("") }
+
+        _ = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: [],
+            defaults: [:]
+        )
 
         func prettyPrint(_ val: Value, indent: Int = 0) -> String {
             let indentString = String(repeating: "  ", count: indent)
@@ -1337,7 +1669,7 @@ private func resolveFilterArguments(
     // Handle positional arguments
     for (i, arg) in args.enumerated() {
         if i >= parameters.count {
-            throw JinjaError.runtime("Too many positional arguments for filter.")
+            break // Allow for filters with variable arguments
         }
         let paramName = parameters[i]
         if kwargs.keys.contains(paramName) {
