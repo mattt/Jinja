@@ -2005,7 +2005,9 @@ struct TemplateTests {
         let string = #"{{ greet(name="world") }}"#
         let context: Context = [
             "greet": .function { args, kwargs, _ in
-                let name = kwargs["name"]?.stringValue ?? "stranger"
+                guard case let .string(name) = kwargs["name"] else {
+                    return .string("Hello, stranger!")
+                }
                 return .string("Hello, \(name)!")
             }
         ]

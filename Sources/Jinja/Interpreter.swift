@@ -732,7 +732,7 @@ public enum Interpreter {
         case .identifier(let name):
             env[name] = value
         case .tuple(let expressions):
-            guard let values = value.arrayValue else {
+            guard case let .array(values) = value else {
                 throw JinjaError.runtime("Cannot unpack non-array value for tuple assignment.")
             }
             guard expressions.count == values.count else {
@@ -1430,7 +1430,7 @@ public enum Tests {
     @Sendable public static func filter(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, let filterName = value.stringValue else { return false }
+        guard let value = values.first, case let .string(filterName) = value else { return false }
         return Filters.builtIn[filterName] != nil
     }
 
@@ -1438,7 +1438,7 @@ public enum Tests {
     @Sendable public static func test(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, let testName = value.stringValue else { return false }
+        guard let value = values.first, case let .string(testName) = value else { return false }
         return Tests.builtIn[testName] != nil
     }
 
@@ -1464,12 +1464,12 @@ public enum Tests {
         case let .array(arr):
             return arr.contains { Interpreter.valuesEqual($0, value) }
         case let .string(str):
-            if let searchStr = value.stringValue {
+            if case let .string(searchStr) = value {
                 return str.contains(searchStr)
             }
             return false
         case let .object(dict):
-            if let key = value.stringValue {
+            if case let .string(key) = value {
                 return dict[key] != nil
             }
             return false
@@ -1770,7 +1770,7 @@ public enum Filters {
         let caseSensitive = kwargs["case_sensitive"]?.isTruthy ?? true
 
         let sortedItems: [Value]
-        if let attribute = kwargs["attribute"]?.stringValue {
+        if case let .string(attribute)? = kwargs["attribute"] {
             sortedItems = try items.sorted { a, b in
                 let aValue = try Interpreter.evaluatePropertyMember(a, attribute)
                 let bValue = try Interpreter.evaluatePropertyMember(b, attribute)
@@ -1798,8 +1798,8 @@ public enum Filters {
     @Sendable public static func groupby(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 1, let attribute = values[1].stringValue
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 1, case let .string(attribute) = values[1]
         else {
             return .array([])
         }
@@ -1821,8 +1821,8 @@ public enum Filters {
     @Sendable public static func slice(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 1, let numSlices = values[1].intValue, numSlices > 0
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 1, case let .int(numSlices) = values[1], numSlices > 0
         else {
             return .array([])
         }
@@ -1849,16 +1849,16 @@ public enum Filters {
     @Sendable public static func map(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue else {
+        guard let value = values.first, case let .array(items) = value else {
             return .array([])
         }
 
-        if let filterName = values.count > 1 ? values[1].stringValue : nil {
+        if values.count > 1, case let .string(filterName) = values[1] {
             return .array(
                 try items.map {
                     try Interpreter.evaluateFilter(filterName, [$0], kwargs: [:], env: env)
                 })
-        } else if let attribute = kwargs["attribute"]?.stringValue {
+        } else if case let .string(attribute)? = kwargs["attribute"] {
             return .array(
                 try items.map {
                     try Interpreter.evaluatePropertyMember($0, attribute)
@@ -1872,8 +1872,8 @@ public enum Filters {
     @Sendable public static func select(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 1, let testName = values[1].stringValue
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 1, case let .string(testName) = values[1]
         else {
             return .array([])
         }
@@ -1888,8 +1888,8 @@ public enum Filters {
     @Sendable public static func reject(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 1, let testName = values[1].stringValue
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 1, case let .string(testName) = values[1]
         else {
             return .array([])
         }
@@ -1906,9 +1906,9 @@ public enum Filters {
     @Sendable public static func selectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, let items = value.arrayValue,
-            args.count > 2, let attribute = args[1].stringValue,
-            let testName = args[2].stringValue
+        guard let value = args.first, case let .array(items) = value,
+            args.count > 2, case let .string(attribute) = args[1],
+            case let .string(testName) = args[2]
         else {
             return .array([])
         }
@@ -1924,9 +1924,9 @@ public enum Filters {
     @Sendable public static func rejectattr(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 2, let attribute = values[1].stringValue,
-            let testName = values[2].stringValue
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 2, case let .string(attribute) = values[1],
+            case let .string(testName) = values[2]
         else {
             return .array([])
         }
@@ -1945,7 +1945,7 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let obj = values.first, values.count > 1,
-            let attribute = values[1].stringValue
+            case let .string(attribute) = values[1]
         else {
             return .undefined
         }
@@ -1962,7 +1962,14 @@ public enum Filters {
 
         let caseSensitive =
             kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
-        let by = kwargs["by"]?.stringValue ?? (values.count > 2 ? values[2].stringValue : "key") ?? "key"
+        let by: String
+        if case let .string(s)? = kwargs["by"] {
+            by = s
+        } else if values.count > 2, case let .string(s) = values[2] {
+            by = s
+        } else {
+            by = "key"
+        }
         let reverse = kwargs["reverse"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
 
         let sortedPairs: [(key: String, value: Value)]
@@ -2035,7 +2042,7 @@ public enum Filters {
     @Sendable public static func format(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count > 1, let formatString = values[0].stringValue else {
+        guard values.count > 1, case let .string(formatString) = values[0] else {
             return values.first ?? .string("")
         }
         let args = Array(values.dropFirst())
@@ -2070,10 +2077,15 @@ public enum Filters {
     @Sendable public static func wordwrap(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let str = value.stringValue else {
+        guard let value = values.first, case let .string(str) = value else {
             return .string("")
         }
-        let width = values.count > 1 ? (values[1].intValue ?? 79) : 79
+        let width: Int
+        if values.count > 1, case let .int(w) = values[1] {
+            width = w
+        } else {
+            width = 79
+        }
         _ = values.count > 2 ? (values[2].isTruthy) : true
 
         var lines = [String]()
@@ -2102,7 +2114,7 @@ public enum Filters {
     @Sendable public static func filesizeformat(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let num = value.doubleValue else {
+        guard let value = values.first, case let .double(num) = value else {
             return .string("")
         }
         let binary = kwargs["binary"]?.isTruthy ?? false
@@ -2298,7 +2310,7 @@ public enum Filters {
     @Sendable public static func max(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue else { return .undefined }
+        guard let value = values.first, case let .array(items) = value else { return .undefined }
         return items.max(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2312,7 +2324,7 @@ public enum Filters {
     @Sendable public static func min(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue else { return .undefined }
+        guard let value = values.first, case let .array(items) = value else { return .undefined }
         return items.min(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2327,10 +2339,20 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = values.first else { return .double(0.0) }
-        let precision = (values.count > 1 ? values[1].intValue : 0) ?? 0
-        let method = values.count > 2 ? (values[2].stringValue ?? "common") : "common"
+        let precision: Int
+        if values.count > 1, case let .int(p) = values[1] {
+            precision = p
+        } else {
+            precision = 0
+        }
+        let method: String
+        if values.count > 2, case let .string(m) = values[2] {
+            method = m
+        } else {
+            method = "common"
+        }
 
-        guard let number = value.doubleValue else {
+        guard case let .double(number) = value else {
             return value  // Or throw error
         }
 
@@ -2386,10 +2408,10 @@ public enum Filters {
 
         // Handle count parameter - can be positional (3rd arg) or named (count=)
         let count: Int?
-        if args.count > 3 {
-            count = args[3].intValue
-        } else if let countValue = kwargs["count"] {
-            count = countValue.intValue
+        if args.count > 3, case let .int(c) = args[3] {
+            count = c
+        } else if let countValue = kwargs["count"], case let .int(c) = countValue {
+            count = c
         } else {
             count = nil
         }
@@ -2468,8 +2490,8 @@ public enum Filters {
     @Sendable public static func batch(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue,
-            values.count > 1, let batchSize = values[1].intValue, batchSize > 0
+        guard let value = values.first, case let .array(items) = value,
+            values.count > 1, case let .int(batchSize) = values[1], batchSize > 0
         else {
             return .array([])
         }
@@ -2498,11 +2520,18 @@ public enum Filters {
     @Sendable public static func sum(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue else {
+        guard let value = values.first, case let .array(items) = value else {
             return .int(0)
         }
 
-        let attribute = kwargs["attribute"]?.stringValue ?? (values.count > 1 ? values[1].stringValue : nil)
+        let attribute: String?
+        if case let .string(a)? = kwargs["attribute"] {
+            attribute = a
+        } else if values.count > 1, case let .string(a) = values[1] {
+            attribute = a
+        } else {
+            attribute = nil
+        }
         let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .int(0))
 
         let valuesToSum: [Value]
@@ -2527,9 +2556,19 @@ public enum Filters {
         guard case let .string(str) = values.first else {
             return .string("")
         }
-        let length = values.count > 1 ? (values[1].intValue ?? 255) : 255
+        let length: Int
+        if values.count > 1, case let .int(l) = values[1] {
+            length = l
+        } else {
+            length = 255
+        }
         let killwords = values.count > 2 ? (values[2].isTruthy) : false
-        let end = values.count > 3 ? (values[3].stringValue ?? "...") : "..."
+        let end: String
+        if values.count > 3, case let .string(e) = values[3] {
+            end = e
+        } else {
+            end = "..."
+        }
 
         if str.count <= length {
             return .string(str)
@@ -2551,7 +2590,7 @@ public enum Filters {
     @Sendable public static func unique(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.arrayValue else {
+        guard let value = values.first, case let .array(items) = value else {
             return .array([])
         }
         var seen = Set<Value>()
@@ -2575,16 +2614,20 @@ public enum Filters {
 
         let width: String
         if let widthValue = kwargs["width"] {
-            if let intWidth = widthValue.intValue {
+            if case let .int(intWidth) = widthValue {
                 width = String(repeating: " ", count: intWidth)
+            } else if case let .string(s) = widthValue {
+                width = s
             } else {
-                width = widthValue.stringValue ?? "    "
+                width = "    "
             }
         } else if values.count > 1 {
-            if let intWidth = values[1].intValue {
+            if case let .int(intWidth) = values[1] {
                 width = String(repeating: " ", count: intWidth)
+            } else if case let .string(s) = values[1] {
+                width = s
             } else {
-                width = values[1].stringValue ?? "    "
+                width = "    "
             }
         } else {
             width = "    "
@@ -2667,10 +2710,25 @@ public enum Filters {
             return .string("")
         }
 
-        let trimUrlLimit = kwargs["trim_url_limit"]?.intValue
+        let trimUrlLimit: Int?
+        if case let .int(limit)? = kwargs["trim_url_limit"] {
+            trimUrlLimit = limit
+        } else {
+            trimUrlLimit = nil
+        }
         let nofollow = kwargs["nofollow"]?.isTruthy ?? false
-        let target = kwargs["target"]?.stringValue
-        let rel = kwargs["rel"]?.stringValue
+        let target: String?
+        if case let .string(t)? = kwargs["target"] {
+            target = t
+        } else {
+            target = nil
+        }
+        let rel: String?
+        if case let .string(r)? = kwargs["rel"] {
+            rel = r
+        } else {
+            rel = nil
+        }
 
         func buildAttributes() -> String {
             var attributes = ""
