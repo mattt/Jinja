@@ -333,10 +333,12 @@ public enum Filters {
         return .array(
             try items.filter {
                 let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
-                guard !testArgs.isEmpty else {
+                guard case let .string(testName) = testArgs.first else {
                     return attrValue.isTruthy
                 }
-                return try Interpreter.evaluateTest(attribute, [attrValue] + testArgs, env: env)
+
+                return try Interpreter.evaluateTest(
+                    testName, [attrValue] + testArgs.dropFirst(1), env: env)
             })
     }
 
