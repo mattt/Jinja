@@ -506,70 +506,70 @@ struct InterpreterTests {
 
         @Test("equalto test with equal integers")
         func testEqualtoWithEqualIntegers() throws {
-            let result = try Tests.equalto([.int(42), .int(42)], kwargs: [:], env: env)
+            let result = try Tests.eq([.int(42), .int(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with different integers")
         func testEqualtoWithDifferentIntegers() throws {
-            let result = try Tests.equalto([.int(42), .int(43)], kwargs: [:], env: env)
+            let result = try Tests.eq([.int(42), .int(43)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with equal strings")
         func testEqualtoWithEqualStrings() throws {
-            let result = try Tests.equalto(
+            let result = try Tests.eq(
                 [.string("hello"), .string("hello")], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with different strings")
         func testEqualtoWithDifferentStrings() throws {
-            let result = try Tests.equalto(
+            let result = try Tests.eq(
                 [.string("hello"), .string("world")], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with equal booleans")
         func testEqualtoWithEqualBooleans() throws {
-            let result = try Tests.equalto([.boolean(true), .boolean(true)], kwargs: [:], env: env)
+            let result = try Tests.eq([.boolean(true), .boolean(true)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with different booleans")
         func testEqualtoWithDifferentBooleans() throws {
-            let result = try Tests.equalto(
+            let result = try Tests.eq(
                 [.boolean(true), .boolean(false)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with equal null values")
         func testEqualtoWithEqualNullValues() throws {
-            let result = try Tests.equalto([.null, .null], kwargs: [:], env: env)
+            let result = try Tests.eq([.null, .null], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with equal undefined values")
         func testEqualtoWithEqualUndefinedValues() throws {
-            let result = try Tests.equalto([.undefined, .undefined], kwargs: [:], env: env)
+            let result = try Tests.eq([.undefined, .undefined], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with different types")
         func testEqualtoWithDifferentTypes() throws {
-            let result = try Tests.equalto([.int(42), .string("42")], kwargs: [:], env: env)
+            let result = try Tests.eq([.int(42), .string("42")], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with insufficient arguments")
         func testEqualtoWithInsufficientArguments() throws {
-            let result = try Tests.equalto([.int(42)], kwargs: [:], env: env)
+            let result = try Tests.eq([.int(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with empty values")
         func testEqualtoWithEmptyValues() throws {
-            let result = try Tests.equalto([], kwargs: [:], env: env)
+            let result = try Tests.eq([], kwargs: [:], env: env)
             #expect(result == false)
         }
 

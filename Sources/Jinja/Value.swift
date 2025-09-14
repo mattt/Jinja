@@ -87,14 +87,6 @@ public enum Value: Sendable {
         return false
     }
 
-    /// Returns `true` if this value can be iterated over (array, object, or string).
-    public var isIterable: Bool {
-        switch self {
-        case .array, .object, .string: return true
-        default: return false
-        }
-    }
-
     /// Returns `true` if this value is a string.
     public var isString: Bool {
         if case .string = self { return true }
@@ -129,6 +121,14 @@ public enum Value: Sendable {
     public var isGlobal: Bool {
         if case .global = self { return true }
         return false
+    }
+
+    /// Returns `true` if this value can be iterated over (array, object, or string).
+    public var isIterable: Bool {
+        switch self {
+        case .array, .object, .string: return true
+        default: return false
+        }
     }
 
     /// Returns `true` if this value is truthy in boolean context.

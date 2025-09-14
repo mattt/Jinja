@@ -2,60 +2,60 @@
 public enum Tests {
     // MARK: - Basic Tests
 
-    /// Tests if a value is defined (not undefined).
+    /// Tests if the input is defined (not undefined).
     @Sendable public static func defined(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value != .undefined
+        guard let input = args.first else { return false }
+        return !input.isUndefined
     }
 
-    /// Tests if a value is undefined.
+    /// Tests if the input is undefined.
     @Sendable public static func undefined(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return true }
-        return value == .undefined
+        guard let input = args.first else { return true }
+        return input.isUndefined
     }
 
-    /// Tests if a value is none/null.
+    /// Tests if the input is none/null.
     @Sendable public static func none(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value == .null
+        guard let input = args.first else { return false }
+        return input.isNull
     }
 
-    /// Tests if a value is a string.
+    /// Tests if the input is a string.
     @Sendable public static func string(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value.isString
+        guard let input = args.first else { return false }
+        return input.isString
     }
 
-    /// Tests if a value is a number.
+    /// Tests if the input is a number.
     @Sendable public static func number(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value.isInt || value.isDouble
+        guard let input = args.first else { return false }
+        return input.isInt || input.isDouble
     }
 
-    /// Tests if a value is a boolean.
+    /// Tests if the input is a boolean.
     @Sendable public static func boolean(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value.isBoolean
+        guard let input = args.first else { return false }
+        return input.isBoolean
     }
 
-    /// Tests if a value is iterable.
+    /// Tests if the input is iterable.
     @Sendable public static func iterable(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value.isIterable
+        guard let input = args.first else { return false }
+        return input.isIterable
     }
 
     // MARK: - Numeric Tests
@@ -64,8 +64,8 @@ public enum Tests {
     @Sendable public static func even(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        switch value {
+        guard let input = args.first else { return false }
+        switch input {
         case let .int(num):
             return num % 2 == 0
         case let .double(num):
@@ -79,8 +79,8 @@ public enum Tests {
     @Sendable public static func odd(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = args.first else { return false }
-        switch value {
+        guard let input = args.first else { return false }
+        switch input {
         case let .int(num):
             return num % 2 != 0
         case let .double(num):
@@ -107,176 +107,12 @@ public enum Tests {
 
     // MARK: - Comparison Tests
 
-    /// Tests if two values are equal.
-    @Sendable public static func equalto(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        return Interpreter.valuesEqual(args[0], args[1])
-    }
-
-    /// Tests if a value is a mapping (dictionary/object).
-    @Sendable public static func mapping(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case .object(_) = value {
-            return true
-        }
-        return false
-    }
-
-    /// Tests if a value is callable (function).
-    @Sendable public static func callable(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case .function(_) = value {
-            return true
-        }
-        return false
-    }
-
-    /// Tests if a value is an integer.
-    @Sendable public static func integer(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case .int(_) = value {
-            return true
-        }
-        return false
-    }
-
-    /// Tests if a string is all lowercase.
-    @Sendable public static func lower(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case let .string(str) = value {
-            return str == str.lowercased() && str != str.uppercased()
-        }
-        return false
-    }
-
-    /// Tests if a string is all uppercase.
-    @Sendable public static func upper(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case let .string(str) = value {
-            return str == str.uppercased() && str != str.lowercased()
-        }
-        return false
-    }
-
-    /// Tests if a value is true.
-    @Sendable public static func `true`(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value == .boolean(true)
-    }
-
-    /// Tests if a value is false.
-    @Sendable public static func `false`(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        return value == .boolean(false)
-    }
-
-    /// Tests if a value is a float.
-    @Sendable public static func float(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        if case .double(_) = value {
-            return true
-        }
-        return false
-    }
-
-    /// Tests if a value is a sequence (array or string).
-    @Sendable public static func sequence(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first else { return false }
-        switch value {
-        case .array(_), .string(_):
-            return true
-        default:
-            return false
-        }
-    }
-
-    /// Tests if a value is escaped (always returns false for basic implementation).
-    @Sendable public static func escaped(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        // In basic implementation, values are not escaped by default
-        return false
-    }
-
-    /// Tests if a filter exists by name.
-    @Sendable public static func filter(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first, case let .string(filterName) = value else { return false }
-        return Filters.builtIn[filterName] != nil
-    }
-
-    /// Tests if a test exists by name.
-    @Sendable public static func test(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard let value = args.first, case let .string(testName) = value else { return false }
-        return Tests.builtIn[testName] != nil
-    }
-
-    /// Tests if two values point to the same memory address (identity test).
-    @Sendable public static func sameas(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        // For basic implementation, this is the same as equality
-        // In a more advanced implementation, this would check object identity
-        return Interpreter.valuesEqual(args[0], args[1])
-    }
-
-    /// Tests if a value is in a sequence.
-    @Sendable public static func `in`(
-        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
-    ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        let value = args[0]
-        let container = args[1]
-
-        switch container {
-        case let .array(arr):
-            return arr.contains { Interpreter.valuesEqual($0, value) }
-        case let .string(str):
-            if case let .string(searchStr) = value {
-                return str.contains(searchStr)
-            }
-            return false
-        case let .object(dict):
-            if case let .string(key) = value {
-                return dict[key] != nil
-            }
-            return false
-        default:
-            return false
-        }
-    }
-
-    // MARK: - Comparison Tests
-
     /// Tests if a == b.
     @Sendable public static func eq(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        return try equalto(args, kwargs: kwargs, env: env)
+        guard args.count >= 2 else { return false }
+        return Interpreter.valuesEqual(args[0], args[1])
     }
 
     /// Tests if a != b.
@@ -284,7 +120,7 @@ public enum Tests {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard args.count >= 2 else { return false }
-        return !Interpreter.valuesEqual(args[0], args[1])
+        return !(try eq(args, kwargs: kwargs, env: env))
     }
 
     /// Tests if a > b.
@@ -331,6 +167,147 @@ public enum Tests {
         do {
             return try Interpreter.compareValues(args[0], args[1]) <= 0
         } catch {
+            return false
+        }
+    }
+
+    /// Tests if the input is a mapping (dictionary/object).
+    @Sendable public static func mapping(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input.isObject
+    }
+
+    /// Tests if the input is callable (function or macro).
+    @Sendable public static func callable(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input.isFunction || input.isMacro
+    }
+
+    /// Tests if the input is an integer.
+    @Sendable public static func integer(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input.isInt
+    }
+
+    /// Tests if a string is all lowercase.
+    @Sendable public static func lower(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        if case let .string(str) = input {
+            return str == str.lowercased()
+        }
+        return false
+    }
+
+    /// Tests if a string is all uppercase.
+    @Sendable public static func upper(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        if case let .string(str) = input {
+            return str == str.uppercased()
+        }
+        return false
+    }
+
+    /// Tests if the input is true.
+    @Sendable public static func `true`(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input == .boolean(true)
+    }
+
+    /// Tests if the input is false.
+    @Sendable public static func `false`(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input == .boolean(false)
+    }
+
+    /// Tests if the input is a float.
+    @Sendable public static func float(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        return input.isDouble
+    }
+
+    /// Tests if the input is a sequence (array or string).
+    @Sendable public static func sequence(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first else { return false }
+        switch input {
+        case .array(_), .string(_):
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Tests if the input is escaped (always returns false for basic implementation).
+    @Sendable public static func escaped(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        // In basic implementation, inputs are not escaped by default
+        return false
+    }
+
+    /// Tests if a filter exists by name.
+    @Sendable public static func filter(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first, case let .string(filterName) = input else { return false }
+        return Filters.builtIn[filterName] != nil
+    }
+
+    /// Tests if a test exists by name.
+    @Sendable public static func test(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard let input = args.first, case let .string(testName) = input else { return false }
+        return Tests.builtIn[testName] != nil
+    }
+
+    /// Tests if two inputs point to the same memory address (identity test).
+    @Sendable public static func sameas(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard args.count >= 2 else { return false }
+        return Interpreter.valuesEqual(args[0], args[1])
+    }
+
+    /// Tests if the input is in a sequence.
+    @Sendable public static func `in`(
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
+    ) throws -> Bool {
+        guard args.count >= 2 else { return false }
+        let input = args[0]
+        let container = args[1]
+
+        switch container {
+        case let .array(arr):
+            return arr.contains { Interpreter.valuesEqual($0, input) }
+        case let .string(str):
+            if case let .string(searchStr) = input {
+                return str.contains(searchStr)
+            }
+            return false
+        case let .object(dict):
+            if case let .string(key) = input {
+                return dict[key] != nil
+            }
+            return false
+        default:
             return false
         }
     }
