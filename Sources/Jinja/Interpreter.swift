@@ -1184,6 +1184,8 @@ public enum Interpreter {
 
     static func valueInCollection(_ value: Value, _ collection: Value) throws -> Bool {
         switch collection {
+        case .undefined, .null:
+            return value == collection
         case let .array(items):
             return items.contains { valuesEqual(value, $0) }
         case let .string(str):
@@ -1193,8 +1195,7 @@ public enum Interpreter {
         case let .object(dict):
             guard case let .string(key) = value else { return false }
             return dict.keys.contains(key)
-        case .undefined, .null:
-            return false
+
         default:
             throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")

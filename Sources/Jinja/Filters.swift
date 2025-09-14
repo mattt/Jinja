@@ -56,7 +56,7 @@ public enum Filters {
     }
 
     /// Returns a default value if the input is undefined,
-    /// or if the input is falsey and the second / `boolean` argument is `true`.
+    /// or if the input is false and the second / `boolean` argument is `true`.
     @Sendable public static func `default`(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
@@ -77,8 +77,8 @@ public enum Filters {
             return defaultValue
         }
 
-        // If boolean is true and input is falsey, return default value
-        if boolean, !input.isTruthy {
+        // If boolean is true and input is false, return default value
+        if boolean, input == false {
             return defaultValue
         }
 
