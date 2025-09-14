@@ -1562,19 +1562,27 @@ public enum Filters {
             return attributes
         }
 
-        // Basic implementation - just detect simple http/https URLs
-        let httpPattern = /https?:\/\/[^\s<>"'\[\]{}|\\^`]+/
-        
+        // Use URLComponents to detect and validate URLs
         var result = text
-        let matches = text.matches(of: httpPattern).reversed()
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
 
-        for match in matches {
-            let url = String(match.output)
+        for word in words {
+            // Check if the word looks like a URL
+            guard word.hasPrefix("http://") || word.hasPrefix("https://") else { continue }
+
+            // Validate using URLComponents
+            guard let urlComponents = URLComponents(string: word),
+                let scheme = urlComponents.scheme,
+                scheme == "http" || scheme == "https",
+                urlComponents.host != nil
+            else { continue }
+
+            let url = word
             let displayUrl =
                 trimUrlLimit != nil && url.count > trimUrlLimit!
                 ? String(url.prefix(trimUrlLimit!)) + "..." : url
             let replacement = "<a href=\"\(url)\"\(buildAttributes())>\(displayUrl)</a>"
-            result = result.replacingCharacters(in: match.range, with: replacement)
+            result = result.replacingOccurrences(of: word, with: replacement)
         }
 
         return .string(result)
@@ -1666,7 +1674,7 @@ private func resolveFilterArguments(
     // Handle positional arguments
     for (i, arg) in args.enumerated() {
         if i >= parameters.count {
-            break // Allow for filters with variable arguments
+            break  // Allow for filters with variable arguments
         }
         let paramName = parameters[i]
         if kwargs.keys.contains(paramName) {
