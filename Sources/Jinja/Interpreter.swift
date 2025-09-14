@@ -6,11 +6,6 @@ import Foundation
 /// A context is a dictionary of variables and their values.
 public typealias Context = [String: Value]
 
-private let builtinValues: Context = [
-    "range": Global.range,
-    "namespace": .global(Global.namespace(Namespace()))
-]
-
 // MARK: - Environment
 
 /// Execution environment that stores variables and provides context for template rendering.
@@ -38,11 +33,6 @@ public final class Environment: @unchecked Sendable {
     public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
         self.parent = parent
         self.variables = initial
-
-        // Initialize built-in variables if this is a root environment
-        if parent == nil {
-            variables.merge(builtinValues) { _, new in new }
-        }
     }
 
     /// A subscript to get and set variables in the environment.
@@ -1157,7 +1147,7 @@ public enum Interpreter {
     static func valueInCollection(_ value: Value, _ collection: Value) throws -> Bool {
         switch collection {
         case .undefined:
-            return value.isUndefined
+            return false
         case .null:
             return false
         case let .array(items):

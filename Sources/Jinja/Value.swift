@@ -22,8 +22,6 @@ public enum Value: Sendable {
     case function(@Sendable ([Value], [String: Value], Environment) throws -> Value)
     /// Macro value that can be invoked with arguments.
     case macro(Macro)
-    /// Global value that can be accessed from the environment.
-    case global(Global)
 
     /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {
@@ -49,8 +47,6 @@ public enum Value: Sendable {
                 orderedDict[key] = try Value(any: value)
             }
             self = .object(orderedDict)
-        case let global as Global:
-            self = .global(global)
         case let macro as Macro:
             self = .macro(macro)
         default:
@@ -117,12 +113,6 @@ public enum Value: Sendable {
         return false
     }
 
-    /// Returns `true` if this value is a global.
-    public var isGlobal: Bool {
-        if case .global = self { return true }
-        return false
-    }
-
     /// Returns `true` if this value can be iterated over (array, object, or string).
     public var isIterable: Bool {
         switch self {
@@ -143,7 +133,6 @@ public enum Value: Sendable {
         case .object(let o): !o.isEmpty
         case .function: true
         case .macro: true
-        case .global: true
         }
     }
 }
@@ -165,7 +154,6 @@ extension Value: CustomStringConvertible {
             "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
         case .function: "[Function]"
         case .macro(let m): "[Macro \(m.name)]"
-        case .global(let g): "[Global(\(g))]"
         }
     }
 }
@@ -186,7 +174,6 @@ extension Value: Equatable {
         case let (.object(lhs), .object(rhs)): return lhs == rhs
         case (.function, .function): return false
         case let (.macro(lhs), .macro(rhs)): return lhs == rhs
-        case (.global, .global): return false
         default: return false
         }
     }
@@ -208,7 +195,6 @@ extension Value: Hashable {
         case let .object(value): hasher.combine(value)
         case .function: hasher.combine(0)
         case .macro(let m): hasher.combine(m)
-        case .global: hasher.combine(0)
         }
     }
 }
@@ -249,8 +235,6 @@ extension Value: Encodable {
                 ))
         case .macro(let m):
             try container.encode(m)
-        case .global(let g):
-            try container.encode(g)
         }
     }
 }
@@ -280,8 +264,6 @@ extension Value: Decodable {
             self = .object(orderedDictionary)
         } else if let macro = try? container.decode(Macro.self) {
             self = .macro(macro)
-        } else if let global = try? container.decode(Global.self) {
-            self = .global(global)
         } else {
             throw DecodingError.typeMismatch(
                 Value.self,

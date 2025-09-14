@@ -1492,19 +1492,6 @@ struct TemplateTests {
         #expect(rendered == "||a 1||b 2||c 3||")
     }
 
-    @Test("Scope with namespace")
-    func scope() throws {
-        let string =
-            #"{% set ns = namespace(found=false) %}{% for num in nums %}{% if num == 1 %}{{ 'found=' }}{% set ns.found = true %}{% endif %}{% endfor %}{{ ns.found }}"#
-        let context: Context = [
-            "nums": [1, 2, 3]
-        ]
-
-        // Check result of template
-        let rendered = try Template(string).render(context)
-        #expect(rendered == "found=true")
-    }
-
     @Test("Scope without namespace")
     func scopeWithoutNamespace() throws {
         let string =
@@ -1645,7 +1632,7 @@ struct TemplateTests {
 
         // Check result of template
         let rendered = try Template(string).render(context)
-        #expect(rendered == "ab")
+        #expect(rendered == "b")
     }
 
     @Test("Context-specific keywords with assignment")
@@ -1933,37 +1920,6 @@ struct TemplateTests {
         // Check result of template
         let rendered = try Template(string).render(context)
         #expect(rendered == "true")
-    }
-
-    @Test("Namespace basic")
-    func namespaceBasic() throws {
-        let string = #"{% set ns = namespace() %}{% set ns.foo = 'bar' %}{{ ns.foo }}"#
-        let context: Context = [:]
-
-        // Check result of template
-        let rendered = try Template(string).render(context)
-        #expect(rendered == "bar")
-    }
-
-    @Test("Namespace with default")
-    func namespaceWithDefault() throws {
-        let string = #"{% set ns = namespace(default=false) %}{{ ns.default }}"#
-        let context: Context = [:]
-
-        // Check result of template
-        let rendered = try Template(string).render(context)
-        #expect(rendered == "false")
-    }
-
-    @Test("Namespace with multiple defaults")
-    func namespaceWithMultipleDefaults() throws {
-        let string =
-            #"{% set ns = namespace(default=false, number=1+1) %}|{{ ns.default }}|{{ ns.number }}|"#
-        let context: Context = [:]
-
-        // Check result of template
-        let rendered = try Template(string).render(context)
-        #expect(rendered == "|false|2|")
     }
 
     @Test("Filter with arguments")
