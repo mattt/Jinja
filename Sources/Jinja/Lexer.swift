@@ -5,10 +5,14 @@ public enum Lexer: Sendable {
         "for": .`for`, "endfor": .endfor, "in": .`in`, "not": .not,
         "and": .and, "or": .or, "is": .`is`, "set": .set, "endset": .endset,
         "macro": .macro, "endmacro": .endmacro,
-        "true": .boolean, "false": .boolean, "True": .boolean, "False": .boolean, "none": .null,
+        "true": .boolean, "false": .boolean,
+        "null": .null, "none": .null,
         "break": .`break`, "continue": .`continue`,
         "call": .call, "endcall": .endcall,
         "filter": .filter, "endfilter": .endfilter,
+
+        // Python-compatible keywords
+        "True": .boolean, "False": .boolean, "None": .null,
     ]
 
     private static let operators: [String: Token.Kind] = [
