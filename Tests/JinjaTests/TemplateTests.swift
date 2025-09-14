@@ -4,6 +4,40 @@ import Testing
 
 @Suite("Template Tests")
 struct TemplateTests {
+    @Test("Empty template")
+    func emptyTemplate() throws {
+        let string = ""
+        let context: Context = [:]
+
+        let tokens = try Lexer.tokenize(string)
+        #expect(tokens == [Token(kind: .eof, value: "", position: 0)])
+        
+        let nodes = try Parser.parse(tokens)
+        #expect(nodes == [])
+        
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "")
+    }
+    
+    @Test("Invalid template")
+    func invalidTemplate() throws {
+        let string = "{{"
+        let context: Context = [:]
+        
+        let tokens = try Lexer.tokenize(string)
+        #expect(tokens == [
+            Token(kind: .openExpression, value: "{{", position: 0),
+            Token(kind: .eof, value: "", position: 2),
+        ])
+        
+        #expect(throws: JinjaError.self) {
+            try Parser.parse(tokens)
+        }
+        
+        #expect(throws: JinjaError.self) {
+            try Template(string).render(context)
+        }
+    }
 
     @Test("No template")
     func noTemplate() throws {
