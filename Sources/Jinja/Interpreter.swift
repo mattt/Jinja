@@ -2366,50 +2366,71 @@ public enum Filters {
         return .integer(words.count)
     }
 
-    /// Replaces occurrences of a substring.
+    /// Return string with all occurrences of a substring replaced with a new one.
+    /// The first argument is the substring that should be replaced,
+    /// the second is the replacement string.
+    /// If the optional third argument count is given,
+    /// only the first count occurrences are replaced.
     @Sendable public static func replace(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count >= 3,
-            case let .string(str) = values[0],
-            case let .string(old) = values[1],
-            case let .string(new) = values[2]
+        guard args.count >= 3,
+            case let .string(str) = args[0],
+            case let .string(old) = args[1],
+            case let .string(new) = args[2]
         else {
-            return values.first ?? .string("")
+            return args.first ?? .string("")
         }
-        let count = values.count > 3 ? values[3].integer : nil
+
+        // Handle count parameter - can be positional (3rd arg) or named (count=)
+        let count: Int?
+        if args.count > 3 {
+            count = args[3].integer
+        } else if let countValue = kwargs["count"] {
+            count = countValue.integer
+        } else {
+            count = nil
+        }
 
         // Special case: replacing empty string inserts at character boundaries
         if old.isEmpty {
             var result = ""
             var replacements = 0
+
+            // Insert at the beginning
+            if count == nil || replacements < count! {
+                result += new
+                replacements += 1
+            }
+
+            // Insert between each character
             for char in str {
-                if let count = count, replacements >= count {
-                    result += String(char)
-                } else {
-                    result += new + String(char)
+                result += String(char)
+                if count == nil || replacements < count! {
+                    result += new
                     replacements += 1
                 }
             }
-            // Add final replacement if we haven't hit the count limit
-            if count == nil || replacements < count! {
-                result += new
-            }
+
             return .string(result)
         }
 
+        // Regular case: replace occurrences of the substring
         var result = ""
         var remaining = str
         var replacements = 0
+
         while let range = remaining.range(of: old) {
             if let count = count, replacements >= count {
                 break
             }
+
             result += remaining[..<range.lowerBound]
             result += new
             remaining = String(remaining[range.upperBound...])
             replacements += 1
         }
+
         result += remaining
         return .string(result)
     }
