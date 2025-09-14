@@ -1,3 +1,7 @@
+> [!IMPORTANT]  
+> This project is still a work-in-progress.
+> A proper release is forthcoming ✌️
+
 # Jinja
 
 A Swift implementation of the [Jinja2 template engine](https://jinja.palletsprojects.com/en/3.1.x/).
@@ -8,20 +12,6 @@ This implementation is focused primarily on the features needed to generate LLM 
 ## Requirements
 
 * Swift 6.0+ / Xcode 16+
-
-## Installation
-
-### Swift Package Manager
-
-Add the following dependency to your `Package.swift`:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/mattt/Jinja.git", from: "1.0.0")
-]
-```
-
-## Features
 
 ## Usage
 
@@ -399,8 +389,3 @@ let messages: [String: Value] = [
 
 let formatted = try chatTemplate.render(messages)
 ```
-
-## License
-
-Jinja is available under the MIT license. 
-See the [LICENSE](LICENSE) file for more info.
