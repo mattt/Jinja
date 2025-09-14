@@ -454,10 +454,10 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseTernary() throws -> Expression {
-        let expr = try parseTest()
+        let expr = try parseOr()
 
         if match(.if) {
-            let test = try parseTest()
+            let test = try parseOr()
             var alternate: Expression?
 
             if match(.else) {
@@ -487,34 +487,6 @@ public struct Parser: Sendable {
         return expr
     }
 
-    private mutating func parseTest() throws -> Expression {
-        var expr = try parseOr()
-        if match(.is) {
-            let negated = match(.not)
-            let testName: String
-            let token = peek()
-            if token.kind == .identifier {
-                testName = try consumeIdentifier()
-            } else if token.kind == .boolean || token.kind == .null {
-                testName = token.value
-                advance()
-            } else {
-                throw JinjaError.parser("Expected test name but found \(token.kind).")
-            }
-            var args: [Expression] = []
-            if match(.openParen) {
-                (args, _) = try parseArguments()
-                try consume(.closeParen, message: "Expected ')' after test arguments.")
-            }
-            if args.isEmpty {
-                expr = .test(expr, testName, negated: negated)
-            } else {
-                expr = .testArgs(expr, testName, args, negated: negated)
-            }
-        }
-        return expr
-    }
-
     private mutating func parseOr() throws -> Expression {
         var expr = try parseAnd()
         while match(.or) {
@@ -532,7 +504,7 @@ public struct Parser: Sendable {
         }
         return expr
     }
-    
+
     private mutating func parseNot() throws -> Expression {
         if match(.not) {
             let expr = try parseNot()
@@ -568,6 +540,28 @@ public struct Parser: Sendable {
             } else if match(.not), match(.in) {
                 let right = try parseTerm()
                 expr = .binary(.notIn, expr, right)
+            } else if match(.is) {
+                let negated = match(.not)
+                let testName: String
+                let token = peek()
+                if token.kind == .identifier {
+                    testName = try consumeIdentifier()
+                } else if token.kind == .boolean || token.kind == .null {
+                    testName = token.value
+                    advance()
+                } else {
+                    throw JinjaError.parser("Expected test name but found \(token.kind).")
+                }
+                var args: [Expression] = []
+                if match(.openParen) {
+                    (args, _) = try parseArguments()
+                    try consume(.closeParen, message: "Expected ')' after test arguments.")
+                }
+                if args.isEmpty {
+                    expr = .test(expr, testName, negated: negated)
+                } else {
+                    expr = .testArgs(expr, testName, args, negated: negated)
+                }
             } else {
                 break
             }
@@ -590,7 +584,7 @@ public struct Parser: Sendable {
         }
         return expr
     }
-    
+
     private mutating func parseConcat() throws -> Expression {
         var expr = try parseFilter()
         while true {
