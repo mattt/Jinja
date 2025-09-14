@@ -143,17 +143,26 @@ extension Value: CustomStringConvertible {
     /// String representation of the value for template output.
     public var description: String {
         switch self {
-        case .string(let s): s
-        case .double(let n): String(n)
-        case .int(let i): String(i)
-        case .boolean(let b): String(b)
-        case .null: ""
-        case .undefined: ""
-        case .array(let a): "[\(a.map { $0.description }.joined(separator: ", "))]"
+        case .string(let s): return s
+        case .double(let n): return String(n)
+        case .int(let i): return String(i)
+        case .boolean(let b): return String(b)
+        case .null: return ""
+        case .undefined: return ""
+        case .array(let a):
+            // Python-style representation of strings in the array
+            let elements = a.map { element -> String in
+                if case let .string(s) = element {
+                    return "'\(s)'"
+                } else {
+                    return element.description
+                }
+            }
+            return "[\(elements.joined(separator: ", "))]"
         case .object(let o):
-            "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
-        case .function: "[Function]"
-        case .macro(let m): "[Macro \(m.name)]"
+            return "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
+        case .function: return "[Function]"
+        case .macro(let m): return "[Macro \(m.name)]"
         }
     }
 }
