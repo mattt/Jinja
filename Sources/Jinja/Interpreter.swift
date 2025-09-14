@@ -7,53 +7,16 @@ import Foundation
 public typealias Context = [String: Value]
 
 private let builtinValues: Context = [
-    "true": true,
-    "false": false,
-    "True": true,
-    "False": false,
-    "none": .null,
-    "range": .function { values, _, _ in
-        guard !values.isEmpty else { return .array([]) }
-
-        switch values.count {
-        case 1:
-            if case let .int(end) = values[0] {
-                return .array((0..<end).map { .int($0) })
-            }
-        case 2:
-            if case let .int(start) = values[0],
-                case let .int(end) = values[1]
-            {
-                return .array((start..<end).map { .int($0) })
-            }
-        case 3:
-            if case let .int(start) = values[0],
-                case let .int(end) = values[1],
-                case let .int(step) = values[2]
-            {
-                return .array(stride(from: start, to: end, by: step).map { .int($0) })
-            }
-        default:
-            break
-        }
-
-        throw JinjaError.runtime("Invalid arguments to range function")
-    },
-    "namespace": .function { _, kwargs, _ in
-        var ns: OrderedDictionary<String, Value> = [:]
-        for (key, value) in kwargs {
-            ns[key] = value
-        }
-        return .object(ns)
-    },
+    "range": Global.range,
+    "namespace": .global(Global.namespace(Namespace()))
 ]
 
 // MARK: - Environment
 
 /// Execution environment that stores variables and provides context for template rendering.
 public final class Environment: @unchecked Sendable {
-    private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
+    private(set) var variables: [String: Value] = [:]
 
     // Options
 
@@ -65,12 +28,8 @@ public final class Environment: @unchecked Sendable {
     /// This applies to block tags, not variable tags.
     /// The default value is `false`.
     public var trimBlocks: Bool = false
-
-    // Globals
-
-    var namespace: Namespace?
-    var cycler: Cycler?
-    var joiner: Joiner?
+    
+    // MARK: -
 
     /// Creates a new environment with optional parent and initial variables.
     /// - Parameters:

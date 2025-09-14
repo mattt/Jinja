@@ -5,6 +5,36 @@ public enum Global: Sendable {
     case cycler(Cycler)
     case joiner(Joiner)
     case namespace(Namespace)
+    
+    static var range: Value {
+        .function { values, _, _ in
+            switch values.count {
+            case 0:
+                return .array([])
+            case 1:
+                if case let .int(end) = values[0] {
+                    return .array((0..<end).map { .int($0) })
+                }
+            case 2:
+                if case let .int(start) = values[0],
+                   case let .int(end) = values[1]
+                {
+                    return .array((start..<end).map { .int($0) })
+                }
+            case 3:
+                if case let .int(start) = values[0],
+                   case let .int(end) = values[1],
+                   case let .int(step) = values[2]
+                {
+                    return .array(stride(from: start, to: end, by: step).map { .int($0) })
+                }
+            default:
+                break
+            }
+            
+            throw JinjaError.runtime("Invalid arguments to range function")
+        }
+    }
 }
 
 // MARK: - CustomStringConvertible
