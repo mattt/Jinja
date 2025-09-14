@@ -55,8 +55,6 @@ public final class Environment: @unchecked Sendable {
     private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
 
-    var macros: [String: Macro] = [:]
-
     var namespace: Namespace?
     var cycler: Cycler?
     var joiner: Joiner?
@@ -279,9 +277,6 @@ public enum Interpreter {
 
         case let .call(callableExpr, argsExpr, kwargsExpr):
             let callableValue = try evaluateExpression(callableExpr, env: env)
-            guard case let .function(function) = callableValue else {
-                throw JinjaError.runtime("Cannot call non-function value")
-            }
 
             // Handle unpacking in arguments
             var argValues: [Value] = []
@@ -300,7 +295,16 @@ public enum Interpreter {
             }
 
             let kwargs = try kwargsExpr.mapValues { try evaluateExpression($0, env: env) }
-            return try function(argValues, kwargs, env)
+
+            switch callableValue {
+            case .function(let function):
+                return try function(argValues, kwargs, env)
+            case .macro(let macro):
+                return try callMacro(
+                    macro: macro, arguments: argValues, keywordArguments: kwargs, env: env)
+            default:
+                throw JinjaError.runtime("Cannot call non-function value")
+            }
 
         case let .slice(array, start, stop, step):
             let arrayValue = try evaluateExpression(array, env: env)
@@ -585,38 +589,8 @@ public enum Interpreter {
             }
 
         case let .macro(name, parameters, defaults, body):
-            // Record macro definition in environment
-            env.macros[name] = Macro(
-                name: name, parameters: parameters, defaults: defaults, body: body)
-            // Expose as callable function too
-            env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
-                let macroEnv = Environment(parent: env)
-
-                let caller = callTimeEnv["caller"]
-                if caller != .undefined {
-                    macroEnv["caller"] = caller
-                }
-
-                // Start with defaults
-                for (key, expr) in defaults {
-                    // Evaluate defaults in current env
-                    let val = try evaluateExpression(expr, env: env)
-                    macroEnv[key] = val
-                }
-                // Bind positional args
-                for (index, paramName) in parameters.enumerated() {
-                    let value =
-                        index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
-                    macroEnv[paramName] = value
-                }
-                // Bind keyword args
-                for (key, value) in passedKwargs {
-                    macroEnv[key] = value
-                }
-                var macroBuffer: any TextOutputStream = Buffer()
-                try interpret(body, env: macroEnv, into: &macroBuffer)
-                return .string((macroBuffer as! Buffer).build())
-            }
+            try registerMacro(
+                name: name, parameters: parameters, defaults: defaults, body: body, env: env)
 
         case let .program(nodes):
             try interpret(nodes, env: env, into: &buffer)
@@ -636,11 +610,7 @@ public enum Interpreter {
                 kwargs = [:]
             }
 
-            guard let callableValue = try? evaluateExpression(callable, env: env),
-                case .function(let function) = callableValue
-            else {
-                throw JinjaError.runtime("Cannot call non-function value")
-            }
+            let callableValue = try evaluateExpression(callable, env: env)
 
             let callTimeEnv = Environment(parent: env)
             callTimeEnv["caller"] = .function { callerArgs, _, _ in
@@ -659,8 +629,18 @@ public enum Interpreter {
             let finalArgs = try args.map { try evaluateExpression($0, env: env) }
             let finalKwargs = try kwargs.mapValues { try evaluateExpression($0, env: env) }
 
-            let result = try function(finalArgs, finalKwargs, callTimeEnv)
-            buffer.write(result.description)
+            switch callableValue {
+            case .function(let function):
+                let result = try function(finalArgs, finalKwargs, callTimeEnv)
+                buffer.write(result.description)
+            case .macro(let macro):
+                let result = try callMacro(
+                    macro: macro, arguments: finalArgs, keywordArguments: finalKwargs,
+                    env: callTimeEnv)
+                buffer.write(result.description)
+            default:
+                throw JinjaError.runtime("Cannot call non-function value")
+            }
 
         case let .filter(filterExpr, body):
             var bodyBuffer: any TextOutputStream = Buffer()
@@ -703,38 +683,8 @@ public enum Interpreter {
             }
 
         case let .macro(name, parameters, defaults, body):
-            // Record macro definition in environment
-            env.macros[name] = Macro(
-                name: name, parameters: parameters, defaults: defaults, body: body)
-            // Expose as callable function too
-            env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
-                let macroEnv = Environment(parent: env)
-
-                let caller = callTimeEnv["caller"]
-                if caller != .undefined {
-                    macroEnv["caller"] = caller
-                }
-
-                // Start with defaults
-                for (key, expr) in defaults {
-                    // Evaluate defaults in current env
-                    let val = try evaluateExpression(expr, env: env)
-                    macroEnv[key] = val
-                }
-                // Bind positional args
-                for (index, paramName) in parameters.enumerated() {
-                    let value =
-                        index < passedArgs.count ? passedArgs[index] : macroEnv[paramName]
-                    macroEnv[paramName] = value
-                }
-                // Bind keyword args
-                for (key, value) in passedKwargs {
-                    macroEnv[key] = value
-                }
-                var macroBuffer: any TextOutputStream = Buffer()
-                try interpret(body, env: macroEnv, into: &macroBuffer)
-                return .string((macroBuffer as! Buffer).build())
-            }
+            try registerMacro(
+                name: name, parameters: parameters, defaults: defaults, body: body, env: env)
 
         // These statements do not produce output directly or are handled elsewhere.
         case .if, .for, .program, .break, .continue, .call, .filter:
@@ -792,6 +742,49 @@ public enum Interpreter {
     }
 
     // MARK: -
+
+    static func registerMacro(
+        name: String, parameters: [String], defaults: OrderedDictionary<String, Expression>,
+        body: [Node],
+        env: Environment
+    ) throws {
+        env[name] = .macro(
+            Macro(name: name, parameters: parameters, defaults: defaults, body: body))
+    }
+
+    static func callMacro(
+        macro: Macro, arguments: [Value], keywordArguments: [String: Value], env: Environment
+    ) throws -> Value {
+        let macroEnv = Environment(parent: env)
+
+        let caller = env["caller"]
+        if caller != .undefined {
+            macroEnv["caller"] = caller
+        }
+
+        // Start with defaults
+        for (key, expr) in macro.defaults {
+            // Evaluate defaults in current env
+            let val = try evaluateExpression(expr, env: env)
+            macroEnv[key] = val
+        }
+
+        // Bind positional args
+        for (index, paramName) in macro.parameters.enumerated() {
+            let value =
+                index < arguments.count ? arguments[index] : macroEnv[paramName]
+            macroEnv[paramName] = value
+        }
+
+        // Bind keyword args
+        for (key, value) in keywordArguments {
+            macroEnv[key] = value
+        }
+
+        var macroBuffer: any TextOutputStream = Buffer()
+        try interpret(macro.body, env: macroEnv, into: &macroBuffer)
+        return .string((macroBuffer as! Buffer).build())
+    }
 
     static func evaluateBinaryValues(
         _ op: Expression.BinaryOp, _ left: Value, _ right: Value
