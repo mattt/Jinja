@@ -995,6 +995,7 @@ public enum Filters {
     }
 
     /// Converts a value to list.
+    /// If it was a string the returned list will be a list of characters.
     @Sendable public static func list(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
