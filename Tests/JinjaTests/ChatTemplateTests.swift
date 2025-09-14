@@ -718,8 +718,9 @@ struct ChatTemplateTests {
     func testReject() throws {
         let template = try Template(
             #"""
-            {%- set handled_keys = ['type', 'description', 'enum', 'required'] -%}
-            {%- set all_keys = ['type', 'name', 'enum', 'value', 'description', 'age', 'required', 'status'] -%}
+            {%- set handled_keys = ['type', 'description', 'enum', 'required'] %}
+            {%- set all_keys = ['type', 'name', 'enum', 'value', 'description', 'age', 'required', 'status'] %}
+
             Filtered keys: {{ all_keys | reject("in", handled_keys) | list }}
             """#, with: options)
 
