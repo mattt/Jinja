@@ -55,13 +55,6 @@ public final class Environment: @unchecked Sendable {
     private(set) var variables: [String: Value] = [:]
     private let parent: Environment?
 
-    // Store macro definitions by name for invocation
-    struct Macro {
-        let name: String
-        let parameters: [String]
-        let defaults: OrderedDictionary<String, Expression>
-        let body: [Node]
-    }
     var macros: [String: Macro] = [:]
 
     var namespace: Namespace?
@@ -98,89 +91,6 @@ public final class Environment: @unchecked Sendable {
         }
         set {
             variables[name] = newValue
-        }
-    }
-}
-
-// MARK: - Globals
-
-final class Cycler: Identifiable, @unchecked Sendable {
-    public let id = UUID()
-    private let items: [Value]
-    private var currentIndex: Int = 0
-
-    public init(items: [Value]) {
-        self.items = items
-    }
-
-    public var current: Value {
-        guard !items.isEmpty else { return .undefined }
-        return items[currentIndex]
-    }
-
-    public func next() -> Value {
-        guard !items.isEmpty else { return .undefined }
-        let item = items[currentIndex]
-        currentIndex = (currentIndex + 1) % items.count
-        return item
-    }
-
-    public func reset() {
-        currentIndex = 0
-    }
-
-    public subscript(name: String) -> Value {
-        switch name {
-        case "current":
-            return current
-        case "next":
-            return .function { _, _, _ in
-                self.next()
-            }
-        case "reset":
-            return .function { _, _, _ in
-                self.reset()
-                return .null
-            }
-        default:
-            return nil
-        }
-    }
-}
-
-final class Joiner: Identifiable, @unchecked Sendable {
-    public let id = UUID()
-    private let separator: String
-    private var isFirstCall = true
-
-    public init(separator: String = ", ") {
-        self.separator = separator
-    }
-
-    public func call(arguments: [Value], kwargs: [String: Value]) throws -> Value {
-        if isFirstCall {
-            isFirstCall = false
-            return .string("")
-        } else {
-            return .string(separator)
-        }
-    }
-}
-
-final class Namespace: Identifiable, @unchecked Sendable {
-    public let id = UUID()
-    private var attributes: [String: Value]
-
-    public init(attributes: [String: Value] = [:]) {
-        self.attributes = attributes
-    }
-
-    public subscript(name: String) -> Value {
-        get {
-            return attributes[name] ?? .undefined
-        }
-        set {
-            attributes[name] = newValue
         }
     }
 }
@@ -670,7 +580,7 @@ public enum Interpreter {
 
         case let .macro(name, parameters, defaults, body):
             // Record macro definition in environment
-            env.macros[name] = Environment.Macro(
+            env.macros[name] = Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
             env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
@@ -776,7 +686,7 @@ public enum Interpreter {
 
         case let .macro(name, parameters, defaults, body):
             // Record macro definition in environment
-            env.macros[name] = Environment.Macro(
+            env.macros[name] = Macro(
                 name: name, parameters: parameters, defaults: defaults, body: body)
             // Expose as callable function too
             env[name] = .function { passedArgs, passedKwargs, callTimeEnv in
@@ -865,7 +775,9 @@ public enum Interpreter {
 
     // MARK: -
 
-    private static func evaluateBinaryValues(_ op: BinaryOp, _ left: Value, _ right: Value) throws
+    private static func evaluateBinaryValues(
+        _ op: Expression.BinaryOp, _ left: Value, _ right: Value
+    ) throws
         -> Value
     {
         switch op {
@@ -904,7 +816,8 @@ public enum Interpreter {
         }
     }
 
-    private static func evaluateUnaryValue(_ op: UnaryOp, _ value: Value) throws -> Value {
+    private static func evaluateUnaryValue(_ op: Expression.UnaryOp, _ value: Value) throws -> Value
+    {
         switch op {
         case .not:
             return .boolean(!value.isTruthy)

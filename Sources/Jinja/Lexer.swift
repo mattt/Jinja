@@ -3,9 +3,9 @@ import Foundation
 // MARK: - Token
 
 /// A lexical token produced by parsing Jinja template source code.
-public struct Token: Sendable, Hashable {
+public struct Token: Hashable, Codable, Sendable {
     /// The specific type of token representing different syntactic elements.
-    public enum Kind: Sendable, Hashable, CaseIterable {
+    public enum Kind: CaseIterable, Hashable, Codable, Sendable {
         /// Plain text content outside of Jinja template constructs.
         case text
         /// `{{` delimiter.
@@ -238,7 +238,8 @@ public enum Lexer: Sendable {
     }
 
     private static func extractTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool, curlyBracketDepth: Int = 0
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool,
+        curlyBracketDepth: Int = 0
     ) throws -> (
         Token, Int
     ) {
@@ -381,7 +382,7 @@ public enum Lexer: Sendable {
                 case 0x5C: value += "\\"  // '\'
                 case 0x22: value += "\""  // '"'
                 case 0x27: value += "'"  // "'"
-                default: 
+                default:
                     // For any other character, just add it as-is (including the backslash in some cases)
                     value += String(decoding: [escaped], as: UTF8.self)
                 }

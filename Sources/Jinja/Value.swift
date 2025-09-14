@@ -20,6 +20,10 @@ public enum Value: Sendable {
     case object(OrderedDictionary<String, Value>)
     /// Function value that can be called with arguments.
     case function(@Sendable ([Value], [String: Value], Environment) throws -> Value)
+    /// Macro value that can be invoked with arguments.
+    case macro(Macro)
+    /// Global value that can be accessed from the environment.
+    case global(Global)
 
     /// Creates a Value from any Swift value.
     public init(any value: Any?) throws {
@@ -45,6 +49,10 @@ public enum Value: Sendable {
                 orderedDict[key] = try Value(any: value)
             }
             self = .object(orderedDict)
+        case let global as Global:
+            self = .global(global)
+        case let macro as Macro:
+            self = .macro(macro)
         default:
             throw JinjaError.runtime(
                 "Cannot convert value of type \(type(of: value)) to Jinja Value")
@@ -55,7 +63,7 @@ public enum Value: Sendable {
     public var isNull: Bool {
         return self == .null
     }
-    
+
     /// Returns whether the value is `undefined`.
     public var isUndefined: Bool {
         return self == .undefined
@@ -72,7 +80,7 @@ public enum Value: Sendable {
         if case .int = self { return true }
         return false
     }
-    
+
     /// Returns `true` if this value is a floating-point number.
     public var isDouble: Bool {
         if case .double = self { return true }
@@ -93,6 +101,36 @@ public enum Value: Sendable {
         return false
     }
 
+    /// Returns `true` if this value is an array.
+    public var isArray: Bool {
+        if case .array = self { return true }
+        return false
+    }
+
+    /// Returns `true` if this value is an object.
+    public var isObject: Bool {
+        if case .object = self { return true }
+        return false
+    }
+
+    /// Returns `true` if this value is a function.
+    public var isFunction: Bool {
+        if case .function = self { return true }
+        return false
+    }
+
+    /// Returns `true` if this value is a macro.
+    public var isMacro: Bool {
+        if case .macro = self { return true }
+        return false
+    }
+
+    /// Returns `true` if this value is a global.
+    public var isGlobal: Bool {
+        if case .global = self { return true }
+        return false
+    }
+
     /// Returns `true` if this value is truthy in boolean context.
     public var isTruthy: Bool {
         switch self {
@@ -104,6 +142,8 @@ public enum Value: Sendable {
         case .array(let a): !a.isEmpty
         case .object(let o): !o.isEmpty
         case .function: true
+        case .macro: true
+        case .global: true
         }
     }
 }
@@ -124,6 +164,8 @@ extension Value: CustomStringConvertible {
         case .object(let o):
             "{\(o.map { "\($0.key): \($0.value.description)" }.joined(separator: ", "))}"
         case .function: "[Function]"
+        case .macro(let m): "[Macro \(m.name)]"
+        case .global(let g): "[Global(\(g))]"
         }
     }
 }
@@ -143,6 +185,8 @@ extension Value: Equatable {
         case let (.array(lhs), .array(rhs)): return lhs == rhs
         case let (.object(lhs), .object(rhs)): return lhs == rhs
         case (.function, .function): return false
+        case let (.macro(lhs), .macro(rhs)): return lhs == rhs
+        case (.global, .global): return false
         default: return false
         }
     }
@@ -163,6 +207,8 @@ extension Value: Hashable {
         case let .array(value): hasher.combine(value)
         case let .object(value): hasher.combine(value)
         case .function: hasher.combine(0)
+        case .macro(let m): hasher.combine(m)
+        case .global: hasher.combine(0)
         }
     }
 }
@@ -201,6 +247,10 @@ extension Value: Encodable {
                     codingPath: encoder.codingPath,
                     debugDescription: "Cannot encode function values"
                 ))
+        case .macro(let m):
+            try container.encode(m)
+        case .global(let g):
+            try container.encode(g)
         }
     }
 }
@@ -235,7 +285,7 @@ extension Value: Decodable {
                     codingPath: decoder.codingPath,
                     debugDescription: "Cannot decode Value from any supported container type"
                 ))
-            
+
         }
     }
 }
