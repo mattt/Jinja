@@ -24,14 +24,14 @@ struct InterpreterTests {
         @Test("length filter for strings")
         func testLengthFilterString() throws {
             let result = try Filters.length([.string("hello")], kwargs: [:], env: env)
-            #expect(result == .integer(5))
+            #expect(result == .int(5))
         }
 
         @Test("length filter for arrays")
         func testLengthFilterArray() throws {
-            let values = [Value.integer(1), .integer(2), .integer(3)]
+            let values = [Value.int(1), .int(2), .int(3)]
             let result = try Filters.length([.array(values)], kwargs: [:], env: env)
-            #expect(result == .integer(3))
+            #expect(result == .int(3))
         }
 
         @Test("join filter")
@@ -71,22 +71,22 @@ struct InterpreterTests {
 
         @Test("reverse filter with array")
         func testReverseFilterWithArray() throws {
-            let values = [Value.integer(1), .integer(2), .integer(3)]
+            let values = [Value.int(1), .int(2), .int(3)]
             let result = try Filters.reverse([.array(values)], kwargs: [:], env: env)
-            let expected = Value.array([.integer(3), .integer(2), .integer(1)])
+            let expected = Value.array([.int(3), .int(2), .int(1)])
             #expect(result == expected)
         }
 
         @Test("abs filter with negative integer")
         func testAbsFilterWithNegativeInteger() throws {
-            let result = try Filters.abs([.integer(-5)], kwargs: [:], env: env)
-            #expect(result == .integer(5))
+            let result = try Filters.abs([.int(-5)], kwargs: [:], env: env)
+            #expect(result == .int(5))
         }
 
         @Test("abs filter with negative number")
         func testAbsFilterWithNegativeNumber() throws {
-            let result = try Filters.abs([.number(-3.14)], kwargs: [:], env: env)
-            #expect(result == .number(3.14))
+            let result = try Filters.abs([.double(-3.14)], kwargs: [:], env: env)
+            #expect(result == .double(3.14))
         }
 
         @Test("capitalize filter")
@@ -103,51 +103,51 @@ struct InterpreterTests {
 
         @Test("float filter")
         func testFloatFilter() throws {
-            let result = try Filters.float([.integer(42)], kwargs: [:], env: env)
-            #expect(result == .number(42.0))
+            let result = try Filters.float([.int(42)], kwargs: [:], env: env)
+            #expect(result == .double(42.0))
         }
 
         @Test("int filter")
         func testIntFilter() throws {
-            let result = try Filters.int([.number(3.14)], kwargs: [:], env: env)
-            #expect(result == .integer(3))
+            let result = try Filters.int([.double(3.14)], kwargs: [:], env: env)
+            #expect(result == .int(3))
         }
 
         @Test("unique filter")
         func testUniqueFilter() throws {
-            let values = [Value.integer(1), .integer(2), .integer(1), .integer(3), .integer(2)]
+            let values = [Value.int(1), .int(2), .int(1), .int(3), .int(2)]
             let result = try Filters.unique([.array(values)], kwargs: [:], env: env)
-            let expected = Value.array([.integer(1), .integer(2), .integer(3)])
+            let expected = Value.array([.int(1), .int(2), .int(3)])
             #expect(result == expected)
         }
 
         @Test("dictsort filter")
         func testDictsortFilter() throws {
-            let dict = Value.object(["c": .integer(3), "a": .integer(1), "b": .integer(2)])
+            let dict = Value.object(["c": .int(3), "a": .int(1), "b": .int(2)])
             let result = try Filters.dictsort([dict], kwargs: [:], env: env)
             let expected = Value.array([
-                .array([.string("a"), .integer(1)]),
-                .array([.string("b"), .integer(2)]),
-                .array([.string("c"), .integer(3)]),
+                .array([.string("a"), .int(1)]),
+                .array([.string("b"), .int(2)]),
+                .array([.string("c"), .int(3)]),
             ])
             #expect(result == expected)
         }
 
         @Test("dictsort filter with reverse")
         func testDictsortFilterWithReverse() throws {
-            let dict = Value.object(["b": .integer(2), "a": .integer(1)])
+            let dict = Value.object(["b": .int(2), "a": .int(1)])
             let result = try Filters.dictsort(
                 [dict, .boolean(false), .string("key"), .boolean(true)], kwargs: [:], env: env)
             let expected = Value.array([
-                .array([.string("b"), .integer(2)]),
-                .array([.string("a"), .integer(1)]),
+                .array([.string("b"), .int(2)]),
+                .array([.string("a"), .int(1)]),
             ])
             #expect(result == expected)
         }
 
         @Test("pprint filter")
         func testPprintFilter() throws {
-            let dict = Value.object(["name": .string("test"), "value": .integer(42)])
+            let dict = Value.object(["name": .string("test"), "value": .int(42)])
             let result = try Filters.pprint([dict], kwargs: [:], env: env)
             // Just check it's a string (exact format may vary)
             if case .string(let str) = result {
@@ -175,18 +175,18 @@ struct InterpreterTests {
         @Test("sum filter with attribute")
         func testSumFilterWithAttribute() throws {
             let items = Value.array([
-                .object(["price": .number(10.5)]),
-                .object(["price": .number(20.0)]),
-                .object(["price": .number(15.5)]),
+                .object(["price": .double(10.5)]),
+                .object(["price": .double(20.0)]),
+                .object(["price": .double(15.5)]),
             ])
             let result = try Filters.sum([items, .string("price")], kwargs: [:], env: env)
-            #expect(result == .number(46.0))
+            #expect(result == .double(46.0))
         }
 
         @Test("indent filter")
         func testIndentFilter() throws {
             let text = "line1\nline2\nline3"
-            let result = try Filters.indent([.string(text), .integer(2)], kwargs: [:], env: env)
+            let result = try Filters.indent([.string(text), .int(2)], kwargs: [:], env: env)
             if case .string(let str) = result {
                 // First line is NOT indented by default
                 #expect(str.hasPrefix("line1"))
@@ -201,7 +201,7 @@ struct InterpreterTests {
         func testIndentFilterWithFirst() throws {
             let text = "line1\nline2\nline3"
             let result = try Filters.indent(
-                [.string(text), .integer(2), .boolean(true)], kwargs: [:], env: env)
+                [.string(text), .int(2), .boolean(true)], kwargs: [:], env: env)
             if case .string(let str) = result {
                 // All lines should be indented when first=true
                 #expect(str.contains("  line1"))
@@ -281,7 +281,7 @@ struct InterpreterTests {
 
         @Test("string test with non-string value")
         func testStringWithNonStringValue() throws {
-            let result = try Tests.string([.integer(42)], kwargs: [:], env: env)
+            let result = try Tests.string([.int(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -293,13 +293,13 @@ struct InterpreterTests {
 
         @Test("number test with integer value")
         func testNumberWithIntegerValue() throws {
-            let result = try Tests.number([.integer(42)], kwargs: [:], env: env)
+            let result = try Tests.number([.int(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("number test with float value")
         func testNumberWithFloatValue() throws {
-            let result = try Tests.number([.number(3.14)], kwargs: [:], env: env)
+            let result = try Tests.number([.double(3.14)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
@@ -361,7 +361,7 @@ struct InterpreterTests {
 
         @Test("iterable test with non-iterable value")
         func testIterableWithNonIterableValue() throws {
-            let result = try Tests.iterable([.integer(42)], kwargs: [:], env: env)
+            let result = try Tests.iterable([.int(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -375,25 +375,25 @@ struct InterpreterTests {
 
         @Test("even test with even integer")
         func testEvenWithEvenInteger() throws {
-            let result = try Tests.even([.integer(4)], kwargs: [:], env: env)
+            let result = try Tests.even([.int(4)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("even test with odd integer")
         func testEvenWithOddInteger() throws {
-            let result = try Tests.even([.integer(5)], kwargs: [:], env: env)
+            let result = try Tests.even([.int(5)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("even test with even float")
         func testEvenWithEvenFloat() throws {
-            let result = try Tests.even([.number(4.0)], kwargs: [:], env: env)
+            let result = try Tests.even([.double(4.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("even test with odd float")
         func testEvenWithOddFloat() throws {
-            let result = try Tests.even([.number(5.0)], kwargs: [:], env: env)
+            let result = try Tests.even([.double(5.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -405,7 +405,7 @@ struct InterpreterTests {
 
         @Test("even test with zero")
         func testEvenWithZero() throws {
-            let result = try Tests.even([.integer(0)], kwargs: [:], env: env)
+            let result = try Tests.even([.int(0)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
@@ -417,25 +417,25 @@ struct InterpreterTests {
 
         @Test("odd test with odd integer")
         func testOddWithOddInteger() throws {
-            let result = try Tests.odd([.integer(3)], kwargs: [:], env: env)
+            let result = try Tests.odd([.int(3)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("odd test with even integer")
         func testOddWithEvenInteger() throws {
-            let result = try Tests.odd([.integer(4)], kwargs: [:], env: env)
+            let result = try Tests.odd([.int(4)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("odd test with odd float")
         func testOddWithOddFloat() throws {
-            let result = try Tests.odd([.number(3.0)], kwargs: [:], env: env)
+            let result = try Tests.odd([.double(3.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("odd test with even float")
         func testOddWithEvenFloat() throws {
-            let result = try Tests.odd([.number(4.0)], kwargs: [:], env: env)
+            let result = try Tests.odd([.double(4.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -453,33 +453,33 @@ struct InterpreterTests {
 
         @Test("divisibleby test with divisible integers")
         func testDivisiblebyWithDivisibleIntegers() throws {
-            let result = try Tests.divisibleby([.integer(10), .integer(2)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby([.int(10), .int(2)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("divisibleby test with non-divisible integers")
         func testDivisiblebyWithNonDivisibleIntegers() throws {
-            let result = try Tests.divisibleby([.integer(10), .integer(3)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby([.int(10), .int(3)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("divisibleby test with divisible floats")
         func testDivisiblebyWithDivisibleFloats() throws {
             let result = try Tests.divisibleby(
-                [.number(10.0), .number(2.0)], kwargs: [:], env: env)
+                [.double(10.0), .double(2.0)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("divisibleby test with non-divisible floats")
         func testDivisiblebyWithNonDivisibleFloats() throws {
             let result = try Tests.divisibleby(
-                [.number(10.0), .number(3.0)], kwargs: [:], env: env)
+                [.double(10.0), .double(3.0)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("divisibleby test with zero divisor")
         func testDivisiblebyWithZeroDivisor() throws {
-            let result = try Tests.divisibleby([.integer(10), .integer(0)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby([.int(10), .int(0)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -492,7 +492,7 @@ struct InterpreterTests {
 
         @Test("divisibleby test with insufficient arguments")
         func testDivisiblebyWithInsufficientArguments() throws {
-            let result = try Tests.divisibleby([.integer(10)], kwargs: [:], env: env)
+            let result = try Tests.divisibleby([.int(10)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -506,13 +506,13 @@ struct InterpreterTests {
 
         @Test("equalto test with equal integers")
         func testEqualtoWithEqualIntegers() throws {
-            let result = try Tests.equalto([.integer(42), .integer(42)], kwargs: [:], env: env)
+            let result = try Tests.equalto([.int(42), .int(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("equalto test with different integers")
         func testEqualtoWithDifferentIntegers() throws {
-            let result = try Tests.equalto([.integer(42), .integer(43)], kwargs: [:], env: env)
+            let result = try Tests.equalto([.int(42), .int(43)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -557,13 +557,13 @@ struct InterpreterTests {
 
         @Test("equalto test with different types")
         func testEqualtoWithDifferentTypes() throws {
-            let result = try Tests.equalto([.integer(42), .string("42")], kwargs: [:], env: env)
+            let result = try Tests.equalto([.int(42), .string("42")], kwargs: [:], env: env)
             #expect(result == false)
         }
 
         @Test("equalto test with insufficient arguments")
         func testEqualtoWithInsufficientArguments() throws {
-            let result = try Tests.equalto([.integer(42)], kwargs: [:], env: env)
+            let result = try Tests.equalto([.int(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -612,32 +612,32 @@ struct InterpreterTests {
         @Test("Tests with negative numbers")
         func testTestsWithNegativeNumbers() throws {
             // Negative even number
-            let evenResult = try Tests.even([.integer(-4)], kwargs: [:], env: env)
+            let evenResult = try Tests.even([.int(-4)], kwargs: [:], env: env)
             #expect(evenResult == true)
 
             // Negative odd number
-            let oddResult = try Tests.odd([.integer(-3)], kwargs: [:], env: env)
+            let oddResult = try Tests.odd([.int(-3)], kwargs: [:], env: env)
             #expect(oddResult == true)
 
             // Divisibility with negative numbers
             let divisibleResult = try Tests.divisibleby(
-                [.integer(-10), .integer(2)], kwargs: [:], env: env)
+                [.int(-10), .int(2)], kwargs: [:], env: env)
             #expect(divisibleResult == true)
         }
 
         @Test("Tests with floating point precision")
         func testTestsWithFloatingPointPrecision() throws {
             // Test even with floating point that should be even
-            let evenResult = try Tests.even([.number(4.0)], kwargs: [:], env: env)
+            let evenResult = try Tests.even([.double(4.0)], kwargs: [:], env: env)
             #expect(evenResult == true)
 
             // Test even with floating point that should be odd
-            let oddResult = try Tests.odd([.number(3.0)], kwargs: [:], env: env)
+            let oddResult = try Tests.odd([.double(3.0)], kwargs: [:], env: env)
             #expect(oddResult == true)
 
             // Test divisibility with floating point
             let divisibleResult = try Tests.divisibleby(
-                [.number(10.0), .number(2.0)], kwargs: [:], env: env)
+                [.double(10.0), .double(2.0)], kwargs: [:], env: env)
             #expect(divisibleResult == true)
         }
 
@@ -645,13 +645,13 @@ struct InterpreterTests {
 
         @Test("float test with number value")
         func testFloatWithNumberValue() throws {
-            let result = try Tests.float([.number(3.14)], kwargs: [:], env: env)
+            let result = try Tests.float([.double(3.14)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("float test with integer value")
         func testFloatWithIntegerValue() throws {
-            let result = try Tests.float([.integer(42)], kwargs: [:], env: env)
+            let result = try Tests.float([.int(42)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -708,13 +708,13 @@ struct InterpreterTests {
 
         @Test("sameas test with equal values")
         func testSameasWithEqualValues() throws {
-            let result = try Tests.sameas([.integer(42), .integer(42)], kwargs: [:], env: env)
+            let result = try Tests.sameas([.int(42), .int(42)], kwargs: [:], env: env)
             #expect(result == true)
         }
 
         @Test("sameas test with different values")
         func testSameasWithDifferentValues() throws {
-            let result = try Tests.sameas([.integer(42), .integer(43)], kwargs: [:], env: env)
+            let result = try Tests.sameas([.int(42), .int(43)], kwargs: [:], env: env)
             #expect(result == false)
         }
 
@@ -740,7 +740,7 @@ struct InterpreterTests {
 
         @Test("in test with key in object")
         func testInWithKeyInObject() throws {
-            let obj = Value.object(["name": .string("test"), "age": .integer(25)])
+            let obj = Value.object(["name": .string("test"), "age": .int(25)])
             let result = try Tests.`in`([.string("name"), obj], kwargs: [:], env: env)
             #expect(result == true)
         }
@@ -748,27 +748,27 @@ struct InterpreterTests {
         @Test("comparison tests")
         func testComparisonTests() throws {
             // gt test
-            let gtResult = try Tests.gt([.integer(5), .integer(3)], kwargs: [:], env: env)
+            let gtResult = try Tests.gt([.int(5), .int(3)], kwargs: [:], env: env)
             #expect(gtResult == true)
 
             // lt test
-            let ltResult = try Tests.lt([.integer(3), .integer(5)], kwargs: [:], env: env)
+            let ltResult = try Tests.lt([.int(3), .int(5)], kwargs: [:], env: env)
             #expect(ltResult == true)
 
             // ge test
-            let geResult = try Tests.ge([.integer(5), .integer(5)], kwargs: [:], env: env)
+            let geResult = try Tests.ge([.int(5), .int(5)], kwargs: [:], env: env)
             #expect(geResult == true)
 
             // le test
-            let leResult = try Tests.le([.integer(3), .integer(5)], kwargs: [:], env: env)
+            let leResult = try Tests.le([.int(3), .int(5)], kwargs: [:], env: env)
             #expect(leResult == true)
 
             // ne test
-            let neResult = try Tests.ne([.integer(3), .integer(5)], kwargs: [:], env: env)
+            let neResult = try Tests.ne([.int(3), .int(5)], kwargs: [:], env: env)
             #expect(neResult == true)
 
             // eq test
-            let eqResult = try Tests.eq([.integer(5), .integer(5)], kwargs: [:], env: env)
+            let eqResult = try Tests.eq([.int(5), .int(5)], kwargs: [:], env: env)
             #expect(eqResult == true)
         }
     }

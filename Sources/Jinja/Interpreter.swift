@@ -17,21 +17,21 @@ private let builtinValues: Context = [
 
         switch values.count {
         case 1:
-            if case let .integer(end) = values[0] {
-                return .array((0..<end).map { .integer($0) })
+            if case let .int(end) = values[0] {
+                return .array((0..<end).map { .int($0) })
             }
         case 2:
-            if case let .integer(start) = values[0],
-                case let .integer(end) = values[1]
+            if case let .int(start) = values[0],
+                case let .int(end) = values[1]
             {
-                return .array((start..<end).map { .integer($0) })
+                return .array((start..<end).map { .int($0) })
             }
         case 3:
-            if case let .integer(start) = values[0],
-                case let .integer(end) = values[1],
-                case let .integer(step) = values[2]
+            if case let .int(start) = values[0],
+                case let .int(end) = values[1],
+                case let .int(step) = values[2]
             {
-                return .array(stride(from: start, to: end, by: step).map { .integer($0) })
+                return .array(stride(from: start, to: end, by: step).map { .int($0) })
             }
         default:
             break
@@ -166,10 +166,10 @@ public enum Interpreter {
             return .string(value)
 
         case let .number(value):
-            return .number(value)
+            return .double(value)
 
         case let .integer(value):
-            return .integer(value)
+            return .int(value)
 
         case let .boolean(value):
             return .boolean(value)
@@ -313,17 +313,17 @@ public enum Interpreter {
                 var sliceEnd = items.count
                 var sliceStep = 1
 
-                if let stepValue = stepVal, case let .integer(st) = stepValue {
+                if let stepValue = stepVal, case let .int(st) = stepValue {
                     sliceStep = st
                 }
 
-                if let startValue = startIdx, case let .integer(s) = startValue {
+                if let startValue = startIdx, case let .int(s) = startValue {
                     sliceStart = s >= 0 ? s : items.count + s
                 } else if sliceStep < 0 {
                     sliceStart = items.count - 1
                 }
 
-                if let stopValue = stopIdx, case let .integer(e) = stopValue {
+                if let stopValue = stopIdx, case let .int(e) = stopValue {
                     sliceEnd = e >= 0 ? e : items.count + e
                 } else if sliceStep < 0 {
                     sliceEnd = -1  // Go to beginning for reverse slice
@@ -352,17 +352,17 @@ public enum Interpreter {
                 var sliceEnd = chars.count
                 var sliceStep = 1
 
-                if let stepValue = stepVal, case let .integer(st) = stepValue {
+                if let stepValue = stepVal, case let .int(st) = stepValue {
                     sliceStep = st
                 }
 
-                if let startValue = startIdx, case let .integer(s) = startValue {
+                if let startValue = startIdx, case let .int(s) = startValue {
                     sliceStart = s >= 0 ? s : chars.count + s
                 } else if sliceStep < 0 {
                     sliceStart = chars.count - 1
                 }
 
-                if let stopValue = stopIdx, case let .integer(e) = stopValue {
+                if let stopValue = stopIdx, case let .int(e) = stopValue {
                     sliceEnd = e >= 0 ? e : chars.count + e
                 } else if sliceStep < 0 {
                     sliceEnd = -1  // Go to beginning for reverse slice
@@ -437,13 +437,13 @@ public enum Interpreter {
 
                         // Set loop context variables
                         let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .integer(index + 1),
-                            "index0": .integer(index),
+                            "index": .int(index + 1),
+                            "index0": .int(index),
                             "first": .boolean(index == 0),
                             "last": .boolean(index == items.count - 1),
-                            "length": .integer(items.count),
-                            "revindex": .integer(items.count - index),
-                            "revindex0": .integer(items.count - index - 1),
+                            "length": .int(items.count),
+                            "revindex": .int(items.count - index),
+                            "revindex0": .int(items.count - index - 1),
                         ]
 
                         // Add cycle function
@@ -505,13 +505,13 @@ public enum Interpreter {
                             }
                         }
                         let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .integer(index + 1),
-                            "index0": .integer(index),
+                            "index": .int(index + 1),
+                            "index0": .int(index),
                             "first": .boolean(index == 0),
                             "last": .boolean(index == dict.count - 1),
-                            "length": .integer(dict.count),
-                            "revindex": .integer(dict.count - index),
-                            "revindex0": .integer(dict.count - index - 1),
+                            "length": .int(dict.count),
+                            "revindex": .int(dict.count - index),
+                            "revindex0": .int(dict.count - index - 1),
                         ]
                         var loopObj = loopContext
                         loopObj["cycle"] = .function { args, _, _ in
@@ -543,13 +543,13 @@ public enum Interpreter {
                             }
                         }
                         let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .integer(index + 1),
-                            "index0": .integer(index),
+                            "index": .int(index + 1),
+                            "index0": .int(index),
                             "first": .boolean(index == 0),
                             "last": .boolean(index == chars.count - 1),
-                            "length": .integer(chars.count),
-                            "revindex": .integer(chars.count - index),
-                            "revindex0": .integer(chars.count - index - 1),
+                            "length": .int(chars.count),
+                            "revindex": .int(chars.count - index),
+                            "revindex0": .int(chars.count - index - 1),
                         ]
                         var loopObj = loopContext
                         loopObj["cycle"] = .function { args, _, _ in
@@ -732,7 +732,7 @@ public enum Interpreter {
         case .identifier(let name):
             env[name] = value
         case .tuple(let expressions):
-            guard let values = value.array else {
+            guard let values = value.arrayValue else {
                 throw JinjaError.runtime("Cannot unpack non-array value for tuple assignment.")
             }
             guard expressions.count == values.count else {
@@ -826,16 +826,16 @@ public enum Interpreter {
             throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         case .minus:
             switch value {
-            case let .number(n):
-                return .number(-n)
-            case let .integer(i):
-                return .integer(-i)
+            case let .double(n):
+                return .double(-n)
+            case let .int(i):
+                return .int(-i)
             default:
                 throw JinjaError.runtime("Cannot negate non-numeric value")
             }
         case .plus:
             switch value {
-            case .number, .integer:
+            case .double, .int:
                 return value
             default:
                 throw JinjaError.runtime("Cannot apply unary plus to non-numeric value")
@@ -845,7 +845,7 @@ public enum Interpreter {
 
     private static func evaluateComputedMember(_ object: Value, _ property: Value) throws -> Value {
         switch (object, property) {
-        case let (.array(arr), .integer(index)):
+        case let (.array(arr), .int(index)):
             let safeIndex = index < 0 ? arr.count + index : index
             guard safeIndex >= 0 && safeIndex < arr.count else {
                 return .undefined
@@ -855,7 +855,7 @@ public enum Interpreter {
         case let (.object(obj), .string(key)):
             return obj[key] ?? .undefined
 
-        case let (.string(str), .integer(index)):
+        case let (.string(str), .int(index)):
             let safeIndex = index < 0 ? str.count + index : index
             guard safeIndex >= 0 && safeIndex < str.count else {
                 return .undefined
@@ -901,7 +901,7 @@ public enum Interpreter {
                         let components = str.split(separator: " ").map(String.init)
                         return .array(components.map(Value.string))
                     } else if case let .string(separator) = args[0] {
-                        if args.count > 1, case let .integer(limit) = args[1] {
+                        if args.count > 1, case let .int(limit) = args[1] {
                             // Split with limit: split at most 'limit' times
                             var components: [String] = []
                             var remaining = str
@@ -933,10 +933,10 @@ public enum Interpreter {
 
                     // Check for count parameter in args or kwargs
                     var maxReplacements: Int? = nil
-                    if args.count > 2, case let .integer(count) = args[2] {
+                    if args.count > 2, case let .int(count) = args[2] {
                         maxReplacements = count
                     } else if let countValue = kwargs["count"],
-                        case let .integer(count) = countValue
+                        case let .int(count) = countValue
                     {
                         maxReplacements = count
                     }
@@ -1055,14 +1055,14 @@ public enum Interpreter {
 
     public static func addValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
-            return .integer(a + b)
-        case let (.number(a), .number(b)):
-            return .number(a + b)
-        case let (.integer(a), .number(b)):
-            return .number(Double(a) + b)
-        case let (.number(a), .integer(b)):
-            return .number(a + Double(b))
+        case let (.int(a), .int(b)):
+            return .int(a + b)
+        case let (.double(a), .double(b)):
+            return .double(a + b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) + b)
+        case let (.double(a), .int(b)):
+            return .double(a + Double(b))
         case let (.string(a), .string(b)):
             return .string(a + b)
         case let (.string(a), b):
@@ -1078,14 +1078,14 @@ public enum Interpreter {
 
     private static func subtractValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
-            return .integer(a - b)
-        case let (.number(a), .number(b)):
-            return .number(a - b)
-        case let (.integer(a), .number(b)):
-            return .number(Double(a) - b)
-        case let (.number(a), .integer(b)):
-            return .number(a - Double(b))
+        case let (.int(a), .int(b)):
+            return .int(a - b)
+        case let (.double(a), .double(b)):
+            return .double(a - b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) - b)
+        case let (.double(a), .int(b)):
+            return .double(a - Double(b))
         default:
             throw JinjaError.runtime("Cannot subtract non-numeric values (\(left) and \(right))")
         }
@@ -1093,17 +1093,17 @@ public enum Interpreter {
 
     private static func multiplyValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
-            return .integer(a * b)
-        case let (.number(a), .number(b)):
-            return .number(a * b)
-        case let (.integer(a), .number(b)):
-            return .number(Double(a) * b)
-        case let (.number(a), .integer(b)):
-            return .number(a * Double(b))
-        case let (.string(s), .integer(n)):
+        case let (.int(a), .int(b)):
+            return .int(a * b)
+        case let (.double(a), .double(b)):
+            return .double(a * b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) * b)
+        case let (.double(a), .int(b)):
+            return .double(a * Double(b))
+        case let (.string(s), .int(n)):
             return .string(String(repeating: s, count: n))
-        case let (.integer(n), .string(s)):
+        case let (.int(n), .string(s)):
             return .string(String(repeating: s, count: n))
         default:
             throw JinjaError.runtime("Cannot multiply values of these types (\(left) and \(right))")
@@ -1112,18 +1112,18 @@ public enum Interpreter {
 
     private static func divideValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
+        case let (.int(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .number(Double(a) / Double(b))
-        case let (.number(a), .number(b)):
+            return .double(Double(a) / Double(b))
+        case let (.double(a), .double(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .number(a / b)
-        case let (.integer(a), .number(b)):
+            return .double(a / b)
+        case let (.int(a), .double(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .number(Double(a) / b)
-        case let (.number(a), .integer(b)):
+            return .double(Double(a) / b)
+        case let (.double(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .number(a / Double(b))
+            return .double(a / Double(b))
         default:
             throw JinjaError.runtime("Cannot divide non-numeric values (\(left) and \(right))")
         }
@@ -1131,9 +1131,9 @@ public enum Interpreter {
 
     private static func moduloValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
+        case let (.int(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
-            return .integer(a % b)
+            return .int(a % b)
         default:
             throw JinjaError.runtime("Modulo operation requires integers (\(left) and \(right))")
         }
@@ -1141,9 +1141,9 @@ public enum Interpreter {
 
     public static func compareValues(_ left: Value, _ right: Value) throws -> Int {
         switch (left, right) {
-        case let (.integer(a), .integer(b)):
+        case let (.int(a), .int(b)):
             return a < b ? -1 : a > b ? 1 : 0
-        case let (.number(a), .number(b)):
+        case let (.double(a), .double(b)):
             return a < b ? -1 : a > b ? 1 : 0
         case let (.string(a), .string(b)):
             return a < b ? -1 : a > b ? 1 : 0
@@ -1157,9 +1157,9 @@ public enum Interpreter {
         switch (left, right) {
         case let (.string(a), .string(b)):
             return a == b
-        case let (.integer(a), .integer(b)):
+        case let (.int(a), .int(b)):
             return a == b
-        case let (.number(a), .number(b)):
+        case let (.double(a), .double(b)):
             return a == b
         case let (.boolean(a), .boolean(b)):
             return a == b
@@ -1247,7 +1247,7 @@ public enum Tests {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
-        return value.isNumber
+        return value.isInt || value.isDouble
     }
 
     /// Tests if a value is a boolean.
@@ -1274,9 +1274,9 @@ public enum Tests {
     ) throws -> Bool {
         guard let value = values.first else { return false }
         switch value {
-        case let .integer(num):
+        case let .int(num):
             return num % 2 == 0
-        case let .number(num):
+        case let .double(num):
             return Int(num) % 2 == 0
         default:
             return false
@@ -1289,9 +1289,9 @@ public enum Tests {
     ) throws -> Bool {
         guard let value = values.first else { return false }
         switch value {
-        case let .integer(num):
+        case let .int(num):
             return num % 2 != 0
-        case let .number(num):
+        case let .double(num):
             return Int(num) % 2 != 0
         default:
             return false
@@ -1304,9 +1304,9 @@ public enum Tests {
     ) throws -> Bool {
         guard values.count >= 2 else { return false }
         switch (values[0], values[1]) {
-        case let (.integer(a), .integer(b)):
+        case let (.int(a), .int(b)):
             return b != 0 && a % b == 0
-        case let (.number(a), .number(b)):
+        case let (.double(a), .double(b)):
             return b != 0.0 && Int(a) % Int(b) == 0
         default:
             return false
@@ -1350,7 +1350,7 @@ public enum Tests {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
-        if case .integer(_) = value {
+        if case .int(_) = value {
             return true
         }
         return false
@@ -1399,7 +1399,7 @@ public enum Tests {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
         guard let value = values.first else { return false }
-        if case .number(_) = value {
+        if case .double(_) = value {
             return true
         }
         return false
@@ -1430,7 +1430,7 @@ public enum Tests {
     @Sendable public static func filter(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, let filterName = value.string else { return false }
+        guard let value = values.first, let filterName = value.stringValue else { return false }
         return Filters.builtIn[filterName] != nil
     }
 
@@ -1438,7 +1438,7 @@ public enum Tests {
     @Sendable public static func test(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let value = values.first, let testName = value.string else { return false }
+        guard let value = values.first, let testName = value.stringValue else { return false }
         return Tests.builtIn[testName] != nil
     }
 
@@ -1464,12 +1464,12 @@ public enum Tests {
         case let .array(arr):
             return arr.contains { Interpreter.valuesEqual($0, value) }
         case let .string(str):
-            if let searchStr = value.string {
+            if let searchStr = value.stringValue {
                 return str.contains(searchStr)
             }
             return false
         case let .object(dict):
-            if let key = value.string {
+            if let key = value.stringValue {
                 return dict[key] != nil
             }
             return false
@@ -1620,11 +1620,11 @@ public enum Filters {
     ) throws -> Value {
         switch values.first {
         case let .string(str):
-            return .integer(str.count)
+            return .int(str.count)
         case let .array(arr):
-            return .integer(arr.count)
+            return .int(arr.count)
         case let .object(obj):
-            return .integer(obj.count)
+            return .int(obj.count)
         default:
             throw JinjaError.runtime("length filter requires string, array, or object")
         }
@@ -1770,7 +1770,7 @@ public enum Filters {
         let caseSensitive = kwargs["case_sensitive"]?.isTruthy ?? true
 
         let sortedItems: [Value]
-        if let attribute = kwargs["attribute"]?.string {
+        if let attribute = kwargs["attribute"]?.stringValue {
             sortedItems = try items.sorted { a, b in
                 let aValue = try Interpreter.evaluatePropertyMember(a, attribute)
                 let bValue = try Interpreter.evaluatePropertyMember(b, attribute)
@@ -1798,8 +1798,8 @@ public enum Filters {
     @Sendable public static func groupby(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 1, let attribute = values[1].string
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 1, let attribute = values[1].stringValue
         else {
             return .array([])
         }
@@ -1821,8 +1821,8 @@ public enum Filters {
     @Sendable public static func slice(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 1, let numSlices = values[1].integer, numSlices > 0
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 1, let numSlices = values[1].intValue, numSlices > 0
         else {
             return .array([])
         }
@@ -1849,16 +1849,16 @@ public enum Filters {
     @Sendable public static func map(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array else {
+        guard let value = values.first, let items = value.arrayValue else {
             return .array([])
         }
 
-        if let filterName = values.count > 1 ? values[1].string : nil {
+        if let filterName = values.count > 1 ? values[1].stringValue : nil {
             return .array(
                 try items.map {
                     try Interpreter.evaluateFilter(filterName, [$0], kwargs: [:], env: env)
                 })
-        } else if let attribute = kwargs["attribute"]?.string {
+        } else if let attribute = kwargs["attribute"]?.stringValue {
             return .array(
                 try items.map {
                     try Interpreter.evaluatePropertyMember($0, attribute)
@@ -1872,8 +1872,8 @@ public enum Filters {
     @Sendable public static func select(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 1, let testName = values[1].string
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 1, let testName = values[1].stringValue
         else {
             return .array([])
         }
@@ -1888,8 +1888,8 @@ public enum Filters {
     @Sendable public static func reject(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 1, let testName = values[1].string
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 1, let testName = values[1].stringValue
         else {
             return .array([])
         }
@@ -1901,16 +1901,18 @@ public enum Filters {
     }
 
     /// Selects items with an attribute that passes a test.
+    /// If no test is specified,
+    /// the attribute’s value will be evaluated as a boolean.
     @Sendable public static func selectattr(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 2, let attribute = values[1].string,
-            let testName = values[2].string
+        guard let value = args.first, let items = value.arrayValue,
+            args.count > 2, let attribute = args[1].stringValue,
+            let testName = args[2].stringValue
         else {
             return .array([])
         }
-        let testArgs = Array(values.dropFirst(3))
+        let testArgs = Array(args.dropFirst(3))
         return .array(
             try items.filter {
                 let attrValue = try Interpreter.evaluatePropertyMember($0, attribute)
@@ -1922,9 +1924,9 @@ public enum Filters {
     @Sendable public static func rejectattr(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 2, let attribute = values[1].string,
-            let testName = values[2].string
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 2, let attribute = values[1].stringValue,
+            let testName = values[2].stringValue
         else {
             return .array([])
         }
@@ -1943,7 +1945,7 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let obj = values.first, values.count > 1,
-            let attribute = values[1].string
+            let attribute = values[1].stringValue
         else {
             return .undefined
         }
@@ -1960,7 +1962,7 @@ public enum Filters {
 
         let caseSensitive =
             kwargs["case_sensitive"]?.isTruthy ?? (values.count > 1 ? values[1].isTruthy : false)
-        let by = kwargs["by"]?.string ?? (values.count > 2 ? values[2].string : "key") ?? "key"
+        let by = kwargs["by"]?.stringValue ?? (values.count > 2 ? values[2].stringValue : "key") ?? "key"
         let reverse = kwargs["reverse"]?.isTruthy ?? (values.count > 3 ? values[3].isTruthy : false)
 
         let sortedPairs: [(key: String, value: Value)]
@@ -2033,7 +2035,7 @@ public enum Filters {
     @Sendable public static func format(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count > 1, let formatString = values[0].string else {
+        guard values.count > 1, let formatString = values[0].stringValue else {
             return values.first ?? .string("")
         }
         let args = Array(values.dropFirst())
@@ -2068,10 +2070,10 @@ public enum Filters {
     @Sendable public static func wordwrap(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let str = value.string else {
+        guard let value = values.first, let str = value.stringValue else {
             return .string("")
         }
-        let width = values.count > 1 ? (values[1].integer ?? 79) : 79
+        let width = values.count > 1 ? (values[1].intValue ?? 79) : 79
         _ = values.count > 2 ? (values[2].isTruthy) : true
 
         var lines = [String]()
@@ -2100,7 +2102,7 @@ public enum Filters {
     @Sendable public static func filesizeformat(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let num = value.number else {
+        guard let value = values.first, let num = value.doubleValue else {
             return .string("")
         }
         let binary = kwargs["binary"]?.isTruthy ?? false
@@ -2199,13 +2201,13 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = values.first else {
-            return .integer(0)
+            return .int(0)
         }
         switch value {
-        case let .integer(i):
-            return .integer(Swift.abs(i))
-        case let .number(n):
-            return .number(Swift.abs(n))
+        case let .int(i):
+            return .int(Swift.abs(i))
+        case let .double(n):
+            return .double(Swift.abs(n))
         default:
             throw JinjaError.runtime("abs filter requires number or integer")
         }
@@ -2227,7 +2229,7 @@ public enum Filters {
     ) throws -> Value {
         guard case let .string(str) = values.first,
             values.count > 1,
-            case let .integer(width) = values[1]
+            case let .int(width) = values[1]
         else {
             return values.first ?? .string("")
         }
@@ -2245,16 +2247,16 @@ public enum Filters {
     @Sendable public static func float(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .number(0.0) }
+        guard let value = values.first else { return .double(0.0) }
         switch value {
-        case let .integer(i):
-            return .number(Double(i))
-        case let .number(n):
-            return .number(n)
+        case let .int(i):
+            return .double(Double(i))
+        case let .double(n):
+            return .double(n)
         case let .string(s):
-            return .number(Double(s) ?? 0.0)
+            return .double(Double(s) ?? 0.0)
         default:
-            return .number(0.0)
+            return .double(0.0)
         }
     }
 
@@ -2262,16 +2264,16 @@ public enum Filters {
     @Sendable public static func int(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .integer(0) }
+        guard let value = values.first else { return .int(0) }
         switch value {
-        case let .integer(i):
-            return .integer(i)
-        case let .number(n):
-            return .integer(Int(n))
+        case let .int(i):
+            return .int(i)
+        case let .double(n):
+            return .int(Int(n))
         case let .string(s):
-            return .integer(Int(s) ?? 0)
+            return .int(Int(s) ?? 0)
         default:
-            return .integer(0)
+            return .int(0)
         }
     }
 
@@ -2296,7 +2298,7 @@ public enum Filters {
     @Sendable public static func max(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array else { return .undefined }
+        guard let value = values.first, let items = value.arrayValue else { return .undefined }
         return items.max(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2310,7 +2312,7 @@ public enum Filters {
     @Sendable public static func min(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array else { return .undefined }
+        guard let value = values.first, let items = value.arrayValue else { return .undefined }
         return items.min(by: { a, b in
             do {
                 return try Interpreter.compareValues(a, b) < 0
@@ -2324,25 +2326,25 @@ public enum Filters {
     @Sendable public static func round(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first else { return .number(0.0) }
-        let precision = (values.count > 1 ? values[1].integer : 0) ?? 0
-        let method = values.count > 2 ? (values[2].string ?? "common") : "common"
+        guard let value = values.first else { return .double(0.0) }
+        let precision = (values.count > 1 ? values[1].intValue : 0) ?? 0
+        let method = values.count > 2 ? (values[2].stringValue ?? "common") : "common"
 
-        guard let number = value.number else {
+        guard let number = value.doubleValue else {
             return value  // Or throw error
         }
 
         if method == "common" {
             let divisor = pow(10.0, Double(precision))
-            return .number((number * divisor).rounded() / divisor)
+            return .double((number * divisor).rounded() / divisor)
         } else if method == "ceil" {
             let divisor = pow(10.0, Double(precision))
-            return .number(ceil(number * divisor) / divisor)
+            return .double(ceil(number * divisor) / divisor)
         } else if method == "floor" {
             let divisor = pow(10.0, Double(precision))
-            return .number(floor(number * divisor) / divisor)
+            return .double(floor(number * divisor) / divisor)
         }
-        return .number(number)
+        return .double(number)
     }
 
     /// Capitalizes each word in a string.
@@ -2360,10 +2362,10 @@ public enum Filters {
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard case let .string(str) = values.first else {
-            return .integer(0)
+            return .int(0)
         }
         let words = str.split { $0.isWhitespace || $0.isNewline }
-        return .integer(words.count)
+        return .int(words.count)
     }
 
     /// Return string with all occurrences of a substring replaced with a new one.
@@ -2385,9 +2387,9 @@ public enum Filters {
         // Handle count parameter - can be positional (3rd arg) or named (count=)
         let count: Int?
         if args.count > 3 {
-            count = args[3].integer
+            count = args[3].intValue
         } else if let countValue = kwargs["count"] {
-            count = countValue.integer
+            count = countValue.intValue
         } else {
             count = nil
         }
@@ -2466,8 +2468,8 @@ public enum Filters {
     @Sendable public static func batch(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array,
-            values.count > 1, let batchSize = values[1].integer, batchSize > 0
+        guard let value = values.first, let items = value.arrayValue,
+            values.count > 1, let batchSize = values[1].intValue, batchSize > 0
         else {
             return .array([])
         }
@@ -2496,12 +2498,12 @@ public enum Filters {
     @Sendable public static func sum(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array else {
-            return .integer(0)
+        guard let value = values.first, let items = value.arrayValue else {
+            return .int(0)
         }
 
-        let attribute = kwargs["attribute"]?.string ?? (values.count > 1 ? values[1].string : nil)
-        let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .integer(0))
+        let attribute = kwargs["attribute"]?.stringValue ?? (values.count > 1 ? values[1].stringValue : nil)
+        let start = kwargs["start"] ?? (values.count > 2 ? values[2] : .int(0))
 
         let valuesToSum: [Value]
         if let attr = attribute {
@@ -2525,9 +2527,9 @@ public enum Filters {
         guard case let .string(str) = values.first else {
             return .string("")
         }
-        let length = values.count > 1 ? (values[1].integer ?? 255) : 255
+        let length = values.count > 1 ? (values[1].intValue ?? 255) : 255
         let killwords = values.count > 2 ? (values[2].isTruthy) : false
-        let end = values.count > 3 ? (values[3].string ?? "...") : "..."
+        let end = values.count > 3 ? (values[3].stringValue ?? "...") : "..."
 
         if str.count <= length {
             return .string(str)
@@ -2549,7 +2551,7 @@ public enum Filters {
     @Sendable public static func unique(
         _ values: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = values.first, let items = value.array else {
+        guard let value = values.first, let items = value.arrayValue else {
             return .array([])
         }
         var seen = Set<Value>()
@@ -2573,16 +2575,16 @@ public enum Filters {
 
         let width: String
         if let widthValue = kwargs["width"] {
-            if let intWidth = widthValue.integer {
+            if let intWidth = widthValue.intValue {
                 width = String(repeating: " ", count: intWidth)
             } else {
-                width = widthValue.string ?? "    "
+                width = widthValue.stringValue ?? "    "
             }
         } else if values.count > 1 {
-            if let intWidth = values[1].integer {
+            if let intWidth = values[1].intValue {
                 width = String(repeating: " ", count: intWidth)
             } else {
-                width = values[1].string ?? "    "
+                width = values[1].stringValue ?? "    "
             }
         } else {
             width = "    "
@@ -2665,10 +2667,10 @@ public enum Filters {
             return .string("")
         }
 
-        let trimUrlLimit = kwargs["trim_url_limit"]?.integer
+        let trimUrlLimit = kwargs["trim_url_limit"]?.intValue
         let nofollow = kwargs["nofollow"]?.isTruthy ?? false
-        let target = kwargs["target"]?.string
-        let rel = kwargs["rel"]?.string
+        let target = kwargs["target"]?.stringValue
+        let rel = kwargs["rel"]?.stringValue
 
         func buildAttributes() -> String {
             var attributes = ""

@@ -111,21 +111,21 @@ struct PerformanceTests {
             guard !values.isEmpty else { return .array([]) }
             switch values.count {
             case 1:
-                if case let .integer(end) = values[0] {
-                    return .array((0..<end).map { .integer($0) })
+                if case let .int(end) = values[0] {
+                    return .array((0..<end).map { .int($0) })
                 }
             case 2:
-                if case let .integer(start) = values[0],
-                    case let .integer(end) = values[1]
+                if case let .int(start) = values[0],
+                    case let .int(end) = values[1]
                 {
-                    return .array((start..<end).map { .integer($0) })
+                    return .array((start..<end).map { .int($0) })
                 }
             case 3:
-                if case let .integer(start) = values[0],
-                    case let .integer(end) = values[1],
-                    case let .integer(step) = values[2]
+                if case let .int(start) = values[0],
+                    case let .int(end) = values[1],
+                    case let .int(step) = values[2]
                 {
-                    return .array(stride(from: start, to: end, by: step).map { .integer($0) })
+                    return .array(stride(from: start, to: end, by: step).map { .int($0) })
                 }
             default:
                 break

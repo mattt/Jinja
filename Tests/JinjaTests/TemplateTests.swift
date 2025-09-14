@@ -741,12 +741,12 @@ struct TemplateTests {
             "a": 0,
             "add": .function { (args: [Value], _, _) -> Value in
                 guard args.count == 2,
-                    case let .integer(x) = args[0],
-                    case let .integer(y) = args[1]
+                    case let .int(x) = args[0],
+                    case let .int(y) = args[1]
                 else {
                     throw JinjaError.runtime("Invalid arguments for add function")
                 }
-                return .integer(x + y)
+                return .int(x + y)
             },
         ]
 
@@ -908,7 +908,7 @@ struct TemplateTests {
             "x": 10,
             "apple": "apple",
             "func": .function { (args: [Value], _, _) -> Value in
-                return .integer(args.count)
+                return .int(args.count)
             },
         ]
 
@@ -1973,12 +1973,12 @@ struct TemplateTests {
             "a": 0,
             "add": .function { (args: [Value], _, _) -> Value in
                 guard args.count == 2,
-                    case let .integer(x) = args[0],
-                    case let .integer(y) = args[1]
+                    case let .int(x) = args[0],
+                    case let .int(y) = args[1]
                 else {
                     throw JinjaError.runtime("Invalid arguments for add function")
                 }
-                return .integer(x + y)
+                return .int(x + y)
             },
         ]
 
@@ -2005,7 +2005,7 @@ struct TemplateTests {
         let string = #"{{ greet(name="world") }}"#
         let context: Context = [
             "greet": .function { args, kwargs, _ in
-                let name = kwargs["name"]?.string ?? "stranger"
+                let name = kwargs["name"]?.stringValue ?? "stranger"
                 return .string("Hello, \(name)!")
             }
         ]

@@ -8,15 +8,15 @@ struct ValueTests {
     func initFromAny() throws {
         #expect(try Value(any: nil) == Value.null)
         #expect(try Value(any: "hello") == Value.string("hello"))
-        #expect(try Value(any: 42) == Value.integer(42))
-        #expect(try Value(any: 3.14) == Value.number(3.14))
-        #expect(try Value(any: Float(2.5)) == Value.number(2.5))
+        #expect(try Value(any: 42) == Value.int(42))
+        #expect(try Value(any: 3.14) == Value.double(3.14))
+        #expect(try Value(any: Float(2.5)) == Value.double(2.5))
         #expect(try Value(any: true) == Value.boolean(true))
 
         let arrayValue = try Value(any: [1, "test", nil])
         if case let .array(values) = arrayValue {
             #expect(values.count == 3)
-            #expect(values[0] == Value.integer(1))
+            #expect(values[0] == Value.int(1))
             #expect(values[1] == Value.string("test"))
             #expect(values[2] == Value.null)
         } else {
@@ -26,7 +26,7 @@ struct ValueTests {
         let dictValue = try Value(any: ["key": "value", "num": 42])
         if case let .object(dict) = dictValue {
             #expect(dict["key"] == Value.string("value"))
-            #expect(dict["num"] == Value.integer(42))
+            #expect(dict["num"] == Value.int(42))
         } else {
             Issue.record("Expected object value")
         }
@@ -42,10 +42,10 @@ struct ValueTests {
         #expect(stringValue == Value.string("test"))
 
         let intValue: Value = 42
-        #expect(intValue == Value.integer(42))
+        #expect(intValue == Value.int(42))
 
         let doubleValue: Value = 3.14
-        #expect(doubleValue == Value.number(3.14))
+        #expect(doubleValue == Value.double(3.14))
 
         let boolValue: Value = true
         #expect(boolValue == Value.boolean(true))
@@ -53,17 +53,17 @@ struct ValueTests {
         let arrayValue: Value = [1, 2, 3]
         if case let .array(values) = arrayValue {
             #expect(values.count == 3)
-            #expect(values[0] == Value.integer(1))
-            #expect(values[1] == Value.integer(2))
-            #expect(values[2] == Value.integer(3))
+            #expect(values[0] == Value.int(1))
+            #expect(values[1] == Value.int(2))
+            #expect(values[2] == Value.int(3))
         } else {
             Issue.record("Expected array value")
         }
 
         let dictValue: Value = ["a": 1, "b": 2]
         if case let .object(dict) = dictValue {
-            #expect(dict["a"] == Value.integer(1))
-            #expect(dict["b"] == Value.integer(2))
+            #expect(dict["a"] == Value.int(1))
+            #expect(dict["b"] == Value.int(2))
         } else {
             Issue.record("Expected object value")
         }
@@ -75,14 +75,14 @@ struct ValueTests {
     @Test("CustomStringConvertible conformance")
     func description() {
         #expect(Value.string("test").description == "test")
-        #expect(Value.integer(42).description == "42")
-        #expect(Value.number(3.14).description == "3.14")
+        #expect(Value.int(42).description == "42")
+        #expect(Value.double(3.14).description == "3.14")
         #expect(Value.boolean(true).description == "true")
         #expect(Value.boolean(false).description == "false")
         #expect(Value.null.description == "")
         #expect(Value.undefined.description == "")
-        #expect(Value.array([Value.integer(1), Value.integer(2)]).description == "[1, 2]")
-        #expect(Value.object(["a": Value.integer(1)]).description == "{a: 1}")
+        #expect(Value.array([Value.int(1), Value.int(2)]).description == "[1, 2]")
+        #expect(Value.object(["a": Value.int(1)]).description == "{a: 1}")
     }
 
     @Test("isTruthy behavior")
@@ -93,12 +93,12 @@ struct ValueTests {
         #expect(Value.boolean(false).isTruthy == false)
         #expect(Value.string("").isTruthy == false)
         #expect(Value.string("hello").isTruthy == true)
-        #expect(Value.number(0.0).isTruthy == false)
-        #expect(Value.number(1.0).isTruthy == true)
-        #expect(Value.integer(0).isTruthy == false)
-        #expect(Value.integer(1).isTruthy == true)
+        #expect(Value.double(0.0).isTruthy == false)
+        #expect(Value.double(1.0).isTruthy == true)
+        #expect(Value.int(0).isTruthy == false)
+        #expect(Value.int(1).isTruthy == true)
         #expect(Value.array([]).isTruthy == false)
-        #expect(Value.array([Value.integer(1)]).isTruthy == true)
+        #expect(Value.array([Value.int(1)]).isTruthy == true)
         #expect(Value.object([:]).isTruthy == false)
         #expect(Value.object(["key": Value.string("value")]).isTruthy == true)
     }
@@ -112,11 +112,11 @@ struct ValueTests {
         let stringJSON = String(data: stringData, encoding: .utf8)!
         #expect(stringJSON == "\"hello\"")
 
-        let intData = try encoder.encode(Value.integer(42))
+        let intData = try encoder.encode(Value.int(42))
         let intJSON = String(data: intData, encoding: .utf8)!
         #expect(intJSON == "42")
 
-        let numberData = try encoder.encode(Value.number(3.14))
+        let numberData = try encoder.encode(Value.double(3.14))
         let numberJSON = String(data: numberData, encoding: .utf8)!
         #expect(numberJSON == "3.14")
 
@@ -133,7 +133,7 @@ struct ValueTests {
         #expect(undefinedJSON == "null")
 
         // Test array encoding
-        let arrayValue = Value.array([Value.integer(1), Value.string("test"), Value.boolean(false)])
+        let arrayValue = Value.array([Value.int(1), Value.string("test"), Value.boolean(false)])
         let arrayData = try encoder.encode(arrayValue)
         let arrayJSON = String(data: arrayData, encoding: .utf8)!
         #expect(arrayJSON == "[1,\"test\",false]")
@@ -141,7 +141,7 @@ struct ValueTests {
         // Test object encoding
         var objectDict = OrderedDictionary<String, Value>()
         objectDict["name"] = Value.string("John")
-        objectDict["age"] = Value.integer(30)
+        objectDict["age"] = Value.int(30)
         objectDict["active"] = Value.boolean(true)
         let objectValue = Value.object(objectDict)
         let objectData = try encoder.encode(objectValue)
@@ -153,7 +153,7 @@ struct ValueTests {
         // Test nested structures
         let nestedArray = Value.array([
             Value.string("item1"),
-            Value.object(["nested": Value.integer(42)]),
+            Value.object(["nested": Value.int(42)]),
             Value.array([Value.boolean(true), Value.null]),
         ])
         let nestedArrayData = try encoder.encode(nestedArray)
@@ -181,11 +181,11 @@ struct ValueTests {
 
         let intData = "42".data(using: .utf8)!
         let intValue = try decoder.decode(Value.self, from: intData)
-        #expect(intValue == Value.integer(42))
+        #expect(intValue == Value.int(42))
 
         let numberData = "3.14".data(using: .utf8)!
         let numberValue = try decoder.decode(Value.self, from: numberData)
-        #expect(numberValue == Value.number(3.14))
+        #expect(numberValue == Value.double(3.14))
 
         let boolData = "true".data(using: .utf8)!
         let boolValue = try decoder.decode(Value.self, from: boolData)
@@ -200,7 +200,7 @@ struct ValueTests {
         let arrayValue = try decoder.decode(Value.self, from: arrayData)
         if case let .array(values) = arrayValue {
             #expect(values.count == 3)
-            #expect(values[0] == Value.integer(1))
+            #expect(values[0] == Value.int(1))
             #expect(values[1] == Value.string("test"))
             #expect(values[2] == Value.boolean(false))
         } else {
@@ -212,7 +212,7 @@ struct ValueTests {
         let objectValue = try decoder.decode(Value.self, from: objectData)
         if case let .object(dict) = objectValue {
             #expect(dict["name"] == Value.string("John"))
-            #expect(dict["age"] == Value.integer(30))
+            #expect(dict["age"] == Value.int(30))
             #expect(dict["active"] == Value.boolean(true))
         } else {
             Issue.record("Expected object value")
@@ -226,7 +226,7 @@ struct ValueTests {
             #expect(values[0] == Value.string("item1"))
 
             if case let .object(nestedDict) = values[1] {
-                #expect(nestedDict["nested"] == Value.integer(42))
+                #expect(nestedDict["nested"] == Value.int(42))
             } else {
                 Issue.record("Expected nested object")
             }
@@ -250,13 +250,13 @@ struct ValueTests {
 
         let testValues: [Value] = [
             .string("hello"),
-            .integer(42),
-            .number(3.14),
+            .int(42),
+            .double(3.14),
             .boolean(true),
             .boolean(false),
             .null,
-            .array([Value.integer(1), Value.string("test"), Value.boolean(false)]),
-            .object(["key1": Value.string("value1"), "key2": Value.integer(123)]),
+            .array([Value.int(1), Value.string("test"), Value.boolean(false)]),
+            .object(["key1": Value.string("value1"), "key2": Value.int(123)]),
         ]
 
         for originalValue in testValues {
@@ -275,22 +275,22 @@ struct ValueTests {
         var complexDict = OrderedDictionary<String, Value>()
         complexDict["users"] = Value.array([
             Value.object([
-                "id": Value.integer(1),
+                "id": Value.int(1),
                 "name": Value.string("Alice"),
                 "active": Value.boolean(true),
-                "scores": Value.array([Value.number(95.5), Value.number(87.2), Value.number(92.0)]),
+                "scores": Value.array([Value.double(95.5), Value.double(87.2), Value.double(92.0)]),
             ]),
             Value.object([
-                "id": Value.integer(2),
+                "id": Value.int(2),
                 "name": Value.string("Bob"),
                 "active": Value.boolean(false),
-                "scores": Value.array([Value.number(78.1), Value.number(81.5)]),
+                "scores": Value.array([Value.double(78.1), Value.double(81.5)]),
             ]),
         ])
         complexDict["metadata"] = Value.object([
-            "total": Value.integer(2),
+            "total": Value.int(2),
             "lastUpdated": Value.string("2024-01-01T00:00:00Z"),
-            "version": Value.number(1.1),
+            "version": Value.double(1.1),
         ])
         complexDict["settings"] = Value.null
 
@@ -311,7 +311,7 @@ struct ValueTests {
 
                     if case let .array(scores) = user1["scores"] {
                         #expect(scores.count == 3)
-                        #expect(scores[0] == Value.number(95.5))
+                        #expect(scores[0] == Value.double(95.5))
                     } else {
                         Issue.record("Expected scores array")
                     }
@@ -323,8 +323,8 @@ struct ValueTests {
             }
 
             if case let .object(metadata) = decodedDict["metadata"] {
-                #expect(metadata["total"] == Value.integer(2))
-                #expect(metadata["version"] == Value.number(1.1))
+                #expect(metadata["total"] == Value.int(2))
+                #expect(metadata["version"] == Value.double(1.1))
             } else {
                 Issue.record("Expected metadata object")
             }
@@ -354,11 +354,11 @@ struct ValueTests {
         // Test arrays with mixed types
         let mixedArray = Value.array([
             Value.string("text"),
-            Value.integer(42),
-            Value.number(3.14),
+            Value.int(42),
+            Value.double(3.14),
             Value.boolean(true),
             Value.null,
-            Value.array([Value.integer(1), Value.integer(2)]),
+            Value.array([Value.int(1), Value.int(2)]),
             Value.object(["nested": Value.string("value")]),
         ])
         let mixedArrayData = try encoder.encode(mixedArray)
@@ -368,10 +368,10 @@ struct ValueTests {
         // Test objects with various key types (all should be strings in JSON)
         var objectWithVariousKeys = OrderedDictionary<String, Value>()
         objectWithVariousKeys["stringKey"] = Value.string("stringValue")
-        objectWithVariousKeys["numberKey"] = Value.number(123.45)
+        objectWithVariousKeys["numberKey"] = Value.double(123.45)
         objectWithVariousKeys["booleanKey"] = Value.boolean(false)
         objectWithVariousKeys["nullKey"] = Value.null
-        objectWithVariousKeys["arrayKey"] = Value.array([Value.integer(1), Value.integer(2)])
+        objectWithVariousKeys["arrayKey"] = Value.array([Value.int(1), Value.int(2)])
         objectWithVariousKeys["objectKey"] = Value.object(["nested": Value.string("nestedValue")])
     }
 

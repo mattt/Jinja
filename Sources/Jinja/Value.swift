@@ -2,18 +2,18 @@
 
 /// Represents values in Jinja template expressions and variables.
 public enum Value: Sendable {
-    /// String value containing text data.
-    case string(String)
-    /// Floating-point numeric value.
-    case number(Double)
-    /// Integer numeric value.
-    case integer(Int)
-    /// Boolean value (`true` or `false`).
-    case boolean(Bool)
     /// Null value representing absence of data.
     case null
     /// Undefined value for uninitialized variables.
     case undefined
+    /// Boolean value (`true` or `false`).
+    case boolean(Bool)
+    /// Integer numeric value.
+    case int(Int)
+    /// Floating-point numeric value.
+    case double(Double)
+    /// String value containing text data.
+    case string(String)
     /// Array containing ordered collection of values.
     case array([Value])
     /// Object containing key-value pairs with preserved insertion order.
@@ -29,11 +29,11 @@ public enum Value: Sendable {
         case let str as String:
             self = .string(str)
         case let int as Int:
-            self = .integer(int)
+            self = .int(int)
         case let double as Double:
-            self = .number(double)
+            self = .double(double)
         case let float as Float:
-            self = .number(Double(float))
+            self = .double(Double(float))
         case let bool as Bool:
             self = .boolean(bool)
         case let array as [Any?]:
@@ -51,18 +51,32 @@ public enum Value: Sendable {
         }
     }
 
+    /// Returns whether the value is `null`.
+    public var isNull: Bool {
+        return self == .null
+    }
+    
+    /// Returns whether the value is `undefined`.
+    public var isUndefined: Bool {
+        return self == .undefined
+    }
+
     /// Returns `true` if this value is a boolean.
     public var isBoolean: Bool {
         if case .boolean = self { return true }
         return false
     }
 
-    /// Returns `true` if this value is a number (integer or floating-point).
-    public var isNumber: Bool {
-        switch self {
-        case .number, .integer: return true
-        default: return false
-        }
+    /// Returns `true` if this value is an integer.
+    public var isInt: Bool {
+        if case .int = self { return true }
+        return false
+    }
+    
+    /// Returns `true` if this value is a floating-point number.
+    public var isDouble: Bool {
+        if case .double = self { return true }
+        return false
     }
 
     /// Returns `true` if this value can be iterated over (array, object, or string).
@@ -84,9 +98,9 @@ public enum Value: Sendable {
         switch self {
         case .null, .undefined: false
         case .boolean(let b): b
+        case .double(let n): n != 0.0
+        case .int(let i): i != 0
         case .string(let s): !s.isEmpty
-        case .number(let n): n != 0.0
-        case .integer(let i): i != 0
         case .array(let a): !a.isEmpty
         case .object(let o): !o.isEmpty
         case .function: true
@@ -94,29 +108,29 @@ public enum Value: Sendable {
     }
 
     /// Returns the array of values if this value is an array, otherwise `nil`.
-    public var array: [Value]? {
+    public var arrayValue: [Value]? {
         guard case let .array(values) = self else { return nil }
         return values
     }
 
     /// Returns the string value if this value is a string, otherwise `nil`.
-    public var string: String? {
+    public var stringValue: String? {
         guard case let .string(value) = self else { return nil }
         return value
     }
 
     /// Returns the integer value if this value is an integer, otherwise `nil`.
-    public var integer: Int? {
-        guard case let .integer(value) = self else { return nil }
+    public var intValue: Int? {
+        guard case let .int(value) = self else { return nil }
         return value
     }
 
     /// Returns the floating-point value if this value is a number, otherwise `nil`.
-    public var number: Double? {
+    public var doubleValue: Double? {
         switch self {
-        case let .number(value):
+        case let .double(value):
             return value
-        case let .integer(value):
+        case let .int(value):
             return Double(value)
         default:
             return nil
@@ -131,8 +145,8 @@ extension Value: CustomStringConvertible {
     public var description: String {
         switch self {
         case .string(let s): s
-        case .number(let n): String(n)
-        case .integer(let i): String(i)
+        case .double(let n): String(n)
+        case .int(let i): String(i)
         case .boolean(let b): String(b)
         case .null: ""
         case .undefined: ""
@@ -151,8 +165,8 @@ extension Value: Equatable {
     public static func == (lhs: Value, rhs: Value) -> Bool {
         switch (lhs, rhs) {
         case let (.string(lhs), .string(rhs)): return lhs == rhs
-        case let (.number(lhs), .number(rhs)): return lhs == rhs
-        case let (.integer(lhs), .integer(rhs)): return lhs == rhs
+        case let (.double(lhs), .double(rhs)): return lhs == rhs
+        case let (.int(lhs), .int(rhs)): return lhs == rhs
         case let (.boolean(lhs), .boolean(rhs)): return lhs == rhs
         case (.null, .null): return true
         case (.undefined, .undefined): return true
@@ -171,8 +185,8 @@ extension Value: Hashable {
     public func hash(into hasher: inout Hasher) {
         switch self {
         case let .string(value): hasher.combine(value)
-        case let .number(value): hasher.combine(value)
-        case let .integer(value): hasher.combine(value)
+        case let .double(value): hasher.combine(value)
+        case let .int(value): hasher.combine(value)
         case let .boolean(value): hasher.combine(value)
         case .null: hasher.combine(0)
         case .undefined: hasher.combine(0)
@@ -192,9 +206,9 @@ extension Value: Encodable {
         switch self {
         case let .string(value):
             try container.encode(value)
-        case let .number(value):
+        case let .double(value):
             try container.encode(value)
-        case let .integer(value):
+        case let .int(value):
             try container.encode(value)
         case let .boolean(value):
             try container.encode(value)
@@ -231,9 +245,9 @@ extension Value: Decodable {
         } else if let string = try? container.decode(String.self) {
             self = .string(string)
         } else if let integer = try? container.decode(Int.self) {
-            self = .integer(integer)
+            self = .int(integer)
         } else if let number = try? container.decode(Double.self) {
-            self = .number(number)
+            self = .double(number)
         } else if let boolean = try? container.decode(Bool.self) {
             self = .boolean(boolean)
         } else if let value = try? container.decode([Value].self) {
@@ -268,7 +282,7 @@ extension Value: ExpressibleByStringLiteral {
 
 extension Value: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
-        self = .integer(value)
+        self = .int(value)
     }
 }
 
@@ -276,7 +290,7 @@ extension Value: ExpressibleByIntegerLiteral {
 
 extension Value: ExpressibleByFloatLiteral {
     public init(floatLiteral value: Double) {
-        self = .number(value)
+        self = .double(value)
     }
 }
 
