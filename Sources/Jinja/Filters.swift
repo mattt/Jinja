@@ -60,21 +60,17 @@ public enum Filters {
     @Sendable public static func `default`(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard args.count >= 2 else {
-            throw JinjaError.runtime("default filter requires at least 2 arguments")
-        }
+        let input = args.first ?? .undefined
 
-        let input = args[0]
-        let defaultValue = args[1]
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["default_value", "boolean"],
+            defaults: ["boolean": .boolean(false)]
+        )
 
-        let boolean: Bool?
-        if args.count > 3 {
-            boolean = args[3].isTruthy
-        } else if case let .boolean(boolValue) = kwargs["boolean"] {
-            boolean = boolValue
-        } else {
-            boolean = nil
-        }
+        let defaultValue = arguments["default_value"]!
+        let boolean = arguments["boolean"]!.isTruthy
 
         // If input is undefined, return default value
         if input == .undefined {
@@ -82,7 +78,7 @@ public enum Filters {
         }
 
         // If boolean is true and input is falsey, return default value
-        if boolean == true && !input.isTruthy {
+        if boolean, !input.isTruthy {
             return defaultValue
         }
 
@@ -176,11 +172,22 @@ public enum Filters {
             return .array([])
         }
 
-        let reverse = kwargs["reverse"]?.isTruthy ?? false
-        let caseSensitive = kwargs["case_sensitive"]?.isTruthy ?? true
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["reverse", "case_sensitive", "attribute"],
+            defaults: [
+                "reverse": .boolean(false),
+                "case_sensitive": .boolean(true),
+                "attribute": .null,
+            ]
+        )
+
+        let reverse = arguments["reverse"]!.isTruthy
+        let caseSensitive = arguments["case_sensitive"]!.isTruthy
 
         let sortedItems: [Value]
-        if case let .string(attribute)? = kwargs["attribute"] {
+        if case let .string(attribute) = arguments["attribute"] {
             sortedItems = try items.sorted { a, b in
                 let aValue = try Interpreter.evaluatePropertyMember(a, attribute)
                 let bValue = try Interpreter.evaluatePropertyMember(b, attribute)
@@ -527,10 +534,22 @@ public enum Filters {
     @Sendable public static func filesizeformat(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard let value = args.first, case let .double(num) = value else {
+        guard let value = args.first else {
             return .string("")
         }
-        let binary = kwargs["binary"]?.isTruthy ?? false
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["binary"],
+            defaults: ["binary": .boolean(false)]
+        )
+
+        guard case let .double(num) = value else {
+            return .string("")
+        }
+
+        let binary = arguments["binary"]!.isTruthy
         let bytes = num
         let unit: Double = binary ? 1024 : 1000
         if bytes < unit {
@@ -552,8 +571,15 @@ public enum Filters {
         guard let value = args.first, case let .object(dict) = value else {
             return .string("")
         }
-        let autospace =
-            kwargs["autospace"]?.isTruthy ?? (args.count > 1 ? args[1].isTruthy : true)
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["autospace"],
+            defaults: ["autospace": .boolean(true)]
+        )
+
+        let autospace = arguments["autospace"]!.isTruthy
         var result = ""
         for (key, value) in dict {
             if value == .null || value == .undefined { continue }
@@ -607,8 +633,18 @@ public enum Filters {
     ) throws -> Value {
         guard let value = args.first else { return .string("null") }
 
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["indent"],
+            defaults: ["indent": .null]
+        )
+
         let encoder = JSONEncoder()
-        if kwargs["indent"]?.isTruthy ?? false {
+        if let indent = arguments["indent"],
+            case .int(let count) = indent,
+            count > 0
+        {
             encoder.outputFormatting = .prettyPrinted
         }
 
@@ -752,21 +788,36 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard let value = args.first else { return .double(0.0) }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["precision", "method"],
+            defaults: ["precision": .int(0), "method": .string("common")]
+        )
+
+        let number: Double
+        switch value {
+        case let .int(intValue):
+            number = Double(intValue)
+        case let .double(doubleValue):
+            number = doubleValue
+        default:
+            return value  // Or throw error
+        }
+
         let precision: Int
-        if args.count > 1, case let .int(p) = args[1] {
+        if case let .int(p) = arguments["precision"]! {
             precision = p
         } else {
             precision = 0
         }
+
         let method: String
-        if args.count > 2, case let .string(m) = args[2] {
+        if case let .string(m) = arguments["method"]! {
             method = m
         } else {
             method = "common"
-        }
-
-        guard case let .double(number) = value else {
-            return value  // Or throw error
         }
 
         if method == "common" {
@@ -811,19 +862,26 @@ public enum Filters {
     @Sendable public static func replace(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard args.count >= 3,
-            case let .string(str) = args[0],
-            case let .string(old) = args[1],
-            case let .string(new) = args[2]
-        else {
+        guard case let .string(str) = args.first else {
             return args.first ?? .string("")
+        }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["old", "new", "count"],
+            defaults: ["count": .null]
+        )
+
+        guard case let .string(old) = arguments["old"],
+            case let .string(new) = arguments["new"]
+        else {
+            throw JinjaError.runtime("replace() requires 'old' and 'new' string arguments.")
         }
 
         // Handle count parameter - can be positional (3rd arg) or named (count=)
         let count: Int?
-        if args.count > 3, case let .int(c) = args[3] {
-            count = c
-        } else if let countValue = kwargs["count"], case let .int(c) = countValue {
+        if case let .int(c) = arguments["count"] {
             count = c
         } else {
             count = nil
@@ -937,20 +995,19 @@ public enum Filters {
             return .int(0)
         }
 
-        let attribute: String?
-        if case let .string(a)? = kwargs["attribute"] {
-            attribute = a
-        } else if args.count > 1, case let .string(a) = args[1] {
-            attribute = a
-        } else {
-            attribute = nil
-        }
-        let start = kwargs["start"] ?? (args.count > 2 ? args[2] : .int(0))
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["attribute", "start"],
+            defaults: ["attribute": .null, "start": .int(0)]
+        )
+
+        let start = arguments["start"]!
 
         let valuesToSum: [Value]
-        if let attr = attribute {
+        if case let .string(attribute) = arguments["attribute"] {
             valuesToSum = try items.map { item in
-                try Interpreter.evaluatePropertyMember(item, attr)
+                try Interpreter.evaluatePropertyMember(item, attribute)
             }
         } else {
             valuesToSum = items
@@ -969,15 +1026,25 @@ public enum Filters {
         guard case let .string(str) = args.first else {
             return .string("")
         }
+
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["length", "killwords", "end"],
+            defaults: ["length": .int(255), "killwords": .boolean(false), "end": .string("...")]
+        )
+
         let length: Int
-        if args.count > 1, case let .int(l) = args[1] {
+        if case let .int(l) = arguments["length"]! {
             length = l
         } else {
             length = 255
         }
-        let killwords = args.count > 2 ? (args[2].isTruthy) : false
+
+        let killwords = arguments["killwords"]!.isTruthy
+
         let end: String
-        if args.count > 3, case let .string(e) = args[3] {
+        if case let .string(e) = arguments["end"]! {
             end = e
         } else {
             end = "..."
@@ -1025,29 +1092,25 @@ public enum Filters {
             return .string("")
         }
 
-        let width: String
-        if let widthValue = kwargs["width"] {
-            if case let .int(intWidth) = widthValue {
-                width = String(repeating: " ", count: intWidth)
-            } else if case let .string(s) = widthValue {
-                width = s
-            } else {
-                width = "    "
-            }
-        } else if args.count > 1 {
-            if case let .int(intWidth) = args[1] {
-                width = String(repeating: " ", count: intWidth)
-            } else if case let .string(s) = args[1] {
-                width = s
-            } else {
-                width = "    "
-            }
-        } else {
-            width = "    "
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["width", "first", "blank"],
+            defaults: ["width": .int(4), "first": .boolean(false), "blank": .boolean(false)]
+        )
+
+        let widthString: String
+        switch arguments["width"] {
+        case .int(let n):
+            widthString = String(repeating: " ", count: n)
+        case .string(let s):
+            widthString = s
+        default:
+            widthString = "    "
         }
 
-        let first = kwargs["first"]?.isTruthy ?? (args.count > 2 ? args[2].isTruthy : false)
-        let blank = kwargs["blank"]?.isTruthy ?? (args.count > 3 ? args[3].isTruthy : false)
+        let first = arguments["first"]!.isTruthy
+        let blank = arguments["blank"]!.isTruthy
 
         let lines = str.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var result = ""
@@ -1058,7 +1121,7 @@ public enum Filters {
             } else if line.isEmpty && !blank {
                 result += line
             } else {
-                result += width + line
+                result += widthString + line
             }
             if i < lines.count - 1 {
                 result += "\n"
@@ -1123,21 +1186,36 @@ public enum Filters {
             return .string("")
         }
 
+        let arguments = try resolveFilterArguments(
+            args: Array(args.dropFirst()),
+            kwargs: kwargs,
+            parameters: ["trim_url_limit", "nofollow", "target", "rel"],
+            defaults: [
+                "trim_url_limit": .null,
+                "nofollow": .boolean(false),
+                "target": .null,
+                "rel": .null,
+            ]
+        )
+
         let trimUrlLimit: Int?
-        if case let .int(limit)? = kwargs["trim_url_limit"] {
+        if case let .int(limit)? = arguments["trim_url_limit"] {
             trimUrlLimit = limit
         } else {
             trimUrlLimit = nil
         }
-        let nofollow = kwargs["nofollow"]?.isTruthy ?? false
+
+        let nofollow = arguments["nofollow"]!.isTruthy
+
         let target: String?
-        if case let .string(t)? = kwargs["target"] {
+        if case let .string(t)? = arguments["target"] {
             target = t
         } else {
             target = nil
         }
+
         let rel: String?
-        if case let .string(r)? = kwargs["rel"] {
+        if case let .string(r)? = arguments["rel"] {
             rel = r
         } else {
             rel = nil
@@ -1228,4 +1306,69 @@ public enum Filters {
             "pprint": pprint,
             "urlize": urlize,
         ]
+}
+
+/// Resolves positional and keyword arguments for a filter, mimicking Python's argument handling.
+///
+/// This function takes the arguments passed to a filter and resolves them against a list of
+/// parameter names and a dictionary of default values. It ensures that arguments are not
+/// passed both positionally and by keyword, and that all required arguments are present.
+///
+/// Based on the argument passing conventions in Jinja's Python implementation.
+/// See: https://github.com/pallets/jinja/blob/main/src/jinja2/filters.py
+///
+/// - Parameters:
+///   - args: An array of positional arguments (`Value`).
+///   - kwargs: A dictionary of keyword arguments (`[String: Value]`).
+///   - parameters: An ordered list of parameter names for the filter.
+///   - defaults: A dictionary of default values for optional parameters.
+/// - Returns: A dictionary of resolved argument names and their `Value`.
+/// - Throws: `JinjaError.runtime` if arguments are invalid (e.g., duplicate, unexpected).
+private func resolveFilterArguments(
+    args: [Value],
+    kwargs: [String: Value],
+    parameters: [String],
+    defaults: [String: Value] = [:]
+) throws -> [String: Value] {
+    var resolvedArgs: [String: Value] = [:]
+
+    // Handle positional arguments
+    for (i, arg) in args.enumerated() {
+        if i >= parameters.count {
+            throw JinjaError.runtime("Too many positional arguments for filter.")
+        }
+        let paramName = parameters[i]
+        if kwargs.keys.contains(paramName) {
+            throw JinjaError.runtime(
+                "Argument '\(paramName)' passed both positionally and as keyword.")
+        }
+        resolvedArgs[paramName] = arg
+    }
+
+    // Handle keyword arguments
+    for (name, value) in kwargs {
+        guard parameters.contains(name) else {
+            throw JinjaError.runtime("Unexpected keyword argument '\(name)' for filter.")
+        }
+        // This check is technically redundant if the positional loop is correct,
+        // but it's a good safeguard.
+        if resolvedArgs[name] != nil {
+            throw JinjaError.runtime("Argument '\(name)' passed both positionally and as keyword.")
+        }
+        resolvedArgs[name] = value
+    }
+
+    // Apply defaults and check for missing required arguments
+    for paramName in parameters {
+        if resolvedArgs[paramName] == nil {
+            if let defaultValue = defaults[paramName] {
+                resolvedArgs[paramName] = defaultValue
+            } else {
+                // This is a required argument that wasn't provided
+                throw JinjaError.runtime("Missing required argument '\(paramName)' for filter.")
+            }
+        }
+    }
+
+    return resolvedArgs
 }
