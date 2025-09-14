@@ -1645,29 +1645,39 @@ public enum Filters {
         return .string(strings.joined(separator: separator))
     }
 
-    /// Returns a default value if the input is null, undefined, or empty.
+    /// Returns a default value if the input is undefined,
+    /// or if the input is falsey and the second / `boolean` argument is `true`.
     @Sendable public static func `default`(
-        _ values: [Value], kwargs: [String: Value] = [:], env: Environment
+        _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
-        guard values.count >= 2 else {
+        guard args.count >= 2 else {
             throw JinjaError.runtime("default filter requires at least 2 arguments")
         }
 
-        let value = values[0]
-        let defaultValue = values[1]
+        let input = args[0]
+        let defaultValue = args[1]
 
-        switch value {
-        case .null, .undefined:
-            return defaultValue
-        case let .string(str) where str.isEmpty:
-            return defaultValue
-        case let .array(arr) where arr.isEmpty:
-            return defaultValue
-        case let .object(obj) where obj.isEmpty:
-            return defaultValue
-        default:
-            return value
+        let boolean: Bool?
+        if args.count > 3 {
+            boolean = args[3].isTruthy
+        } else if case let .boolean(boolValue) = kwargs["boolean"] {
+            boolean = boolValue
+        } else {
+            boolean = nil
         }
+
+        // If input is undefined, return default value
+        if input == .undefined {
+            return defaultValue
+        }
+
+        // If boolean is true and input is falsey, return default value
+        if boolean == true && !input.isTruthy {
+            return defaultValue
+        }
+
+        // Otherwise return the input value
+        return input
     }
 
     // MARK: - Array Filters
