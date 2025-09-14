@@ -107,25 +107,25 @@ struct IntegrationTests {
     func testLlama3TemplateWithoutGenerationPrompt() throws {
         let template = try Template(
             """
-            {% for message in messages %}
-                {% if message['role'] == 'user' %}
-                    <|start_header_id|>user<|end_header_id|>
+            {% for message in messages -%}
+            {%- if message['role'] == 'user' -%}
+            <|start_header_id|>user<|end_header_id|>
 
             {{ message['content'] }}<|eot_id|>
-                {% elif message['role'] == 'assistant' %}
-                    <|start_header_id|>assistant<|end_header_id|>
-
-            {{ message['content'] }}<|eot_id|>
-                {% elif message['role'] == 'system' %}
-                    <|start_header_id|>system<|end_header_id|>
-
-            {{ message['content'] }}<|eot_id|>
-                {% endif %}
-            {% endfor %}
-            {% if add_generation_prompt %}
+            {%- elif message['role'] == 'assistant' -%}
             <|start_header_id|>assistant<|end_header_id|>
 
-            {% endif %}
+            {{ message['content'] }}<|eot_id|>
+            {%- elif message['role'] == 'system' -%}
+            <|start_header_id|>system<|end_header_id|>
+
+            {{ message['content'] }}<|eot_id|>
+            {%- endif -%}
+            {%- endfor -%}
+            {%- if add_generation_prompt -%}
+            <|start_header_id|>assistant<|end_header_id|>
+
+            {%- endif -%}
             """, with: options)
 
         var context = Self.sampleMessages
@@ -185,23 +185,28 @@ struct IntegrationTests {
     func testMistralInstructTemplate() throws {
         let template = try Template(
             """
-            {% for message in messages %}
-                {% if message['role'] == 'user' %}
-                    {% if loop.first and system_message %}
-                        [INST] {{ system_message }}
+            {%- set system_message = '' -%}
+            {%- for message in messages -%}
+            {%- if message['role'] == 'system' -%}
+            {%- set system_message = message['content'] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- for message in messages -%}
+            {%- if message['role'] == 'user' -%}
+            {%- if loop.first and system_message -%}
+            [INST] {{ system_message }}
 
             {{ message['content'] }} [/INST]
-                    {% else %}
-                        [INST] {{ message['content'] }} [/INST]
-                    {% endif %}
-                {% elif message['role'] == 'assistant' %}
-                    {{ message['content'] }}</s>
-                {% elif message['role'] == 'system' %}
-                    {% set system_message = message['content'] %}
-                {% endif %}
-            {% endfor %}
-            {% if add_generation_prompt %}
-            [INST] {% endif %}
+            {%- else -%}
+            [INST] {{ message['content'] }} [/INST]
+            {%- endif -%}
+            {%- elif message['role'] == 'assistant' -%}
+            {{ message['content'] }}</s>
+            {%- endif -%}
+            {%- endfor -%}
+            {%- if add_generation_prompt -%}
+            [INST] 
+            {%- endif -%}
             """, with: options)
 
         var context = Self.sampleMessages
@@ -222,20 +227,22 @@ struct IntegrationTests {
     func testVicunaTemplate() throws {
         let template = try Template(
             """
-            {% for message in messages %}
-                {% if message['role'] == 'user' %}
-                    USER: {{ message['content'] }}
-                {% elif message['role'] == 'assistant' %}
-                    ASSISTANT: {{ message['content'] }}
-                {% elif message['role'] == 'system' %}
-                    {{ message['content'] }}
-                {% endif %}
-                {% if not loop.last and loop.nextitem['role'] == 'user' %}
+            {%- for message in messages -%}
+            {%- if message['role'] == 'user' -%}
+            USER: {{ message['content'] }}
+            {%- elif message['role'] == 'assistant' -%}
+            ASSISTANT: {{ message['content'] }}
+            {%- if not loop.last -%}
             </s>
-                {% endif %}
-            {% endfor %}
-            {% if add_generation_prompt %}
-            ASSISTANT:{% endif %}
+            {%- endif -%}
+            {%- elif message['role'] == 'system' -%}
+            {{ message['content'] }}
+
+            {%- endif -%}
+            {%- endfor -%}
+            {%- if add_generation_prompt -%}
+            ASSISTANT:
+            {%- endif -%}
             """, with: options)
 
         var context = Self.sampleMessages
@@ -428,26 +435,27 @@ struct IntegrationTests {
     func testTemplateWithConditionalSystemMessage() throws {
         let template = try Template(
             """
-            {% set has_system = false %}
-            {% for message in messages %}
-            {% if message['role'] == 'system' %}
-            {% set has_system = true %}
-            SYSTEM: {{ message['content'] }}
+            {%- set has_system = false -%}
+            {%- set system_content = '' -%}
+            {%- for message in messages -%}
+            {%- if message['role'] == 'system' -%}
+            {%- set has_system = true -%}
+            {%- set system_content = message['content'] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- if has_system -%}
+            SYSTEM: {{ system_content }}
 
-            {% endif %}
-            {% endfor %}
-
-            {% if not has_system %}
+            {%- else -%}
             SYSTEM: Default system message
 
-            {% endif %}
-
-            {% for message in messages %}
-            {% if message['role'] != 'system' %}
+            {%- endif -%}
+            {%- for message in messages -%}
+            {%- if message['role'] != 'system' -%}
             {{ message['role']|upper }}: {{ message['content'] }}
 
-            {% endif %}
-            {% endfor %}
+            {%- endif -%}
+            {%- endfor -%}
             """, with: options)
 
         // Test with system message
