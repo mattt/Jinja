@@ -112,6 +112,8 @@ public struct Token: Hashable, Codable, Sendable {
         case filter
         /// End of filter block keyword `endfilter`.
         case endfilter
+        /// Comment content `{# ... #}`.
+        case comment
         /// End of file marker.
         case eof
     }

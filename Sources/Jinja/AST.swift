@@ -9,6 +9,8 @@ public indirect enum Node: Hashable, Codable, Sendable {
     case expression(Expression)
     /// Control flow statement to be executed.
     case statement(Statement)
+    /// Comment content to be ignored during execution.
+    case comment(String)
 }
 
 /// An expression that can be evaluated to produce a value.
@@ -41,7 +43,7 @@ public indirect enum Expression: Hashable, Codable, Sendable {
     case identifier(String)
 
     /// Binary operators for expressions.
-    public enum BinaryOp: String, Sendable, Hashable, CaseIterable, Codable {
+    public enum BinaryOp: String, Hashable, CaseIterable, Codable, Sendable {
         // MARK: Arithmetic Operators
 
         /// Addition operator (`+`)
@@ -106,7 +108,7 @@ public indirect enum Expression: Hashable, Codable, Sendable {
     case binary(BinaryOp, Expression, Expression)
 
     /// Unary operators for expressions.
-    public enum UnaryOp: String, Sendable, Hashable, CaseIterable, Codable {
+    public enum UnaryOp: String, Hashable, CaseIterable, Codable, Sendable {
         /// Logical negation operator.
         case not = "not"
         /// Numeric negation operator.

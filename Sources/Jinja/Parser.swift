@@ -45,6 +45,10 @@ public struct Parser: Sendable {
             advance()
             return .text(token.value)
 
+        case .comment:
+            advance()
+            return .comment(token.value)
+
         case .openExpression:
             try consume(.openExpression, message: "Expected '{{'.")
             let expression = try parseExpression()

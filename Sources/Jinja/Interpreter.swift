@@ -23,7 +23,7 @@ public final class Environment: @unchecked Sendable {
     /// This applies to block tags, not variable tags.
     /// The default value is `false`.
     public var trimBlocks: Bool = false
-    
+
     // MARK: -
 
     /// Creates a new environment with optional parent and initial variables.
@@ -113,6 +113,10 @@ public enum Interpreter {
         switch node {
         case let .text(content):
             buffer.write(content)
+
+        case .comment:
+            // Comments are ignored during execution
+            break
 
         case let .expression(expr):
             let value = try evaluateExpression(expr, env: env)

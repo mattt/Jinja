@@ -21,25 +21,15 @@ public enum Lexer: Sendable {
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]
 
-    private static func skipWhitespace(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) -> Int {
-        var pos = position
-        while pos < buffer.count, [0x20, 0x09, 0x0A, 0x0D].contains(buffer[pos]) {
-            pos += 1
-        }
-        return pos
-    }
-
     /// Tokenizes a template source string into an array of tokens.
-    public static func tokenize(_ source: String) throws -> [Token] {
+    public static func tokenize(_ source: String) throws
+        -> [Token]
+    {
         let preprocessed = preprocess(source)
-        let estimatedCapacity = preprocessed.count / 4
-
         let utf8 = Array(preprocessed.utf8)
         return try utf8.withUnsafeBufferPointer { buffer in
             var tokens: [Token] = []
-            tokens.reserveCapacity(estimatedCapacity)
+            tokens.reserveCapacity(preprocessed.count / 4)
 
             var position = 0
             var inTag = false
@@ -47,13 +37,13 @@ public enum Lexer: Sendable {
 
             while position < buffer.count {
                 if inTag {
-                    position = skipWhitespace(buffer, at: position)
+                    position = Self.skipWhitespace(buffer, at: position)
                     if position >= buffer.count {
                         break
                     }
                 }
 
-                let (token, newPosition) = try extractTokenFromBuffer(
+                let (token, newPosition) = try Self.extractTokenFromBuffer(
                     buffer, at: position, inTag: inTag, curlyBracketDepth: curlyBracketDepth)
 
                 switch token.kind {
@@ -91,12 +81,19 @@ public enum Lexer: Sendable {
         }
     }
 
+    private static func skipWhitespace(
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
+    ) -> Int {
+        var pos = position
+        while pos < buffer.count, [0x20, 0x09, 0x0A, 0x0D].contains(buffer[pos]) {
+            pos += 1
+        }
+        return pos
+    }
+
     private static func preprocess(_ template: String) -> String {
         // Optimized preprocessing with single pass
         var result = template
-
-        // Remove comments efficiently
-        result = result.replacing(#/{#.*?#}/#, with: "")
 
         // Handle whitespace control
         result = result.replacing(#/-%}\s*/#, with: "%}")
@@ -119,13 +116,15 @@ public enum Lexer: Sendable {
 
         let char = buffer[position]
 
-        // Template delimiters - check for {{ and {%
+        // Template delimiters - check for {{, {%, and {#
         if char == 0x7B, position + 1 < buffer.count {  // '{'
             let nextChar = buffer[position + 1]
             if nextChar == 0x7B {  // '{' -> "{{"
                 return (Token(kind: .openExpression, value: "{{", position: position), position + 2)
             } else if nextChar == 0x25 {  // '%' -> "{%"
                 return (Token(kind: .openStatement, value: "{%", position: position), position + 2)
+            } else if nextChar == 0x23 {  // '#' -> "{#"
+                return try extractCommentTokenFromBuffer(buffer, at: position)
             }
         }
 
@@ -208,13 +207,19 @@ public enum Lexer: Sendable {
 
         while pos < buffer.count {
             if pos < buffer.count - 1 {
-                if buffer[pos] == 0x7B && (buffer[pos + 1] == 0x7B || buffer[pos + 1] == 0x25) {  // `{{` or `{%`
+                if buffer[pos] == 0x7B
+                    && (buffer[pos + 1] == 0x7B || buffer[pos + 1] == 0x25
+                        || buffer[pos + 1] == 0x23)
+                {  // `{{`, `{%`, or `{#`
                     break
                 }
                 if buffer[pos] == 0x7D && buffer[pos + 1] == 0x7D {  // `}}`
                     break
                 }
                 if buffer[pos] == 0x25 && buffer[pos + 1] == 0x7D {  // `%}`
+                    break
+                }
+                if buffer[pos] == 0x23 && buffer[pos + 1] == 0x7D {  // `#}`
                     break
                 }
             }
@@ -309,6 +314,23 @@ public enum Lexer: Sendable {
         let value = String(decoding: valueBytes, as: UTF8.self)
         let tokenKind = keywords[value] ?? .identifier
         return (Token(kind: tokenKind, value: value, position: position), pos)
+    }
+
+    private static func extractCommentTokenFromBuffer(
+        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
+    ) throws -> (Token, Int) {
+        var pos = position + 2  // Skip the opening {#
+        var value = ""
+
+        while pos < buffer.count {
+            if pos + 1 < buffer.count && buffer[pos] == 0x23 && buffer[pos + 1] == 0x7D {  // '#}'
+                return (Token(kind: .comment, value: value, position: position), pos + 2)
+            }
+            value += String(decoding: [buffer[pos]], as: UTF8.self)
+            pos += 1
+        }
+
+        throw JinjaError.lexer("Unclosed comment at position \(position)")
     }
 
 }
