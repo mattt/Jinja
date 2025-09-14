@@ -34,10 +34,11 @@ public struct Template: Hashable, Sendable {
             // Strip tabs and spaces from the beginning of a line to the start of a block
             // This matches lines that start with spaces/tabs followed by {%, {#, or {-
             let lines = template.components(separatedBy: .newlines)
+            let leadingWhitespace = /^[ \t]*{[#%]/
+            let removeWhitespace = /^[ \t]*/
             source = lines.map { line in
-                if line.range(of: "^[ \\t]*{[#%]", options: .regularExpression) != nil {
-                    return line.replacingOccurrences(
-                        of: "^[ \\t]*", with: "", options: .regularExpression)
+                if line.contains(leadingWhitespace) {
+                    return line.replacing(removeWhitespace, with: "")
                 }
                 return line
             }.joined(separator: "\n")
@@ -46,10 +47,10 @@ public struct Template: Hashable, Sendable {
         // Apply trim_blocks if enabled
         if options.trimBlocks {
             // Remove the first newline after a template tag
-            source = source.replacingOccurrences(
-                of: "%}\\n", with: "%}", options: .regularExpression)
-            source = source.replacingOccurrences(
-                of: "#}\\n", with: "#}", options: .regularExpression)
+            let blockEnd = /%}\n/
+            let commentEnd = /#}\n/
+            source = source.replacing(blockEnd, with: "%}")
+            source = source.replacing(commentEnd, with: "#}")
         }
 
         let tokens = try Lexer.tokenize(source)

@@ -624,10 +624,8 @@ public enum Filters {
             defaults: [:]
         )
 
-        let regex = try! NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive)
-        let range = NSRange(location: 0, length: str.utf16.count)
-        let noTags = regex.stringByReplacingMatches(
-            in: str, options: [], range: range, withTemplate: "")
+        let htmlTags = /<[^>]+>/.ignoresCase()
+        let noTags = str.replacing(htmlTags, with: "")
         let components = noTags.components(separatedBy: .whitespacesAndNewlines)
         return .string(components.filter { !$0.isEmpty }.joined(separator: " "))
     }
@@ -1565,20 +1563,18 @@ public enum Filters {
         }
 
         // Basic implementation - just detect simple http/https URLs
-        let httpRegex = try! NSRegularExpression(
-            pattern: "https?://[^\\s<>\"'\\[\\]{}|\\\\^`]+", options: [])
-        let range = NSRange(location: 0, length: text.utf16.count)
-
+        let httpPattern = /https?:\/\/[^\s<>"'\[\]{}|\\^`]+/
+        
         var result = text
-        let matches = httpRegex.matches(in: text, options: [], range: range).reversed()
+        let matches = text.matches(of: httpPattern).reversed()
 
         for match in matches {
-            let url = (text as NSString).substring(with: match.range)
+            let url = String(match.output)
             let displayUrl =
                 trimUrlLimit != nil && url.count > trimUrlLimit!
                 ? String(url.prefix(trimUrlLimit!)) + "..." : url
             let replacement = "<a href=\"\(url)\"\(buildAttributes())>\(displayUrl)</a>"
-            result = (result as NSString).replacingCharacters(in: match.range, with: replacement)
+            result = result.replacingCharacters(in: match.range, with: replacement)
         }
 
         return .string(result)
