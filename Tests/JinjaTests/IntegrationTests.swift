@@ -2,9 +2,8 @@ import Testing
 
 @testable import Jinja
 
-@Suite("Integration Tests with Real Chat Templates", .enabled(if: true))
+@Suite("Integration Tests")
 struct IntegrationTests {
-
     let options = Template.Options(lstripBlocks: true, trimBlocks: true)
 
     // MARK: - Chat Template Data

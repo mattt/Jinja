@@ -3,9 +3,8 @@ import Testing
 
 @testable import Jinja
 
-@Suite("Chat Template Tests", .enabled(if: true))
+@Suite("Chat Template Tests")
 struct ChatTemplateTests {
-
     let options = Template.Options(lstripBlocks: true, trimBlocks: true)
 
     // MARK: - Test Data

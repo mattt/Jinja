@@ -3,6 +3,7 @@ import Testing
 
 @testable import Jinja
 
+@Suite("Value Tests")
 struct ValueTests {
     @Test("Initialization from Any")
     func initFromAny() throws {
