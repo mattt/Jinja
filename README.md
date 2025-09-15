@@ -42,7 +42,7 @@ This package implements a subset of the functionality of the
   `%`
 
 - **String Concatenation Operators**:
-  `~`, `+`,
+  `~`
   and automatic concatenation of adjacent string literals
 - **Comparison Operators**:
   `==`, `!=`, `<`, `<=`, `>`, `>=`
@@ -74,6 +74,8 @@ This package implements a subset of the functionality of the
   `{% filter upper %}...{% endfilter %}`
 - **Tests**:
   `is` operator for type/value checks (e.g. `{% if value is number %}`)
+- **Exception Handling**:
+  `raise_exception()` (throws `Exception` error)
 
 <details>
 
@@ -180,8 +182,6 @@ This package implements a subset of the functionality of the
   `{% import %}`, `{% from ... import %}`
 - **Block Inheritance**:
   `super()`, block scoping, required blocks
-- **Exception Handling**:
-  `raise_exception()`
 - **With Statement**:
   `{% with %}` for variable scoping
 - **Raw Blocks**:

@@ -772,4 +772,66 @@ struct InterpreterTests {
             #expect(eqResult == true)
         }
     }
+
+    @Suite("Operators")
+    struct OperatorTests {
+        @Test("Floor division with integers")
+        func testFloorDivisionIntegers() throws {
+            let result = try Interpreter.evaluateBinaryValues(.floorDivide, .int(20), .int(7))
+            #expect(result == .int(2))
+        }
+
+        @Test("Floor division with mixed types")
+        func testFloorDivisionMixed() throws {
+            let result = try Interpreter.evaluateBinaryValues(.floorDivide, .double(20.5), .int(7))
+            #expect(result == .int(2))
+        }
+
+        @Test("Floor division by zero throws error")
+        func testFloorDivisionByZero() throws {
+            #expect(throws: JinjaError.self) {
+                try Interpreter.evaluateBinaryValues(.floorDivide, .int(10), .int(0))
+            }
+        }
+
+        @Test("Exponentiation with integers")
+        func testExponentiationIntegers() throws {
+            let result = try Interpreter.evaluateBinaryValues(.power, .int(2), .int(3))
+            #expect(result == .int(8))
+        }
+
+        @Test("Exponentiation with mixed types")
+        func testExponentiationMixed() throws {
+            let result = try Interpreter.evaluateBinaryValues(.power, .int(2), .double(3.0))
+            #expect(result == .double(8.0))
+        }
+
+        @Test("Exponentiation with negative exponent")
+        func testExponentiationNegative() throws {
+            let result = try Interpreter.evaluateBinaryValues(.power, .int(2), .int(-2))
+            #expect(result == .double(0.25))
+        }
+
+    }
+
+    @Suite("Globals")
+    struct GlobalsTests {
+        let env = Environment()
+
+        @Test("raise_exception() built-in function")
+        func testRaiseException() throws {
+            #expect(throws: Exception.self) {
+                try Globals.raiseException([], [:], env)
+            }
+        }
+
+        @Test("raise_exception() with custom message")
+        func testRaiseExceptionWithMessage() throws {
+            do {
+                try Globals.raiseException(["Template error: invalid input"], [:], env)
+            } catch let error as Exception {
+                #expect(error.message == "Template error: invalid input")
+            }
+        }
+    }
 }

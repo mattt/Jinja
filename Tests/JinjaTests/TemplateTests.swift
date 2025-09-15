@@ -11,29 +11,30 @@ struct TemplateTests {
 
         let tokens = try Lexer.tokenize(string)
         #expect(tokens == [Token(kind: .eof, value: "", position: 0)])
-        
+
         let nodes = try Parser.parse(tokens)
         #expect(nodes == [])
-        
+
         let rendered = try Template(string).render(context)
         #expect(rendered == "")
     }
-    
+
     @Test("Invalid template")
     func invalidTemplate() throws {
         let string = "{{"
         let context: Context = [:]
-        
+
         let tokens = try Lexer.tokenize(string)
-        #expect(tokens == [
-            Token(kind: .openExpression, value: "{{", position: 0),
-            Token(kind: .eof, value: "", position: 2),
-        ])
-        
+        #expect(
+            tokens == [
+                Token(kind: .openExpression, value: "{{", position: 0),
+                Token(kind: .eof, value: "", position: 2),
+            ])
+
         #expect(throws: JinjaError.self) {
             try Parser.parse(tokens)
         }
-        
+
         #expect(throws: JinjaError.self) {
             try Template(string).render(context)
         }
@@ -2004,5 +2005,66 @@ struct TemplateTests {
 
         let rendered = try Template(string).render(context)
         #expect(rendered == "Hello, world!")
+    }
+
+    @Test("Floor division operator template")
+    func floorDivisionTemplate() throws {
+        let string = "{{ 20 // 7 }}"
+        let context: Context = [:]
+
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "2")
+    }
+
+    @Test("Exponentiation operator template")
+    func exponentiationTemplate() throws {
+        let string = "{{ 2**3 }}"
+        let context: Context = [:]
+
+        let rendered = try Template(string).render(context)
+        #expect(rendered == "8")
+    }
+
+    @Test("Chained exponentiation left-to-right")
+    func chainedExponentiationTemplate() throws {
+        let string = "{{ 3**3**3 }}"
+        let context: Context = [:]
+
+        let rendered = try Template(string).render(context)
+        // This should evaluate as (3**3)**3 = 27**3 = 19683
+        #expect(rendered == "19683")
+    }
+
+    @Test("Mixed operators precedence")
+    func mixedOperatorsPrecedence() throws {
+        let string = "{{ 2 + 3 * 4**2 }}"
+        let context: Context = [:]
+
+        let rendered = try Template(string).render(context)
+        // This should evaluate as 2 + (3 * (4**2)) = 2 + (3 * 16) = 2 + 48 = 50
+        #expect(rendered == "50")
+    }
+
+    @Test("raise_exception template")
+    func raiseExceptionTemplate() throws {
+        let string = "{{ raise_exception() }}"
+        let context: Context = [:]
+
+        #expect(throws: Exception.self) {
+            try Template(string).render(context)
+        }
+    }
+
+    @Test("raise_exception with message template")
+    func raiseExceptionWithMessageTemplate() throws {
+        let string = #"{{ raise_exception("Template error: invalid input") }}"#
+        let context: Context = [:]
+
+        do {
+            _ = try Template(string).render(context)
+            Issue.record("Expected exception to be thrown")
+        } catch let error as Exception {
+            #expect(error.message == "Template error: invalid input")
+        }
     }
 }

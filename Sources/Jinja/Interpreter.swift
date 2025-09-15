@@ -34,9 +34,20 @@ public final class Environment: @unchecked Sendable {
     /// - Parameters:
     ///   - parent: The parent environment to inherit variables from
     ///   - initial: The initial variables to set in this environment
-    public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
+    ///   - includeBuiltIns: Whether to include built-in functions (default: true)
+    public init(
+        parent: Environment? = nil,
+        initial: [String: Value] = [:]
+    ) {
         self.parent = parent
         self.variables = initial
+
+        if parent == nil {
+            // Only add built-ins to the root environment to avoid duplication
+            for (name, value) in Globals.builtIn {
+                self.variables[name] = value
+            }
+        }
     }
 
     /// Gets or sets a variable in the environment.
