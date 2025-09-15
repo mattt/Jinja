@@ -73,6 +73,7 @@ public enum Globals: Sendable {
         "cycler": .function(cycler),
         "joiner": .function(joiner),
         "namespace": .function(namespace),
+        "strftime_now": .function(strftimeNow),
     ]
 
     /// Raises an exception with an optional custom message.
@@ -330,5 +331,101 @@ public enum Globals: Sendable {
             namespaceDict[key] = value
         }
         return .object(namespaceDict)
+    }
+
+    /// Retrieves the current date and time in a specific format.
+    ///
+    /// This function is equivalent to datetime.now().strftime(format_str) in Python.
+    /// It's often used in system messages where current timestamp is required.
+    ///
+    /// - Parameters:
+    ///   - args: Function arguments. First argument should be the format string.
+    ///   - kwargs: Keyword arguments (unused)
+    ///   - env: The current environment
+    /// - Returns: Formatted current date and time as a string
+    public static func strftimeNow(
+        _ args: [Value], _ kwargs: [String: Value], _ env: Environment
+    ) throws -> Value {
+        guard args.count == 1 else {
+            throw JinjaError.runtime("strftime_now takes exactly 1 argument")
+        }
+
+        guard case let .string(format) = args[0] else {
+            throw JinjaError.runtime("strftime_now format argument must be a string")
+        }
+
+        let date = Date()
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")  // Ensure consistent formatting
+
+        // Format code mappings
+        let formatMappings: [String: String] = [
+            "%a": "EEE",  // Abbreviated weekday name
+            "%A": "EEEE",  // Full weekday name
+            "%b": "MMM",  // Abbreviated month name
+            "%B": "MMMM",  // Full month name
+            "%c": "EEE MMM d HH:mm:ss yyyy",  // Complete date and time
+            "%d": "dd",  // Day of month as zero-padded decimal
+            "%H": "HH",  // Hour (24-hour) as zero-padded decimal
+            "%I": "h",  // Hour (12-hour) as zero-padded decimal
+            "%j": "DDD",  // Day of year as zero-padded decimal
+            "%m": "MM",  // Month as zero-padded decimal
+            "%M": "mm",  // Minute as zero-padded decimal
+            "%p": "a",  // AM or PM
+            "%S": "ss",  // Second as zero-padded decimal
+            "%U": "ww",  // Week number (Sunday as first day)
+            "%w": "e",  // Weekday as decimal (Sunday=1)
+            "%W": "ww",  // Week number (Monday as first day)
+            "%x": "MM/dd/yyyy",  // Date representation
+            "%X": "HH:mm:ss",  // Time representation
+            "%y": "yy",  // Year without century as zero-padded decimal
+            "%Y": "yyyy",  // Year with century as decimal
+            "%z": "Z",  // UTC offset
+            "%Z": "zzz",  // Time zone name
+            "%%": "%",  // Literal '%' character
+        ]
+
+        var result = ""
+        var i = format.startIndex
+        var buffer = ""
+
+        while i < format.endIndex {
+            if format[i] == "%" {
+                if i < format.index(before: format.endIndex) {
+                    let nextIndex = format.index(after: i)
+                    let formatCode = "%\(format[nextIndex])"
+
+                    if let pattern = formatMappings[formatCode] {
+                        // Flush any accumulated literal text
+                        if !buffer.isEmpty {
+                            result += "'\(buffer)'"
+                            buffer = ""
+                        }
+                        result += pattern
+                        i = format.index(after: nextIndex)
+                    } else {
+                        // Unknown format code, add to literal
+                        buffer += String(format[i])
+                        i = format.index(after: i)
+                    }
+                } else {
+                    // % at end of string
+                    buffer += String(format[i])
+                    i = format.index(after: i)
+                }
+            } else {
+                // Regular character
+                buffer += String(format[i])
+                i = format.index(after: i)
+            }
+        }
+
+        // Flush any remaining literal text
+        if !buffer.isEmpty {
+            result += "'\(buffer)'"
+        }
+
+        formatter.dateFormat = result
+        return .string(formatter.string(from: date))
     }
 }

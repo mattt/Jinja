@@ -74,7 +74,7 @@ This package implements a subset of the functionality of the
 - **Tests**:
   `is` operator for type/value checks (e.g. `{% if value is number %}`)
 - **Global Functions**:
-  `range()`, `lipsum()`, `dict()`, `cycler()`, `joiner()`, `namespace()`
+  `range()`, `lipsum()`, `dict()`, `cycler()`, `joiner()`, `namespace()`, `strftime_now()`
 - **Exception Handling**:
   `raise_exception()` (throws `Exception` error)
 
