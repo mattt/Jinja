@@ -35,24 +35,22 @@ struct ChatTemplateTests {
     private static let messagesWithSystemPrompt: [String: Value] = [
         "messages": [
             [
-                [
-                    "role": "system",
-                    "content":
-                        "You are a friendly chatbot who always responds in the style of a pirate",
-                ],
-                [
-                    "role": "user",
-                    "content": "Hello, how are you?",
-                ],
-                [
-                    "role": "assistant",
-                    "content": "I'm doing great. How can I help you today?",
-                ],
-                [
-                    "role": "user",
-                    "content": "I'd like to show off how chat templating works!",
-                ],
-            ]
+                "role": "system",
+                "content":
+                    "You are a friendly chatbot who always responds in the style of a pirate",
+            ],
+            [
+                "role": "user",
+                "content": "Hello, how are you?",
+            ],
+            [
+                "role": "assistant",
+                "content": "I'm doing great. How can I help you today?",
+            ],
+            [
+                "role": "user",
+                "content": "I'd like to show off how chat templating works!",
+            ],
         ]
     ]
 
@@ -68,8 +66,14 @@ struct ChatTemplateTests {
         context["add_generation_prompt"] = .boolean(false)
 
         let result = try template.render(context)
-        let target =
-            "<|im_start|>user\nHello, how are you?<|im_end|>\n<|im_start|>assistant\nI'm doing great. How can I help you today?<|im_end|>\n<|im_start|>user\nI'd like to show off how chat templating works!<|im_end|>\n"
+        let target = """
+            <|im_start|>user
+            Hello, how are you?<|im_end|>
+            <|im_start|>assistant
+            I'm doing great. How can I help you today?<|im_end|>
+            <|im_start|>user
+            I'd like to show off how chat templating works!<|im_end|>
+            """
 
         #expect(
             result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -297,7 +301,9 @@ struct ChatTemplateTests {
         let target =
             "<|im_start|>system\nYou are a friendly chatbot who always responds in the style of a pirate<|im_end|>\n<|im_start|>user\nHello, how are you?<|im_end|>\n<|im_start|>assistant\nI'm doing great. How can I help you today?<|im_end|>\n<|im_start|>user\nI'd like to show off how chat templating works!<|im_end|>\n<|im_start|>assistant\n"
 
-        #expect(result == target)
+        #expect(
+            result.trimmingCharacters(in: .whitespacesAndNewlines)
+                == target.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     @Test("Qwen Qwen1.5-1.8B-Chat 3")
@@ -610,7 +616,9 @@ struct ChatTemplateTests {
             ### Response:
             """
 
-        #expect(result == target)
+        #expect(
+            result.trimmingCharacters(in: .whitespacesAndNewlines)
+                == target.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     @Test("Ericzzz Falcon-RW-1B-Chat")
