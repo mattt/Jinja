@@ -385,44 +385,43 @@ public enum Globals: Sendable {
             "%%": "%",  // Literal '%' character
         ]
 
+        let scanner = Scanner(string: format)
+        scanner.charactersToBeSkipped = nil  // Don't skip whitespace!
         var result = ""
-        var i = format.startIndex
-        var buffer = ""
+        var currentLiteral = ""
 
-        while i < format.endIndex {
-            if format[i] == "%" {
-                if i < format.index(before: format.endIndex) {
-                    let nextIndex = format.index(after: i)
-                    let formatCode = "%\(format[nextIndex])"
+        while !scanner.isAtEnd {
+            // Scan up to the next %
+            if let literal = scanner.scanUpToString("%") {
+                currentLiteral += literal
+            }
 
-                    if let pattern = formatMappings[formatCode] {
+            // Check if we found a %
+            if scanner.scanString("%") != nil {
+                if let formatChar = scanner.scanCharacter() {
+                    let formatCode = "%\(formatChar)"
+
+                    if let swiftPattern = formatMappings[formatCode] {
                         // Flush any accumulated literal text
-                        if !buffer.isEmpty {
-                            result += "'\(buffer)'"
-                            buffer = ""
+                        if !currentLiteral.isEmpty {
+                            result += "'\(currentLiteral)'"
+                            currentLiteral = ""
                         }
-                        result += pattern
-                        i = format.index(after: nextIndex)
+                        result += swiftPattern
                     } else {
                         // Unknown format code, add to literal
-                        buffer += String(format[i])
-                        i = format.index(after: i)
+                        currentLiteral += formatCode
                     }
                 } else {
-                    // % at end of string
-                    buffer += String(format[i])
-                    i = format.index(after: i)
+                    // Just a % at the end
+                    currentLiteral += "%"
                 }
-            } else {
-                // Regular character
-                buffer += String(format[i])
-                i = format.index(after: i)
             }
         }
 
         // Flush any remaining literal text
-        if !buffer.isEmpty {
-            result += "'\(buffer)'"
+        if !currentLiteral.isEmpty {
+            result += "'\(currentLiteral)'"
         }
 
         formatter.dateFormat = result
