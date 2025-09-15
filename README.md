@@ -6,12 +6,12 @@
 
 A Swift implementation of the [Jinja2 template engine](https://jinja.palletsprojects.com/en/3.1.x/).
 
-Jinja templates are widely used for generating HTML, configuration files, code generation, and text processing. 
+Jinja templates are widely used for generating HTML, configuration files, code generation, and text processing.
 This implementation is focused primarily on the features needed to generate LLM chat templates.
 
 ## Requirements
 
-* Swift 6.0+ / Xcode 16+
+- Swift 6.0+ / Xcode 16+
 
 ## Usage
 
@@ -36,7 +36,7 @@ let template = try Template("""
     """)
 
 let context: [String: Value] = [
-    "user": ["name": "Alice",
+    "user": ["name": "Alice"],
     "messages": [
         "Hello",
         "How are you?",
@@ -81,8 +81,9 @@ let result = try template.render(context)
 
 ### Built-in Filters
 
-Templates support Jinja [built-in filters](https://jinja.palletsprojects.com/en/stable/templates/#jinja-filters) for data transformation and manipulation.
-
+Templates support Jinja
+[built-in filters](https://jinja.palletsprojects.com/en/stable/templates/#jinja-filters)
+for data transformation and manipulation.
 
 ```swift
 // String manipulation filters
@@ -105,57 +106,57 @@ let result = try template.render(context)
 
 <summary>Supported Filters</summary>
 
-* [x] `abs()`
-* [x] `attr()`
-* [x] `batch()`
-* [x] `capitalize()`
-* [x] `center()`
-* [x] `default()`
-* [x] `dictsort()`
-* [x] `escape()`
-* [x] `filesizeformat()`
-* [x] `first()`
-* [x] `float()`
-* [x] `forceescape()`
-* [x] `format()`
-* [x] `groupby()`
-* [x] `indent()`
-* [x] `int()`
-* [x] `items()`
-* [x] `join()`
-* [x] `last()`
-* [x] `length()`
-* [x] `list()`
-* [x] `lower()`
-* [x] `map()`
-* [x] `max()`
-* [x] `min()`
-* [x] `pprint()`
-* [x] `random()`
-* [x] `reject()`
-* [x] `rejectattr()`
-* [x] `replace()`
-* [x] `reverse()`
-* [x] `round()`
-* [x] `safe()`
-* [x] `select()`
-* [x] `selectattr()`
-* [x] `slice()`
-* [x] `sort()`
-* [x] `string()`
-* [x] `striptags()`
-* [x] `sum()`
-* [x] `title()`
-* [x] `tojson()`
-* [x] `trim()`
-* [x] `truncate()`
-* [x] `unique()`
-* [x] `upper()`
-* [x] `urlencode()`
-* [x] `urlize()`
-* [x] `wordcount()`
-* [x] `wordwrap()`
-* [x] `xmlattr()`
+- [x] `abs()`
+- [x] `attr()`
+- [x] `batch()`
+- [x] `capitalize()`
+- [x] `center()`
+- [x] `default()`
+- [x] `dictsort()`
+- [x] `escape()`
+- [x] `filesizeformat()`
+- [x] `first()`
+- [x] `float()`
+- [x] `forceescape()`
+- [x] `format()`
+- [x] `groupby()`
+- [x] `indent()`
+- [x] `int()`
+- [x] `items()`
+- [x] `join()`
+- [x] `last()`
+- [x] `length()`
+- [x] `list()`
+- [x] `lower()`
+- [x] `map()`
+- [x] `max()`
+- [x] `min()`
+- [x] `pprint()`
+- [x] `random()`
+- [x] `reject()`
+- [x] `rejectattr()`
+- [x] `replace()`
+- [x] `reverse()`
+- [x] `round()`
+- [x] `safe()`
+- [x] `select()`
+- [x] `selectattr()`
+- [x] `slice()`
+- [x] `sort()`
+- [x] `string()`
+- [x] `striptags()`
+- [x] `sum()`
+- [x] `title()`
+- [x] `tojson()`
+- [x] `trim()`
+- [x] `truncate()`
+- [x] `unique()`
+- [x] `upper()`
+- [x] `urlencode()`
+- [x] `urlize()`
+- [x] `wordcount()`
+- [x] `wordwrap()`
+- [x] `xmlattr()`
 
 </details>
 
@@ -171,17 +172,17 @@ let template = try Template("""
     {% else %}
         Please log in.
     {% endif %}
-    
+
     {% if messages is iterable and messages | length > 0 %}
         You have {{ messages | length }} messages.
     {% endif %}
-    
+
     {% if age is number and age >= 18 %}
         You are an adult.
     {% elif age is number and age < 18 %}
         You are a minor.
     {% endif %}
-    
+
     {% if status is none %}
         Status not set.
     {% elif status is true %}
@@ -199,42 +200,43 @@ let context: [String: Value] = [
 ]
 
 let result = try template.render(context)
+// "Welcome, Alice!\nYou have 2 messages.\nYou are an adult.\nActive"
 ```
 
 [Built-in Tests](https://jinja.palletsprojects.com/en/stable/templates/#list-of-builtin-tests)
 
 <details>
 
-* [x] `boolean()`
-* [x] `callable()`
-* [x] `defined()`
-* [x] `divisibleby()`
-* [x] `eq()`
-* [x] `escaped()`
-* [x] `even()`
-* [x] `false()`
-* [x] `filter()`
-* [x] `float()`
-* [x] `ge()`
-* [x] `gt()`
-* [x] `in()`
-* [x] `integer()`
-* [x] `iterable()`
-* [x] `le()`
-* [x] `lower()`
-* [x] `lt()`
-* [x] `mapping()`
-* [x] `ne()`
-* [x] `none()`
-* [x] `number()`
-* [x] `odd()`
-* [x] `sameas()`
-* [x] `sequence()`
-* [x] `string()`
-* [x] `test()`
-* [x] `true()`
-* [x] `undefined()`
-* [x] `upper()`
+- [x] `boolean()`
+- [x] `callable()`
+- [x] `defined()`
+- [x] `divisibleby()`
+- [x] `eq()`
+- [x] `escaped()`
+- [x] `even()`
+- [x] `false()`
+- [x] `filter()`
+- [x] `float()`
+- [x] `ge()`
+- [x] `gt()`
+- [x] `in()`
+- [x] `integer()`
+- [x] `iterable()`
+- [x] `le()`
+- [x] `lower()`
+- [x] `lt()`
+- [x] `mapping()`
+- [x] `ne()`
+- [x] `none()`
+- [x] `number()`
+- [x] `odd()`
+- [x] `sameas()`
+- [x] `sequence()`
+- [x] `string()`
+- [x] `test()`
+- [x] `true()`
+- [x] `undefined()`
+- [x] `upper()`
 
 </details>
 
@@ -321,12 +323,12 @@ let html = try htmlTemplate.render(context)
 // Generate configuration files
 let configTemplate = try Template("""
     # {{ app.name }} Configuration
-    
+
     [server]
     host = "{{ server.host }}"
     port = {{ server.port }}
     debug = {{ server.debug | lower }}
-    
+
     [database]
     {% for db in databases %}
     [database.{{ db.name }}]
