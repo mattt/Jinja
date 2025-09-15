@@ -40,7 +40,6 @@ This package implements a subset of the functionality of the
   `//` (floor division),
   `**` (exponentiation),
   `%`
-
 - **String Concatenation Operators**:
   `~`
   and automatic concatenation of adjacent string literals
@@ -74,6 +73,8 @@ This package implements a subset of the functionality of the
   `{% filter upper %}...{% endfilter %}`
 - **Tests**:
   `is` operator for type/value checks (e.g. `{% if value is number %}`)
+- **Global Functions**:
+  `range()`, `lipsum()`, `dict()`, `cycler()`, `joiner()`, `namespace()`
 - **Exception Handling**:
   `raise_exception()` (throws `Exception` error)
 
@@ -199,8 +200,6 @@ This package implements a subset of the functionality of the
   User-defined filters
 - **Custom Tests**:
   User-defined tests
-- **Built-in Functions**:
-  `range()`, `lipsum()`, `dict()`, `cycler()`, `joiner()`, `namespace()`
 - **Line Statements**:
   Alternative syntax with prefix characters
 - **Complex Whitespace Control**:

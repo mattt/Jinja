@@ -1924,12 +1924,12 @@ struct TemplateTests {
     @Test("Is operator with mapping")
     func isOperatorWithMapping() throws {
         let string =
-            #"|{{ string is mapping }}|{{ number is mapping }}|{{ array is mapping }}|{{ dict is mapping }}|"#
+            #"|{{ string is mapping }}|{{ number is mapping }}|{{ array is mapping }}|{{ object is mapping }}|"#
         let context: Context = [
             "string": "hello",
             "number": 42,
             "array": [1, 2, 3],
-            "dict": ["key": "value"],
+            "object": ["key": "value"],
         ]
 
         // Check result of template
