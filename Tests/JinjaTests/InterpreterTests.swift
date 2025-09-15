@@ -833,7 +833,7 @@ struct InterpreterTests {
 
         @Test("raise_exception() built-in function")
         func testRaiseException() throws {
-            #expect(throws: Exception.self) {
+            #expect(throws: TemplateException.self) {
                 try Globals.raiseException([], [:], env)
             }
         }
@@ -842,7 +842,7 @@ struct InterpreterTests {
         func testRaiseExceptionWithMessage() throws {
             do {
                 try Globals.raiseException(["Template error: invalid input"], [:], env)
-            } catch let error as Exception {
+            } catch let error as TemplateException {
                 #expect(error.message == "Template error: invalid input")
             }
         }

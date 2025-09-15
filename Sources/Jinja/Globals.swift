@@ -1,7 +1,7 @@
 import Foundation
 
 /// An exception that can be raised in Jinja templates with `raise_exception`.
-public struct Exception: Error {
+public struct TemplateException: Error {
     /// The message of the exception, if any.
     var message: String?
 }
@@ -97,9 +97,9 @@ public enum Globals: Sendable {
         )
 
         if case let .string(message)? = arguments["message"] {
-            throw Exception(message: message)
+            throw TemplateException(message: message)
         } else {
-            throw Exception()
+            throw TemplateException()
         }
     }
 
