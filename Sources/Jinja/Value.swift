@@ -1,6 +1,9 @@
 @_exported import OrderedCollections
 
 /// Represents values in Jinja template expressions and variables.
+///
+/// Values are the runtime representation of data in Jinja templates,
+/// supporting various types including primitives, collections, and callable objects.
 public enum Value: Sendable {
     /// Null value representing absence of data.
     case null
@@ -24,6 +27,12 @@ public enum Value: Sendable {
     case macro(Macro)
 
     /// Creates a Value from any Swift value.
+    ///
+    /// This initializer attempts to convert common Swift types to their Jinja equivalents.
+    /// Supported types include strings, numbers, booleans, arrays, dictionaries, and macros.
+    ///
+    /// - Parameter value: The Swift value to convert
+    /// - Throws: `JinjaError.runtime` if the value type cannot be converted
     public init(any value: Any?) throws {
         switch value {
         case nil:

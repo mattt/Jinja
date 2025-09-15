@@ -9,6 +9,9 @@ public typealias Context = [String: Value]
 // MARK: - Environment
 
 /// Execution environment that stores variables and provides context for template rendering.
+///
+/// The environment maintains the variable scope during template execution and provides
+/// configuration options that affect rendering behavior.
 public final class Environment: @unchecked Sendable {
     private let parent: Environment?
     private(set) var variables: [String: Value] = [:]
@@ -27,15 +30,22 @@ public final class Environment: @unchecked Sendable {
     // MARK: -
 
     /// Creates a new environment with optional parent and initial variables.
+    ///
     /// - Parameters:
-    ///   - parent: The parent environment
-    ///   - initial: The initial variables
+    ///   - parent: The parent environment to inherit variables from
+    ///   - initial: The initial variables to set in this environment
     public init(parent: Environment? = nil, initial: [String: Value] = [:]) {
         self.parent = parent
         self.variables = initial
     }
 
-    /// A subscript to get and set variables in the environment.
+    /// Gets or sets a variable in the environment.
+    ///
+    /// When getting a variable, this looks in the current environment first,
+    /// then in parent environments. Returns `.undefined` if the variable is not found.
+    ///
+    /// - Parameter name: The variable name
+    /// - Returns: The value associated with the variable name, or `.undefined`
     public subscript(name: String) -> Value {
         get {
             if let value = variables[name] {
@@ -85,6 +95,12 @@ private struct Buffer: TextOutputStream {
 /// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
     /// Interprets nodes and renders them to a string using the given environment.
+    ///
+    /// - Parameters:
+    ///   - nodes: The AST nodes to interpret and render
+    ///   - environment: The execution environment containing variables
+    /// - Returns: The rendered template output as a string
+    /// - Throws: `JinjaError` if an error occurs during interpretation
     public static func interpret(_ nodes: [Node], environment: Environment) throws -> String {
         // Use the fast path with synchronous environment
         let env = Environment(initial: environment.variables)

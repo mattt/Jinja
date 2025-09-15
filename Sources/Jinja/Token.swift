@@ -1,4 +1,7 @@
 /// A lexical token produced by parsing Jinja template source code.
+///
+/// Tokens represent the smallest meaningful units of a Jinja template,
+/// such as keywords, operators, literals, and delimiters.
 public struct Token: Hashable, Codable, Sendable {
     /// The specific type of token representing different syntactic elements.
     public enum Kind: CaseIterable, Hashable, Codable, Sendable {

@@ -1,9 +1,28 @@
+/// Represents a reusable template macro that can be invoked with arguments.
+///
+/// Macros allow you to define reusable template fragments that can accept parameters
+/// and generate dynamic content. They're useful for creating template components
+/// and reducing code duplication.
 public struct Macro: Hashable, Sendable {
+    /// The name of the macro.
     public let name: String
+
+    /// The parameter names that the macro accepts.
     public let parameters: [String]
+
+    /// The default values for optional parameters.
     public let defaults: OrderedDictionary<String, Expression>
+
+    /// The template nodes that make up the macro's body.
     public let body: [Node]
 
+    /// Creates a new macro definition.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the macro
+    ///   - parameters: The parameter names the macro accepts
+    ///   - defaults: Default values for optional parameters
+    ///   - body: The template nodes that form the macro body
     public init(
         name: String,
         parameters: [String],

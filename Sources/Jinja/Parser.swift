@@ -2,6 +2,9 @@ import Foundation
 import OrderedCollections
 
 /// Parses tokens into an abstract syntax tree for Jinja templates.
+///
+/// The parser takes a sequence of tokens from the lexer and builds an abstract syntax tree
+/// that represents the structure and semantics of the template.
 public struct Parser: Sendable {
     private let tokens: [Token]
     private var current: Int = 0
@@ -11,6 +14,10 @@ public struct Parser: Sendable {
     }
 
     /// Parses tokens into an abstract syntax tree of nodes.
+    ///
+    /// - Parameter tokens: The sequence of tokens to parse
+    /// - Returns: An array of parsed AST nodes representing the template
+    /// - Throws: `JinjaError.parser` if the tokens contain syntax errors
     public static func parse(_ tokens: [Token]) throws -> [Node] {
         var parser = Parser(tokens: tokens)
         var nodes: [Node] = []

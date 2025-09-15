@@ -22,6 +22,10 @@ public enum Lexer: Sendable {
     ]
 
     /// Tokenizes a template source string into an array of tokens.
+    ///
+    /// - Parameter source: The Jinja template source code to tokenize
+    /// - Returns: An array of tokens representing the lexical structure
+    /// - Throws: `JinjaError.lexer` if the source contains invalid syntax
     public static func tokenize(_ source: String) throws
         -> [Token]
     {

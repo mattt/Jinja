@@ -1,6 +1,10 @@
 import Foundation
 
 /// Built-in filters for Jinja template rendering.
+///
+/// Filters transform values in template expressions using the pipe syntax (`|`).
+/// All filter functions follow the same signature pattern, accepting an array of values
+/// (with the filtered value as the first element), optional keyword arguments, and an environment.
 public enum Filters {
     // MARK: - Basic String Filters
 
@@ -1588,7 +1592,10 @@ public enum Filters {
         return .string(result)
     }
 
-    /// Dictionary of all available filters.
+    /// Dictionary of all built-in filters available for use in templates.
+    ///
+    /// Each filter function accepts an array of values (with the input as the first element),
+    /// optional keyword arguments, and the current environment, then returns a transformed value.
     public static let builtIn:
         [String: @Sendable ([Value], [String: Value], Environment) throws -> Value] = [
             "upper": upper,

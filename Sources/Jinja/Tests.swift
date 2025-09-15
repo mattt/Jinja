@@ -1,4 +1,8 @@
 /// Built-in tests for Jinja template rendering.
+///
+/// Tests are used with the `is` operator to check conditions about values.
+/// All test functions return a boolean result and follow the same signature pattern,
+/// accepting an array of values, optional keyword arguments, and an environment.
 public enum Tests {
     // MARK: - Basic Tests
 
@@ -312,7 +316,10 @@ public enum Tests {
         }
     }
 
-    /// Dictionary of all available tests.
+    /// Dictionary of all built-in tests available for use in templates.
+    ///
+    /// Each test function accepts an array of values, optional keyword arguments,
+    /// and the current environment, then returns a boolean result.
     public static let builtIn:
         [String: @Sendable ([Value], [String: Value], Environment) throws -> Bool] = [
             "defined": defined,

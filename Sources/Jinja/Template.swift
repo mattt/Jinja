@@ -3,6 +3,7 @@ import OrderedCollections
 
 /// A compiled Jinja template that can be rendered with context data.
 public struct Template: Hashable, Sendable {
+    /// Configuration options for template parsing and rendering behavior.
     public struct Options: Hashable, Sendable {
         /// Whether leading spaces and tabs are stripped from the start of a line to a block.
         /// The default value is `false`.
@@ -13,6 +14,11 @@ public struct Template: Hashable, Sendable {
         /// The default value is `false`.
         public var trimBlocks: Bool = false
 
+        /// Creates template options with the specified settings.
+        ///
+        /// - Parameters:
+        ///   - lstripBlocks: Whether to strip leading whitespace from blocks
+        ///   - trimBlocks: Whether to remove the first newline after blocks
         public init(lstripBlocks: Bool = false, trimBlocks: Bool = false) {
             self.lstripBlocks = lstripBlocks
             self.trimBlocks = trimBlocks
@@ -26,6 +32,11 @@ public struct Template: Hashable, Sendable {
     }
 
     /// Creates a template by parsing the given template string.
+    ///
+    /// - Parameters:
+    ///   - template: The Jinja template source code to parse
+    ///   - options: Configuration options for template parsing
+    /// - Throws: `JinjaError` if the template contains syntax errors
     public init(_ template: String, with options: Options = .init()) throws {
         var source = template
 
@@ -58,6 +69,12 @@ public struct Template: Hashable, Sendable {
     }
 
     /// Renders the template with the given context variables.
+    ///
+    /// - Parameters:
+    ///   - context: Variables and values to use during template rendering
+    ///   - environment: Optional environment containing additional variables and settings
+    /// - Returns: The rendered template as a string
+    /// - Throws: `JinjaError` if an error occurs during template rendering
     public func render(
         _ context: [String: Value],
         environment: Environment? = nil
