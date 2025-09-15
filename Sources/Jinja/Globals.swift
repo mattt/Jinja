@@ -6,62 +6,7 @@ public struct TemplateException: Error {
     var message: String?
 }
 
-/// An object that cycles through values.
-final class Cycler: @unchecked Sendable {
-    private let items: [Value]
-    private let lock = NSLock()
-    private var currentIndex: Int = 0
-
-    init(items: [Value]) {
-        self.items = items
-    }
-
-    var current: Value {
-        lock.lock()
-        defer { lock.unlock() }
-        return items.isEmpty ? .null : items[currentIndex]
-    }
-
-    func next() -> Value {
-        lock.lock()
-        defer { lock.unlock() }
-
-        guard !items.isEmpty else { return .null }
-
-        let result = items[currentIndex]
-        currentIndex = (currentIndex + 1) % items.count
-        return result
-    }
-
-    func reset() {
-        lock.lock()
-        defer { lock.unlock() }
-        currentIndex = 0
-    }
-}
-
-/// An object that joins sections.
-final class Joiner: @unchecked Sendable {
-    private let separator: String
-    private let lock = NSLock()
-    private var first: Bool = true
-
-    init(separator: String = ", ") {
-        self.separator = separator
-    }
-
-    func join() -> String {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if first {
-            first = false
-            return ""
-        } else {
-            return separator
-        }
-    }
-}
+// MARK: - Globals
 
 /// Built-in global functions available in the Jinja environment.
 public enum Globals: Sendable {
@@ -260,6 +205,40 @@ public enum Globals: Sendable {
         return .object(orderedDict)
     }
 
+    /// An object that cycles through values.
+    private final class Cycler: @unchecked Sendable {
+        private let items: [Value]
+        private let lock = NSLock()
+        private var currentIndex: Int = 0
+
+        init(items: [Value]) {
+            self.items = items
+        }
+
+        var current: Value {
+            lock.lock()
+            defer { lock.unlock() }
+            return items.isEmpty ? .null : items[currentIndex]
+        }
+
+        func next() -> Value {
+            lock.lock()
+            defer { lock.unlock() }
+
+            guard !items.isEmpty else { return .null }
+
+            let result = items[currentIndex]
+            currentIndex = (currentIndex + 1) % items.count
+            return result
+        }
+
+        func reset() {
+            lock.lock()
+            defer { lock.unlock() }
+            currentIndex = 0
+        }
+    }
+
     /// Creates a cycler object that cycles through values.
     ///
     /// - Parameters:
@@ -287,6 +266,29 @@ public enum Globals: Sendable {
         }
 
         return .object(cyclerDict)
+    }
+
+    /// An object that joins sections.
+    private final class Joiner: @unchecked Sendable {
+        private let separator: String
+        private let lock = NSLock()
+        private var first: Bool = true
+
+        init(separator: String = ", ") {
+            self.separator = separator
+        }
+
+        func join() -> String {
+            lock.lock()
+            defer { lock.unlock() }
+
+            if first {
+                first = false
+                return ""
+            } else {
+                return separator
+            }
+        }
     }
 
     /// Creates a joiner object for joining sections.
