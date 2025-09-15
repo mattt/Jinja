@@ -66,7 +66,7 @@ struct TemplateTests {
         #expect(rendered == "Hello, world!")
 
         // Check result of template initialized with nodes
-        #expect(rendered == (try Template(nodes: nodes).render(context)))
+        #expect(try rendered == Template(nodes: nodes).render(context))
     }
 
     @Test("Text nodes")
@@ -118,7 +118,7 @@ struct TemplateTests {
         #expect(rendered == "0A1BC2D3")
 
         // Check result of template initialized with nodes
-        #expect(rendered == (try Template(nodes: nodes).render(context)))
+        #expect(try rendered == Template(nodes: nodes).render(context))
     }
 
     @Test("Boolean literals")
@@ -172,7 +172,7 @@ struct TemplateTests {
         #expect(rendered == "|true|false|true|false|")
 
         // Check result of template initialized with nodes
-        #expect(rendered == (try Template(nodes: nodes).render(context)))
+        #expect(try rendered == Template(nodes: nodes).render(context))
     }
 
     @Test("Logical AND operator")
@@ -894,7 +894,7 @@ struct TemplateTests {
         #expect(rendered == "|{{ \"hi\" }}|{% if true %}{% endif %}|")
 
         // Check result of template initialized with nodes
-        #expect(rendered == (try Template(nodes: nodes).render(context)))
+        #expect(try rendered == Template(nodes: nodes).render(context))
     }
 
     @Test("String concatenation")
