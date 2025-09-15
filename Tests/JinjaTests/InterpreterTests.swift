@@ -233,8 +233,9 @@ struct InterpreterTests {
 
         @Test("defined test with empty values")
         func testDefinedWithEmptyValues() throws {
-            let result = try Tests.defined([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.defined([], kwargs: [:], env: env)
+            }
         }
 
         @Test("undefined test with undefined value")
@@ -251,8 +252,9 @@ struct InterpreterTests {
 
         @Test("undefined test with empty values")
         func testUndefinedWithEmptyValues() throws {
-            let result = try Tests.undefined([], kwargs: [:], env: env)
-            #expect(result == true)
+            #expect(throws: JinjaError.self) {
+                try Tests.undefined([], kwargs: [:], env: env)
+            }
         }
 
         @Test("none test with null value")
@@ -269,8 +271,9 @@ struct InterpreterTests {
 
         @Test("none test with empty values")
         func testNoneWithEmptyValues() throws {
-            let result = try Tests.none([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.none([], kwargs: [:], env: env)
+            }
         }
 
         @Test("string test with string value")
@@ -287,8 +290,9 @@ struct InterpreterTests {
 
         @Test("string test with empty values")
         func testStringWithEmptyValues() throws {
-            let result = try Tests.string([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.string([], kwargs: [:], env: env)
+            }
         }
 
         @Test("number test with integer value")
@@ -311,8 +315,9 @@ struct InterpreterTests {
 
         @Test("number test with empty values")
         func testNumberWithEmptyValues() throws {
-            let result = try Tests.number([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.number([], kwargs: [:], env: env)
+            }
         }
 
         @Test("boolean test with true value")
@@ -335,8 +340,9 @@ struct InterpreterTests {
 
         @Test("boolean test with empty values")
         func testBooleanWithEmptyValues() throws {
-            let result = try Tests.boolean([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.boolean([], kwargs: [:], env: env)
+            }
         }
 
         @Test("iterable test with array value")
@@ -367,8 +373,9 @@ struct InterpreterTests {
 
         @Test("iterable test with empty values")
         func testIterableWithEmptyValues() throws {
-            let result = try Tests.iterable([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.iterable([], kwargs: [:], env: env)
+            }
         }
 
         // MARK: - Numeric Tests
@@ -411,8 +418,9 @@ struct InterpreterTests {
 
         @Test("even test with empty values")
         func testEvenWithEmptyValues() throws {
-            let result = try Tests.even([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.even([], kwargs: [:], env: env)
+            }
         }
 
         @Test("odd test with odd integer")
@@ -447,8 +455,9 @@ struct InterpreterTests {
 
         @Test("odd test with empty values")
         func testOddWithEmptyValues() throws {
-            let result = try Tests.odd([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.odd([], kwargs: [:], env: env)
+            }
         }
 
         @Test("divisibleby test with divisible integers")
@@ -492,14 +501,16 @@ struct InterpreterTests {
 
         @Test("divisibleby test with insufficient arguments")
         func testDivisiblebyWithInsufficientArguments() throws {
-            let result = try Tests.divisibleby([.int(10)], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.divisibleby([.int(10)], kwargs: [:], env: env)
+            }
         }
 
         @Test("divisibleby test with empty values")
         func testDivisiblebyWithEmptyValues() throws {
-            let result = try Tests.divisibleby([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.divisibleby([], kwargs: [:], env: env)
+            }
         }
 
         // MARK: - Comparison Tests
@@ -563,14 +574,16 @@ struct InterpreterTests {
 
         @Test("equalto test with insufficient arguments")
         func testEqualtoWithInsufficientArguments() throws {
-            let result = try Tests.eq([.int(42)], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.eq([.int(42)], kwargs: [:], env: env)
+            }
         }
 
         @Test("equalto test with empty values")
         func testEqualtoWithEmptyValues() throws {
-            let result = try Tests.eq([], kwargs: [:], env: env)
-            #expect(result == false)
+            #expect(throws: JinjaError.self) {
+                try Tests.eq([], kwargs: [:], env: env)
+            }
         }
 
         // MARK: - Edge Cases

@@ -10,7 +10,13 @@ public enum Tests {
     @Sendable public static func defined(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return !input.isUndefined
     }
 
@@ -18,7 +24,13 @@ public enum Tests {
     @Sendable public static func undefined(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return true }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return true }
         return input.isUndefined
     }
 
@@ -26,7 +38,13 @@ public enum Tests {
     @Sendable public static func none(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isNull
     }
 
@@ -34,7 +52,13 @@ public enum Tests {
     @Sendable public static func string(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isString
     }
 
@@ -42,7 +66,13 @@ public enum Tests {
     @Sendable public static func number(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isInt || input.isDouble
     }
 
@@ -50,7 +80,13 @@ public enum Tests {
     @Sendable public static func boolean(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isBoolean
     }
 
@@ -58,7 +94,13 @@ public enum Tests {
     @Sendable public static func iterable(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isIterable
     }
 
@@ -68,7 +110,13 @@ public enum Tests {
     @Sendable public static func even(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         switch input {
         case let .int(num):
             return num % 2 == 0
@@ -83,7 +131,13 @@ public enum Tests {
     @Sendable public static func odd(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         switch input {
         case let .int(num):
             return num % 2 != 0
@@ -98,8 +152,16 @@ public enum Tests {
     @Sendable public static func divisibleby(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        switch (args[0], args[1]) {
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value", "divisor"]
+        )
+
+        guard let value = arguments["value"], let divisor = arguments["divisor"] else {
+            return false
+        }
+        switch (value, divisor) {
         case let (.int(a), .int(b)):
             return b != 0 && a % b == 0
         case let (.double(a), .double(b)):
@@ -115,25 +177,43 @@ public enum Tests {
     @Sendable public static func eq(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        return Interpreter.valuesEqual(args[0], args[1])
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
+        return Interpreter.valuesEqual(a, b)
     }
 
     /// Tests if a != b.
     @Sendable public static func ne(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        return !(try eq(args, kwargs: kwargs, env: env))
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
+        return !Interpreter.valuesEqual(a, b)
     }
 
     /// Tests if a > b.
     @Sendable public static func gt(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(args[0], args[1]) > 0
+            return try Interpreter.compareValues(a, b) > 0
         } catch {
             return false
         }
@@ -143,9 +223,15 @@ public enum Tests {
     @Sendable public static func ge(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(args[0], args[1]) >= 0
+            return try Interpreter.compareValues(a, b) >= 0
         } catch {
             return false
         }
@@ -155,9 +241,15 @@ public enum Tests {
     @Sendable public static func lt(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(args[0], args[1]) < 0
+            return try Interpreter.compareValues(a, b) < 0
         } catch {
             return false
         }
@@ -167,9 +259,15 @@ public enum Tests {
     @Sendable public static func le(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(args[0], args[1]) <= 0
+            return try Interpreter.compareValues(a, b) <= 0
         } catch {
             return false
         }
@@ -179,7 +277,13 @@ public enum Tests {
     @Sendable public static func mapping(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isObject
     }
 
@@ -187,7 +291,13 @@ public enum Tests {
     @Sendable public static func callable(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isFunction || input.isMacro
     }
 
@@ -195,7 +305,13 @@ public enum Tests {
     @Sendable public static func integer(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isInt
     }
 
@@ -203,7 +319,13 @@ public enum Tests {
     @Sendable public static func lower(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         if case let .string(str) = input {
             return str == str.lowercased()
         }
@@ -214,7 +336,13 @@ public enum Tests {
     @Sendable public static func upper(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         if case let .string(str) = input {
             return str == str.uppercased()
         }
@@ -225,7 +353,13 @@ public enum Tests {
     @Sendable public static func `true`(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input == .boolean(true)
     }
 
@@ -233,7 +367,13 @@ public enum Tests {
     @Sendable public static func `false`(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input == .boolean(false)
     }
 
@@ -241,7 +381,13 @@ public enum Tests {
     @Sendable public static func float(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         return input.isDouble
     }
 
@@ -249,7 +395,13 @@ public enum Tests {
     @Sendable public static func sequence(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"] else { return false }
         switch input {
         case .array(_), .string(_):
             return true
@@ -262,6 +414,12 @@ public enum Tests {
     @Sendable public static func escaped(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
+        _ = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
         // In basic implementation, inputs are not escaped by default
         return false
     }
@@ -270,7 +428,15 @@ public enum Tests {
     @Sendable public static func filter(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first, case let .string(filterName) = input else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"], case let .string(filterName) = input else {
+            return false
+        }
         return Filters.builtIn[filterName] != nil
     }
 
@@ -278,7 +444,15 @@ public enum Tests {
     @Sendable public static func test(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard let input = args.first, case let .string(testName) = input else { return false }
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value"]
+        )
+
+        guard let input = arguments["value"], case let .string(testName) = input else {
+            return false
+        }
         return Tests.builtIn[testName] != nil
     }
 
@@ -286,17 +460,29 @@ public enum Tests {
     @Sendable public static func sameas(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        return Interpreter.valuesEqual(args[0], args[1])
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["a", "b"]
+        )
+
+        guard let a = arguments["a"], let b = arguments["b"] else { return false }
+        return Interpreter.valuesEqual(a, b)
     }
 
     /// Tests if the input is in a sequence.
     @Sendable public static func `in`(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
-        guard args.count >= 2 else { return false }
-        let input = args[0]
-        let container = args[1]
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["value", "container"]
+        )
+
+        guard let input = arguments["value"], let container = arguments["container"] else {
+            return false
+        }
 
         switch container {
         case let .array(arr):

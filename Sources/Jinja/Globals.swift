@@ -24,7 +24,14 @@ public enum Globals: Sendable {
     public static func raiseException(
         _ args: [Value], _ kwargs: [String: Value], _ env: Environment
     ) throws -> Value {
-        if case let .string(message)? = args.first {
+        let arguments = try resolveCallArguments(
+            args: args,
+            kwargs: kwargs,
+            parameters: ["message"],
+            defaults: ["message": .null]
+        )
+
+        if case let .string(message)? = arguments["message"] {
             throw Exception(message: message)
         } else {
             throw Exception()
