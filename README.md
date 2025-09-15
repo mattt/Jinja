@@ -68,6 +68,8 @@ This package implements a subset of the functionality of the
   `{{ name | upper }}`
 - **Filter Blocks**:
   `{% filter upper %}...{% endfilter %}`
+- **Tests**:
+  `is` operator for type/value checks (e.g. `{% if value is number %}`)
 
 <details>
 
@@ -128,6 +130,8 @@ This package implements a subset of the functionality of the
 </details>
 
 <details>
+
+<summary>Supported tests</summary>
 
 - [x] `boolean()`
 - [x] `callable()`
