@@ -67,7 +67,7 @@ struct PerformanceTests {
     // MARK: - Performance Tests
 
     @Test("Template render performance")
-    func testTemplateRenderPerformance() async throws {
+    func templateRenderPerformance() async throws {
         let template = try Template(Self.llama3_2Template)
 
         let avgMs = try measureMs {
@@ -80,7 +80,7 @@ struct PerformanceTests {
     }
 
     @Test("Pipeline stages performance")
-    func testPipelineStagesPerformance() async throws {
+    func pipelineStagesPerformance() async throws {
         let template = Self.llama3_2Template
 
         // tokenize

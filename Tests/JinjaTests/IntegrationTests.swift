@@ -61,7 +61,7 @@ struct IntegrationTests {
     // MARK: - Llama 3 Instruct Template
 
     @Test("Llama 3 Instruct chat template")
-    func testLlama3InstructTemplate() throws {
+    func llama3InstructTemplate() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -104,7 +104,7 @@ struct IntegrationTests {
     }
 
     @Test("Llama 3 template without generation prompt")
-    func testLlama3TemplateWithoutGenerationPrompt() throws {
+    func llama3TemplateWithoutGenerationPrompt() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -141,7 +141,7 @@ struct IntegrationTests {
     // MARK: - ChatML Template (Qwen, Yi, Orca-2)
 
     @Test("ChatML format template")
-    func testChatMLTemplate() throws {
+    func chatMLTemplate() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -182,7 +182,7 @@ struct IntegrationTests {
     // MARK: - Mistral Instruct Template
 
     @Test("Mistral Instruct template")
-    func testMistralInstructTemplate() throws {
+    func mistralInstructTemplate() throws {
         let template = try Template(
             """
             {% set system_message = '' %}
@@ -222,7 +222,7 @@ struct IntegrationTests {
     // MARK: - Vicuna Template
 
     @Test("Vicuna chat template")
-    func testVicunaTemplate() throws {
+    func vicunaTemplate() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -256,7 +256,7 @@ struct IntegrationTests {
     // MARK: - Gemma IT Template
 
     @Test("Gemma IT template")
-    func testGemmaITTemplate() throws {
+    func gemmaITTemplate() throws {
         let template = try Template(
             """
             {% if messages[0]['role'] == 'system' %}
@@ -300,7 +300,7 @@ struct IntegrationTests {
     // MARK: - Multi-turn Conversation Tests
 
     @Test("Multi-turn conversation with Llama 3")
-    func testMultiTurnConversationLlama3() throws {
+    func multiTurnConversationLlama3() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -346,7 +346,7 @@ struct IntegrationTests {
     // MARK: - Tool/Function Call Templates
 
     @Test("Functionary template with tools")
-    func testFunctionaryTemplateWithTools() throws {
+    func functionaryTemplateWithTools() throws {
         let template = try Template(
             """
             {{ bos_token }}<|start_header_id|>system<|end_header_id|>
@@ -401,7 +401,7 @@ struct IntegrationTests {
     // MARK: - Advanced Template Features
 
     @Test("Template with loop variables")
-    func testTemplateWithLoopVariables() throws {
+    func templateWithLoopVariables() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -428,7 +428,7 @@ struct IntegrationTests {
     }
 
     @Test("Template with conditional system message handling")
-    func testTemplateWithConditionalSystemMessage() throws {
+    func templateWithConditionalSystemMessage() throws {
         let template = try Template(
             """
             {% set system_messages = messages | selectattr('role', 'equalto', 'system') | list %}
@@ -480,7 +480,7 @@ struct IntegrationTests {
     // MARK: - Error Cases and Edge Cases
 
     @Test("Template with missing message fields")
-    func testTemplateWithMissingFields() throws {
+    func templateWithMissingFields() throws {
         let template = try Template(
             """
             {% for message in messages %}
@@ -520,7 +520,7 @@ struct IntegrationTests {
     }
 
     @Test("Empty messages array")
-    func testEmptyMessagesArray() throws {
+    func emptyMessagesArray() throws {
         let template = try Template(
             """
             {% if messages %}
@@ -541,7 +541,7 @@ struct IntegrationTests {
     }
 
     @Test("Complex nested template structure")
-    func testComplexNestedTemplateStructure() throws {
+    func complexNestedTemplateStructure() throws {
         let template = try Template(
             """
             {% macro render_message(msg, show_role=true) %}
@@ -573,7 +573,7 @@ struct IntegrationTests {
     // MARK: - Performance Test with Large Template
 
     @Test("Large conversation template performance")
-    func testLargeConversationTemplate() throws {
+    func largeConversationTemplate() throws {
         // Create a large conversation
         var largeMessages: [Value] = []
 
@@ -610,7 +610,7 @@ struct IntegrationTests {
     // MARK: - Real-world Template Variations
 
     @Test("Alpaca template variation")
-    func testAlpacaTemplate() throws {
+    func alpacaTemplate() throws {
         let template = try Template(
             """
             {% if system_message %}{{ system_message }}

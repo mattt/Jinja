@@ -1958,7 +1958,7 @@ struct TemplateTests {
     }
 
     @Test("Filter with arguments")
-    func testFilterWithArguments() throws {
+    func filterWithArguments() throws {
         let string = #"{{ "hello world"|replace("world", "jinja") }}"#
         let context: Context = [
             "a": 0,
@@ -1979,7 +1979,7 @@ struct TemplateTests {
     }
 
     @Test("Callable test")
-    func testCallableTest() throws {
+    func callableTest() throws {
         let string =
             #"|{{ func is callable }}|{{ 2 is callable }}|{{ 1 is iterable }}|{{ 'hello' is iterable }}|"#
         let context: Context = [
@@ -1992,7 +1992,7 @@ struct TemplateTests {
     }
 
     @Test("Keyword arguments")
-    func testKeywordArguments() throws {
+    func keywordArguments() throws {
         let string = #"{{ greet(name="world") }}"#
         let context: Context = [
             "greet": .function { args, kwargs, _ in
