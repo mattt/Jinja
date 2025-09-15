@@ -196,18 +196,8 @@ This package implements a subset of the functionality of the
 - **Autoescape**:
   `{% autoescape %}`
   blocks and automatic HTML escaping
-- **Custom Filters**:
-  User-defined filters
-- **Custom Tests**:
-  User-defined tests
 - **Line Statements**:
-  Alternative syntax with prefix characters
-- **Complex Whitespace Control**:
-  Fine-grained `+`/`-` operators
-- **Template Context**:
-  Context sharing/isolation controls
-- **Missing Template Handling**:
-  `ignore missing` for includes
+  Alternative syntax with prefix characters (`# for item in seq` instead of `{% for item in seq %}`)
 
 ## Usage
 
