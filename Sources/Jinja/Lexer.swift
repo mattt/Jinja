@@ -16,7 +16,9 @@ public enum Lexer: Sendable {
     ]
 
     private static let operators: [String: Token.Kind] = [
-        "+": .plus, "-": .minus, "*": .multiply, "/": .divide, "%": .modulo, "~": .concat,
+        "+": .plus, "-": .minus, "*": .multiply, "/": .divide,
+        "//": .floorDivide, "**": .power,
+        "%": .modulo, "~": .concat,
         "==": .equal, "!=": .notEqual, "<": .less, "<=": .lessEqual,
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]

@@ -455,20 +455,32 @@ public struct Parser: Sendable {
     }
 
     private mutating func parseFactor() throws -> Expression {
-        var expr = try parseUnary()
+        var expr = try parseExponent()
         while true {
             if match(.multiply) {
-                let right = try parseUnary()
+                let right = try parseExponent()
                 expr = .binary(.multiply, expr, right)
             } else if match(.divide) {
-                let right = try parseUnary()
+                let right = try parseExponent()
                 expr = .binary(.divide, expr, right)
+            } else if match(.floorDivide) {
+                let right = try parseExponent()
+                expr = .binary(.floorDivide, expr, right)
             } else if match(.modulo) {
-                let right = try parseUnary()
+                let right = try parseExponent()
                 expr = .binary(.modulo, expr, right)
             } else {
                 break
             }
+        }
+        return expr
+    }
+
+    private mutating func parseExponent() throws -> Expression {
+        var expr = try parseUnary()
+        while match(.power) {
+            let right = try parseUnary()
+            expr = .binary(.power, expr, right)
         }
         return expr
     }

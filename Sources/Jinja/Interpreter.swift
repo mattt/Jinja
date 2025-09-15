@@ -782,6 +782,10 @@ public enum Interpreter {
             return try multiplyValues(left, right)
         case .divide:
             return try divideValues(left, right)
+        case .floorDivide:
+            return try floorDivideValues(left, right)
+        case .power:
+            return try powerValues(left, right)
         case .modulo:
             return try moduloValues(left, right)
         case .concat:
@@ -1128,6 +1132,45 @@ public enum Interpreter {
             return .int(a % b)
         default:
             throw JinjaError.runtime("Modulo operation requires integers (\(left) and \(right))")
+        }
+    }
+
+    static func floorDivideValues(_ left: Value, _ right: Value) throws -> Value {
+        switch (left, right) {
+        case let (.int(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(a / b)  // Integer division in Swift already floors
+        case let (.double(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(a / b)))
+        case let (.int(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(Double(a) / b)))
+        case let (.double(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(a / Double(b))))
+        default:
+            throw JinjaError.runtime(
+                "Cannot floor divide non-numeric values (\(left) and \(right))")
+        }
+    }
+
+    static func powerValues(_ left: Value, _ right: Value) throws -> Value {
+        switch (left, right) {
+        case let (.int(a), .int(b)):
+            guard b >= 0 else {
+                return .double(pow(Double(a), Double(b)))
+            }
+            return .int(Int(pow(Double(a), Double(b))))
+        case let (.double(a), .double(b)):
+            return .double(pow(a, b))
+        case let (.int(a), .double(b)):
+            return .double(pow(Double(a), b))
+        case let (.double(a), .int(b)):
+            return .double(pow(a, Double(b)))
+        default:
+            throw JinjaError.runtime(
+                "Cannot raise non-numeric values to a power (\(left) and \(right))")
         }
     }
 

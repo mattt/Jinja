@@ -58,6 +58,12 @@ public indirect enum Expression: Hashable, Codable, Sendable {
         /// Division operator (`/`)
         case divide = "/"
 
+        /// Floor division operator (`//`)
+        case floorDivide = "//"
+
+        /// Exponentiation operator (`**`)
+        case power = "**"
+
         /// Modulo operator (`%`)
         case modulo = "%"
 

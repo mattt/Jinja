@@ -36,7 +36,11 @@ This package implements a subset of the functionality of the
   objects (`{"key": "value"}`), and
   null (`null`)
 - **Arithmetic Operators**:
-  `+`, `-`, `*`, `/`, `%`
+  `+`, `-`, `*`, `/`,
+  `//` (floor division),
+  `**` (exponentiation),
+  `%`
+
 - **String Concatenation Operators**:
   `~`, `+`,
   and automatic concatenation of adjacent string literals

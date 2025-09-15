@@ -55,6 +55,10 @@ public struct Token: Hashable, Codable, Sendable {
         case multiply
         /// Division operator `/`.
         case divide
+        /// Floor division operator `//`.
+        case floorDivide
+        /// Exponentiation operator `**`.
+        case power
         /// Modulo operator `%`.
         case modulo
         /// String concatenation operator `~`.
