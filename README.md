@@ -4,7 +4,8 @@
 
 # Jinja
 
-A Swift implementation of the [Jinja2 template engine](https://jinja.palletsprojects.com/en/3.1.x/).
+A Swift implementation of the
+[Jinja2 template engine](https://jinja.palletsprojects.com/en/3.1.x/).
 
 Jinja templates are widely used for generating HTML, configuration files, code generation, and text processing.
 This implementation is focused primarily on the features needed to generate LLM chat templates.
@@ -12,6 +13,194 @@ This implementation is focused primarily on the features needed to generate LLM 
 ## Requirements
 
 - Swift 6.0+ / Xcode 16+
+
+## Features
+
+This package implements a subset of the functionality of the
+[official Python implementation](https://jinja.palletsprojects.com/en/stable/templates/).
+
+### Supported Features ✅
+
+- **Variables**:
+  `{{ variable }}`, `{{ object.attribute }}`, `{{ dict['key'] }}`
+- **Comments**:
+  `{# comment #}`
+- **Statements**:
+  `{% statement %}`
+- **Value Types**:
+  Boolean (`true`, `false`),
+  integers (`42`),
+  floats (`3.14`),
+  strings (`"hello"`),
+  arrays (`[1, 2, 3]`),
+  objects (`{"key": "value"}`), and
+  null (`null`)
+- **Arithmetic Operators**:
+  `+`, `-`, `*`, `/`, `%`
+- **String Concatenation Operators**:
+  `~`, `+`,
+  and automatic concatenation of adjacent string literals
+- **Comparison Operators**:
+  `==`, `!=`, `<`, `<=`, `>`, `>=`
+- **Logical Operators**:
+  `and`, `or`, `not`
+- **Membership Operator**:
+  `in`
+- **Attribute Access**:
+  `.` and `[]`
+- **Conditionals**:
+  `{% if %}`, `{% elif %}`, `{% else %}`, `{% endif %}`
+- **Loops**:
+  `{% for item in list %}...{% endfor %}`
+- **Loop Variables**:
+  `loop.index`, `loop.index0`, `loop.first`, `loop.last`, `loop.length`
+- **Loop Filtering**:
+  `{% for item in list if condition %}`
+- **Loop Controls**:
+  `{% break %}`, `{% continue %}`
+- **Variable Assignment**:
+  `{% set variable = value %}`
+- **Macros**:
+  `{% macro name() %}...{% endmacro %}`
+- **Macro Calls**:
+  `{% call macro_name() %}`
+- **Filter Statements**:
+  `{{ name | upper }}`
+- **Filter Blocks**:
+  `{% filter upper %}...{% endfilter %}`
+
+<details>
+
+<summary>Supported Filters</summary>
+
+- [x] `abs()`
+- [x] `attr()`
+- [x] `batch()`
+- [x] `capitalize()`
+- [x] `center()`
+- [x] `default()`
+- [x] `dictsort()`
+- [x] `escape()`
+- [x] `filesizeformat()`
+- [x] `first()`
+- [x] `float()`
+- [x] `forceescape()`
+- [x] `format()`
+- [x] `groupby()`
+- [x] `indent()`
+- [x] `int()`
+- [x] `items()`
+- [x] `join()`
+- [x] `last()`
+- [x] `length()`
+- [x] `list()`
+- [x] `lower()`
+- [x] `map()`
+- [x] `max()`
+- [x] `min()`
+- [x] `pprint()`
+- [x] `random()`
+- [x] `reject()`
+- [x] `rejectattr()`
+- [x] `replace()`
+- [x] `reverse()`
+- [x] `round()`
+- [x] `safe()`
+- [x] `select()`
+- [x] `selectattr()`
+- [x] `slice()`
+- [x] `sort()`
+- [x] `string()`
+- [x] `striptags()`
+- [x] `sum()`
+- [x] `title()`
+- [x] `tojson()`
+- [x] `trim()`
+- [x] `truncate()`
+- [x] `unique()`
+- [x] `upper()`
+- [x] `urlencode()`
+- [x] `urlize()`
+- [x] `wordcount()`
+- [x] `wordwrap()`
+- [x] `xmlattr()`
+
+</details>
+
+<details>
+
+- [x] `boolean()`
+- [x] `callable()`
+- [x] `defined()`
+- [x] `divisibleby()`
+- [x] `eq()`
+- [x] `escaped()`
+- [x] `even()`
+- [x] `false()`
+- [x] `filter()`
+- [x] `float()`
+- [x] `ge()`
+- [x] `gt()`
+- [x] `in()`
+- [x] `integer()`
+- [x] `iterable()`
+- [x] `le()`
+- [x] `lower()`
+- [x] `lt()`
+- [x] `mapping()`
+- [x] `ne()`
+- [x] `none()`
+- [x] `number()`
+- [x] `odd()`
+- [x] `sameas()`
+- [x] `sequence()`
+- [x] `string()`
+- [x] `test()`
+- [x] `true()`
+- [x] `undefined()`
+- [x] `upper()`
+
+</details>
+
+### Not Supported Features ❌
+
+- **Template Inheritance**:
+  `{% extends %}` and `{% block %}`
+- **Template Includes**:
+  `{% include %}`
+- **Template Imports**:
+  `{% import %}`, `{% from ... import %}`
+- **Block Inheritance**:
+  `super()`, block scoping, required blocks
+- **Exception Handling**:
+  `raise_exception()`
+- **With Statement**:
+  `{% with %}` for variable scoping
+- **Raw Blocks**:
+  `{% raw %}...{% endraw %}`
+- **Internationalization**:
+  `{% trans %}`, `{% pluralize %}`, `i18n` extension
+- **Debug Statement**:
+  `{% debug %}`
+- **Do Statement**:
+  `{% do expression %}` (expression without output)
+- **Autoescape**:
+  `{% autoescape %}`
+  blocks and automatic HTML escaping
+- **Custom Filters**:
+  User-defined filters
+- **Custom Tests**:
+  User-defined tests
+- **Built-in Functions**:
+  `range()`, `lipsum()`, `dict()`, `cycler()`, `joiner()`, `namespace()`
+- **Line Statements**:
+  Alternative syntax with prefix characters
+- **Complex Whitespace Control**:
+  Fine-grained `+`/`-` operators
+- **Template Context**:
+  Context sharing/isolation controls
+- **Missing Template Handling**:
+  `ignore missing` for includes
 
 ## Usage
 
@@ -102,67 +291,14 @@ let context: [String: Value] = [
 let result = try template.render(context)
 ```
 
-<details>
-
-<summary>Supported Filters</summary>
-
-- [x] `abs()`
-- [x] `attr()`
-- [x] `batch()`
-- [x] `capitalize()`
-- [x] `center()`
-- [x] `default()`
-- [x] `dictsort()`
-- [x] `escape()`
-- [x] `filesizeformat()`
-- [x] `first()`
-- [x] `float()`
-- [x] `forceescape()`
-- [x] `format()`
-- [x] `groupby()`
-- [x] `indent()`
-- [x] `int()`
-- [x] `items()`
-- [x] `join()`
-- [x] `last()`
-- [x] `length()`
-- [x] `list()`
-- [x] `lower()`
-- [x] `map()`
-- [x] `max()`
-- [x] `min()`
-- [x] `pprint()`
-- [x] `random()`
-- [x] `reject()`
-- [x] `rejectattr()`
-- [x] `replace()`
-- [x] `reverse()`
-- [x] `round()`
-- [x] `safe()`
-- [x] `select()`
-- [x] `selectattr()`
-- [x] `slice()`
-- [x] `sort()`
-- [x] `string()`
-- [x] `striptags()`
-- [x] `sum()`
-- [x] `title()`
-- [x] `tojson()`
-- [x] `trim()`
-- [x] `truncate()`
-- [x] `unique()`
-- [x] `upper()`
-- [x] `urlencode()`
-- [x] `urlize()`
-- [x] `wordcount()`
-- [x] `wordwrap()`
-- [x] `xmlattr()`
-
-</details>
-
 ### Tests
 
-Jinja provides built-in tests for conditional logic and type checking. Tests are used with the `is` operator to evaluate conditions in templates. These tests help you make decisions based on the type, value, or properties of variables.
+Jinja provides
+[built-in tests](<(https://jinja.palletsprojects.com/en/stable/templates/#list-of-builtin-tests)>)
+for conditional logic and type checking.
+Tests are used with the `is` operator to evaluate conditions in templates.
+These tests help you make decisions based on the
+type, value, or properties of variables.
 
 ```swift
 // Type and value checking with tests
@@ -202,43 +338,6 @@ let context: [String: Value] = [
 let result = try template.render(context)
 // "Welcome, Alice!\nYou have 2 messages.\nYou are an adult.\nActive"
 ```
-
-[Built-in Tests](https://jinja.palletsprojects.com/en/stable/templates/#list-of-builtin-tests)
-
-<details>
-
-- [x] `boolean()`
-- [x] `callable()`
-- [x] `defined()`
-- [x] `divisibleby()`
-- [x] `eq()`
-- [x] `escaped()`
-- [x] `even()`
-- [x] `false()`
-- [x] `filter()`
-- [x] `float()`
-- [x] `ge()`
-- [x] `gt()`
-- [x] `in()`
-- [x] `integer()`
-- [x] `iterable()`
-- [x] `le()`
-- [x] `lower()`
-- [x] `lt()`
-- [x] `mapping()`
-- [x] `ne()`
-- [x] `none()`
-- [x] `number()`
-- [x] `odd()`
-- [x] `sameas()`
-- [x] `sequence()`
-- [x] `string()`
-- [x] `test()`
-- [x] `true()`
-- [x] `undefined()`
-- [x] `upper()`
-
-</details>
 
 ### Template Options
 
