@@ -407,11 +407,7 @@ public struct Parser: Sendable {
                     (args, _) = try parseArguments()
                     try consume(.closeParen, message: "Expected ')' after test arguments.")
                 }
-                if args.isEmpty {
-                    expr = .test(expr, testName, negated: negated)
-                } else {
-                    expr = .testArgs(expr, testName, args, negated: negated)
-                }
+                expr = .test(expr, testName, args, negated: negated)
             } else {
                 break
             }

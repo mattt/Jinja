@@ -156,33 +156,23 @@ public enum Interpreter {
             return .null
 
         case let .array(elements):
-            var values: [Value] = []
-            values.reserveCapacity(elements.count)
-            for element in elements {
-                let value = try evaluateExpression(element, env: env)
-                values.append(value)
-            }
+            let values = try elements.map { try evaluateExpression($0, env: env) }
             return .array(values)
 
         case let .tuple(elements):
-            var values: [Value] = []
-            values.reserveCapacity(elements.count)
-            for element in elements {
-                let value = try evaluateExpression(element, env: env)
-                values.append(value)
-            }
+            let values = try elements.map { try evaluateExpression($0, env: env) }
             return .array(values)  // Tuples are represented as arrays in the runtime
 
         case let .object(pairs):
-            var dict: OrderedDictionary<String, Value> = [:]
-            for (key, expr) in pairs {
-                let value = try evaluateExpression(expr, env: env)
-                dict[key] = value
-            }
+            let dict = try pairs.mapValues { try evaluateExpression($0, env: env) }
             return .object(dict)
 
         case let .identifier(name):
             return env[name]
+
+        case let .unary(op, operand):
+            let value = try evaluateExpression(operand, env: env)
+            return try evaluateUnaryValue(op, value)
 
         case let .binary(op, left, right):
             let leftValue = try evaluateExpression(left, env: env)
@@ -198,9 +188,15 @@ public enum Interpreter {
                 return try evaluateBinaryValues(op, leftValue, rightValue)
             }
 
-        case let .unary(op, operand):
-            let value = try evaluateExpression(operand, env: env)
-            return try evaluateUnaryValue(op, value)
+        case let .ternary(value, test, alternate):
+            let testValue = try evaluateExpression(test, env: env)
+            if testValue.isTruthy {
+                return try evaluateExpression(value, env: env)
+            } else if let alternate = alternate {
+                return try evaluateExpression(alternate, env: env)
+            } else {
+                return .null
+            }
 
         case let .member(object, property, computed):
             let objectValue = try evaluateExpression(object, env: env)
@@ -217,38 +213,13 @@ public enum Interpreter {
 
         case let .filter(operand, filterName, args, kwargs):
             let operandValue = try evaluateExpression(operand, env: env)
-            var argValues = [operandValue]
-            for arg in args {
-                let value = try evaluateExpression(arg, env: env)
-                argValues.append(value)
-            }
-            var kwargValues: [String: Value] = [:]
-            for (key, expr) in kwargs {
-                kwargValues[key] = try evaluateExpression(expr, env: env)
-            }
+            let argValues = try [operandValue] + args.map { try evaluateExpression($0, env: env) }
+            let kwargValues = try kwargs.mapValues { try evaluateExpression($0, env: env) }
             return try evaluateFilter(filterName, argValues, kwargs: kwargValues, env: env)
 
-        case let .ternary(value, test, alternate):
-            let testValue = try evaluateExpression(test, env: env)
-            if testValue.isTruthy {
-                return try evaluateExpression(value, env: env)
-            } else if let alternate = alternate {
-                return try evaluateExpression(alternate, env: env)
-            } else {
-                return .null
-            }
-
-        case let .test(operand, testName, negated):
+        case let .test(operand, testName, args, negated):
             let operandValue = try evaluateExpression(operand, env: env)
-            let result = try evaluateTest(testName, [operandValue], env: env)
-            return .boolean(negated ? !result : result)
-
-        case let .testArgs(operand, testName, args, negated):
-            let operandValue = try evaluateExpression(operand, env: env)
-            var argValues: [Value] = [operandValue]
-            for arg in args {
-                argValues.append(try evaluateExpression(arg, env: env))
-            }
+            let argValues = try [operandValue] + args.map { try evaluateExpression($0, env: env) }
             let result = try evaluateTest(testName, argValues, env: env)
             return .boolean(negated ? !result : result)
 

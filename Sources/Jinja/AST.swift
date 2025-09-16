@@ -45,6 +45,20 @@ public indirect enum Expression: Hashable, Codable, Sendable {
     /// Variable or function identifier reference.
     case identifier(String)
 
+    /// Unary operators for expressions.
+    public enum UnaryOp: String, Hashable, CaseIterable, Codable, Sendable {
+        /// Logical negation operator.
+        case not = "not"
+        /// Numeric negation operator.
+        case minus = "-"
+        /// Numeric identity operator.
+        case plus = "+"
+        /// Unpacking operator.
+        case multiply = "*"
+    }
+    /// Unary operation with operator and operand.
+    case unary(UnaryOp, Expression)
+
     /// Binary operators for expressions.
     public enum BinaryOp: String, Hashable, CaseIterable, Codable, Sendable {
         // MARK: Arithmetic Operators
@@ -116,19 +130,8 @@ public indirect enum Expression: Hashable, Codable, Sendable {
     /// Binary operation with operator and operands.
     case binary(BinaryOp, Expression, Expression)
 
-    /// Unary operators for expressions.
-    public enum UnaryOp: String, Hashable, CaseIterable, Codable, Sendable {
-        /// Logical negation operator.
-        case not = "not"
-        /// Numeric negation operator.
-        case minus = "-"
-        /// Numeric identity operator.
-        case plus = "+"
-        /// Unpacking operator.
-        case multiply = "*"
-    }
-    /// Unary operation with operator and operand.
-    case unary(UnaryOp, Expression)
+    /// Ternary conditional expression (`value if test else alternate`)
+    case ternary(Expression, test: Expression, alternate: Expression?)
 
     /// Function call with arguments and keyword arguments.
     case call(Expression, [Expression], [String: Expression])
@@ -136,22 +139,16 @@ public indirect enum Expression: Hashable, Codable, Sendable {
     /// Member access (object.property or object[key]).
     case member(Expression, Expression, computed: Bool)
 
-    /// Array or string slicing operation.
+    /// Array or string slicing operation (`foo[1:2:3]`)
     case slice(Expression, start: Expression?, stop: Expression?, step: Expression?)
 
-    /// Filter application to transform a value.
+    /// Filter application to transform a value (`foo | filter(2)`)
     case filter(Expression, String, [Expression], [String: Expression])
 
-    /// Test operation to check a condition.
-    case test(Expression, String, negated: Bool)
+    /// `is` test (`foo is divisibleby(2)`)
+    case test(Expression, String, [Expression], negated: Bool)
 
-    /// Test operation with arguments (e.g., value is divisibleby(3)).
-    case testArgs(Expression, String, [Expression], negated: Bool)
-
-    /// Ternary conditional expression (value if test else alternate).
-    case ternary(Expression, test: Expression, alternate: Expression?)
-
-    /// Select expression for conditional evaluation.
+    /// Select expression for conditional evaluation (`select(foo, test)`)
     case select(Expression, test: Expression)
 }
 
