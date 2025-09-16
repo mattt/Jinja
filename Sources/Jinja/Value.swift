@@ -1,3 +1,4 @@
+import Foundation
 @_exported import OrderedCollections
 
 /// Represents values in Jinja template expressions and variables.
@@ -63,6 +64,8 @@ public enum Value: Sendable {
                 "Cannot convert value of type \(type(of: value)) to Jinja Value")
         }
     }
+
+    // MARK: Convenience type checks
 
     /// Returns whether the value is `null`.
     public var isNull: Bool {
@@ -142,6 +145,275 @@ public enum Value: Sendable {
         case .object(let o): !o.isEmpty
         case .function: true
         case .macro: true
+        }
+    }
+
+    // MARK: Operations
+
+    /// Adds two values together.
+    /// - Parameters:
+    ///   - other: The value to add to the current value
+    /// - Throws: `JinjaError.runtime` if the values cannot be added
+    public func add(with other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            return .int(a + b)
+        case let (.double(a), .double(b)):
+            return .double(a + b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) + b)
+        case let (.double(a), .int(b)):
+            return .double(a + Double(b))
+        case let (.string(a), .string(b)):
+            return .string(a + b)
+        case let (.string(a), b):
+            return .string(a + b.description)
+        case let (a, .string(b)):
+            return .string(a.description + b)
+        case let (.array(a), .array(b)):
+            return .array(a + b)
+        default:
+            throw JinjaError.runtime("Cannot add values of different types (\(self) and \(other))")
+        }
+    }
+
+    /// Concatenates two values.
+    /// - Parameters:
+    ///   - other: The value to concatenate to the current value
+    /// - Throws: `JinjaError.runtime` if the values cannot be concatenated
+    public func concatenate(with other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.string(a), .string(b)):
+            return .string(a + b)
+        case let (.string(a), b):
+            return .string(a + b.description)
+        case let (a, .string(b)):
+            return .string(a.description + b)
+        default:
+            throw JinjaError.runtime(
+                "Cannot concatenate values of different types (\(self) and \(other))")
+        }
+    }
+
+    /// Subtracts another value from the current value.
+    /// - Parameters:
+    ///   - other: The value to subtract from the current value
+    /// - Throws: `JinjaError.runtime` if the values cannot be subtracted
+    public func subtract(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            return .int(a - b)
+        case let (.double(a), .double(b)):
+            return .double(a - b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) - b)
+        case let (.double(a), .int(b)):
+            return .double(a - Double(b))
+        default:
+            throw JinjaError.runtime("Cannot subtract non-numeric values (\(self) and \(other))")
+        }
+    }
+
+    /// Multiplies the current value by another value.
+    /// - Parameters:
+    ///   - other: The value to multiply the current value by
+    /// - Throws: `JinjaError.runtime` if the values cannot be multiplied
+    public func multiply(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            return .int(a * b)
+        case let (.double(a), .double(b)):
+            return .double(a * b)
+        case let (.int(a), .double(b)):
+            return .double(Double(a) * b)
+        case let (.double(a), .int(b)):
+            return .double(a * Double(b))
+        case let (.string(s), .int(n)):
+            return .string(String(repeating: s, count: n))
+        case let (.int(n), .string(s)):
+            return .string(String(repeating: s, count: n))
+        default:
+            throw JinjaError.runtime("Cannot multiply values of these types (\(self) and \(other))")
+        }
+    }
+
+    /// Divides the current value by another value.
+    /// - Parameters:
+    ///   - other: The value to divide the current value by
+    /// - Throws: `JinjaError.runtime` if the values cannot be divided
+    public func divide(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .double(Double(a) / Double(b))
+        case let (.double(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .double(a / b)
+        case let (.int(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .double(Double(a) / b)
+        case let (.double(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .double(a / Double(b))
+        default:
+            throw JinjaError.runtime("Cannot divide non-numeric values (\(self) and \(other))")
+        }
+    }
+
+    /// Computes the modulo of the current value and another value.
+    /// - Parameters:
+    ///   - other: The value to compute the modulo of the current value by
+    /// - Throws: `JinjaError.runtime` if the values cannot be moduloed
+    public func modulo(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
+            return .int(a % b)
+        default:
+            throw JinjaError.runtime("Modulo operation requires integers (\(self) and \(other))")
+        }
+    }
+
+    /// Computes the floor division of the current value and another value.
+    /// - Parameters:
+    ///   - other: The value to compute the floor division of the current value by
+    /// - Throws: `JinjaError.runtime` if the values cannot be floor divided
+    public func floorDivide(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(a / b)  // Integer division in Swift already floors
+        case let (.double(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(a / b)))
+        case let (.int(a), .double(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(Double(a) / b)))
+        case let (.double(a), .int(b)):
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
+            return .int(Int(floor(a / Double(b))))
+        default:
+            throw JinjaError.runtime(
+                "Cannot floor divide non-numeric values (\(self) and \(other))")
+        }
+    }
+
+    /// Raises the current value to the power of another value.
+    /// - Parameters:
+    ///   - other: The value to raise the current value to the power of
+    /// - Throws: `JinjaError.runtime` if the values cannot be raised to a power
+    public func power(by other: Value) throws -> Value {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            guard b >= 0 else {
+                return .double(pow(Double(a), Double(b)))
+            }
+            return .int(Int(pow(Double(a), Double(b))))
+        case let (.double(a), .double(b)):
+            return .double(pow(a, b))
+        case let (.int(a), .double(b)):
+            return .double(pow(Double(a), b))
+        case let (.double(a), .int(b)):
+            return .double(pow(a, Double(b)))
+        default:
+            throw JinjaError.runtime(
+                "Cannot raise non-numeric values to a power (\(self) and \(other))")
+        }
+    }
+
+    /// Compares the current value to another value.
+    /// - Parameters:
+    ///   - other: The value to compare the current value to
+    /// - Throws: `JinjaError.runtime` if the values cannot be compared
+    public func compare(to other: Value) throws -> Int {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            return a < b ? -1 : a > b ? 1 : 0
+        case let (.double(a), .double(b)):
+            return a < b ? -1 : a > b ? 1 : 0
+        case let (.int(a), .double(b)):
+            let val = Double(a)
+            return val < b ? -1 : val > b ? 1 : 0
+        case let (.double(a), .int(b)):
+            let val = Double(b)
+            return a < val ? -1 : a > val ? 1 : 0
+        case let (.string(a), .string(b)):
+            return a < b ? -1 : a > b ? 1 : 0
+        default:
+            throw JinjaError.runtime(
+                "Cannot compare values of different types (\(self) and \(other))")
+        }
+    }
+
+    /// Checks if the current value is contained in another value.
+    /// - Parameters:
+    ///   - collection: The value to check if the current value is contained in
+    /// - Throws: `JinjaError.runtime` if the values cannot be checked for containment
+    public func isContained(in collection: Value) throws -> Bool {
+        switch collection {
+        case .undefined:
+            return false
+        case .null:
+            return false
+        case let .array(items):
+            return items.contains { self == $0 }
+        case let .string(str):
+            guard case let .string(substr) = self else { return false }
+            guard !substr.isEmpty else { return true }  // '' in 'abc' -> true
+            return str.contains(substr)
+        case let .object(dict):
+            guard case let .string(key) = self else { return false }
+            return dict.keys.contains(key)
+
+        default:
+            throw JinjaError.runtime(
+                "'in' operator requires iterable on right side (\(collection))")
+        }
+    }
+
+    /// Checks if the current value is equivalent to another value.
+    ///
+    /// This is similar to `==`, but provides special handling for numeric types,
+    /// allowing an `Int` and a `Double` to be considered equivalent if they represent
+    /// the same number.
+    ///
+    /// - Parameters:
+    ///   - other: The value to compare for equivalence.
+    /// - Returns: `true` if the values are equivalent, otherwise `false`.
+    public func isEquivalent(to other: Value) -> Bool {
+        switch (self, other) {
+        case let (.int(a), .int(b)):
+            return a == b
+        case let (.double(a), .double(b)):
+            return a == b
+        case let (.int(a), .double(b)):
+            return Double(a) == b
+        case let (.double(a), .int(b)):
+            return a == Double(b)
+        case let (.string(a), .string(b)):
+            return a == b
+        case let (.boolean(a), .boolean(b)):
+            return a == b
+        case (.null, .null):
+            return true
+        case (.undefined, .undefined):
+            return true
+        case let (.array(a), .array(b)):
+            guard a.count == b.count else { return false }
+            return zip(a, b).allSatisfy { $0.isEquivalent(to: $1) }
+        case let (.object(a), .object(b)):
+            guard a.count == b.count else { return false }
+            for ((keyA, valueA), (keyB, valueB)) in zip(a, b) {
+                if keyA != keyB || !valueA.isEquivalent(to: valueB) {
+                    return false
+                }
+            }
+            return true
+        case let (.macro(a), .macro(b)):
+            return a == b
+        default:
+            // .function and mixed types
+            return false
         }
     }
 }

@@ -184,7 +184,7 @@ public enum Tests {
         )
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
-        return Interpreter.valuesEqual(a, b)
+        return a.isEquivalent(to: b)
     }
 
     /// Tests if a != b.
@@ -198,7 +198,7 @@ public enum Tests {
         )
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
-        return !Interpreter.valuesEqual(a, b)
+        return !a.isEquivalent(to: b)
     }
 
     /// Tests if a > b.
@@ -213,7 +213,7 @@ public enum Tests {
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(a, b) > 0
+            return try a.compare(to: b) > 0
         } catch {
             return false
         }
@@ -231,7 +231,7 @@ public enum Tests {
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(a, b) >= 0
+            return try a.compare(to: b) >= 0
         } catch {
             return false
         }
@@ -249,7 +249,7 @@ public enum Tests {
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(a, b) < 0
+            return try a.compare(to: b) < 0
         } catch {
             return false
         }
@@ -267,7 +267,7 @@ public enum Tests {
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
         do {
-            return try Interpreter.compareValues(a, b) <= 0
+            return try a.compare(to: b) <= 0
         } catch {
             return false
         }
@@ -467,7 +467,7 @@ public enum Tests {
         )
 
         guard let a = arguments["a"], let b = arguments["b"] else { return false }
-        return Interpreter.valuesEqual(a, b)
+        return try a.compare(to: b) == 0
     }
 
     /// Tests if the input is in a sequence.
@@ -486,7 +486,7 @@ public enum Tests {
 
         switch container {
         case let .array(arr):
-            return arr.contains { Interpreter.valuesEqual($0, input) }
+            return try arr.contains { try $0.compare(to: input) == 0 }
         case let .string(str):
             if case let .string(searchStr) = input {
                 return str.contains(searchStr)

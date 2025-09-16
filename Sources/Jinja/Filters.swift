@@ -255,7 +255,7 @@ public enum Filters {
             sortedItems = try items.sorted { a, b in
                 let aValue = try Interpreter.evaluatePropertyMember(a, attribute)
                 let bValue = try Interpreter.evaluatePropertyMember(b, attribute)
-                let comparison = try Interpreter.compareValues(aValue, bValue)
+                let comparison = try aValue.compare(to: bValue)
                 return reverse ? comparison > 0 : comparison < 0
             }
         } else {
@@ -266,7 +266,7 @@ public enum Filters {
                         aStr.lowercased() < bStr.lowercased()
                         ? -1 : aStr.lowercased() > bStr.lowercased() ? 1 : 0
                 } else {
-                    comparison = try Interpreter.compareValues(a, b)
+                    comparison = try a.compare(to: b)
                 }
                 return reverse ? comparison > 0 : comparison < 0
             }
@@ -1037,7 +1037,7 @@ public enum Filters {
 
         return items.max(by: { a, b in
             do {
-                return try Interpreter.compareValues(a, b) < 0
+                return try a.compare(to: b) < 0
             } catch {
                 return false
             }
@@ -1059,7 +1059,7 @@ public enum Filters {
 
         return items.min(by: { a, b in
             do {
-                return try Interpreter.compareValues(a, b) < 0
+                return try a.compare(to: b) < 0
             } catch {
                 return false
             }
@@ -1329,7 +1329,7 @@ public enum Filters {
         }
 
         let sum = try valuesToSum.reduce(start) { acc, next in
-            try Interpreter.addValues(acc, next)
+            try acc.add(with: next)
         }
         return sum
     }

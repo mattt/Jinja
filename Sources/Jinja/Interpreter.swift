@@ -652,41 +652,41 @@ public enum Interpreter {
     {
         switch op {
         case .add:
-            return try addValues(left, right)
+            return try left.add(with: right)
         case .subtract:
-            return try subtractValues(left, right)
+            return try left.subtract(by: right)
         case .multiply:
-            return try multiplyValues(left, right)
+            return try left.multiply(by: right)
         case .divide:
-            return try divideValues(left, right)
+            return try left.divide(by: right)
         case .floorDivide:
-            return try floorDivideValues(left, right)
+            return try left.floorDivide(by: right)
         case .power:
-            return try powerValues(left, right)
+            return try left.power(by: right)
         case .modulo:
-            return try moduloValues(left, right)
+            return try left.modulo(by: right)
         case .concat:
-            return .string(left.description + right.description)
+            return try left.concatenate(with: right)
         case .equal:
-            return .boolean(valuesEqual(left, right))
+            return .boolean(left.isEquivalent(to: right))
         case .notEqual:
-            return .boolean(!valuesEqual(left, right))
+            return .boolean(!left.isEquivalent(to: right))
         case .less:
-            return .boolean(try compareValues(left, right) < 0)
+            return .boolean(try left.compare(to: right) < 0)
         case .lessEqual:
-            return .boolean(try compareValues(left, right) <= 0)
+            return .boolean(try left.compare(to: right) <= 0)
         case .greater:
-            return .boolean(try compareValues(left, right) > 0)
+            return .boolean(try left.compare(to: right) > 0)
         case .greaterEqual:
-            return .boolean(try compareValues(left, right) >= 0)
+            return .boolean(try left.compare(to: right) >= 0)
         case .and:
             return left.isTruthy ? right : left
         case .or:
             return left.isTruthy ? left : right
         case .`in`:
-            return .boolean(try valueInCollection(left, right))
+            return .boolean(try left.isContained(in: right))
         case .notIn:
-            return .boolean(!(try valueInCollection(left, right)))
+            return .boolean(!(try left.isContained(in: right)))
         }
     }
 
@@ -694,9 +694,6 @@ public enum Interpreter {
         switch op {
         case .not:
             return .boolean(!value.isTruthy)
-        case .multiply:
-            // This should not be evaluated directly - it's only used for unpacking in calls
-            throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         case .minus:
             switch value {
             case let .double(n):
@@ -713,6 +710,9 @@ public enum Interpreter {
             default:
                 throw JinjaError.runtime("Cannot apply unary plus to non-numeric value")
             }
+        case .multiply:
+            // This should not be evaluated directly - it's only used for unpacking in calls
+            throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         }
     }
 
@@ -993,188 +993,6 @@ public enum Interpreter {
 
         default:
             throw JinjaError.runtime("Slice requires array or string")
-        }
-    }
-
-    // MARK: - Value Operations
-
-    static func addValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            return .int(a + b)
-        case let (.double(a), .double(b)):
-            return .double(a + b)
-        case let (.int(a), .double(b)):
-            return .double(Double(a) + b)
-        case let (.double(a), .int(b)):
-            return .double(a + Double(b))
-        case let (.string(a), .string(b)):
-            return .string(a + b)
-        case let (.string(a), b):
-            return .string(a + b.description)
-        case let (a, .string(b)):
-            return .string(a.description + b)
-        case let (.array(a), .array(b)):
-            return .array(a + b)
-        default:
-            throw JinjaError.runtime("Cannot add values of different types (\(left) and \(right))")
-        }
-    }
-
-    static func subtractValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            return .int(a - b)
-        case let (.double(a), .double(b)):
-            return .double(a - b)
-        case let (.int(a), .double(b)):
-            return .double(Double(a) - b)
-        case let (.double(a), .int(b)):
-            return .double(a - Double(b))
-        default:
-            throw JinjaError.runtime("Cannot subtract non-numeric values (\(left) and \(right))")
-        }
-    }
-
-    static func multiplyValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            return .int(a * b)
-        case let (.double(a), .double(b)):
-            return .double(a * b)
-        case let (.int(a), .double(b)):
-            return .double(Double(a) * b)
-        case let (.double(a), .int(b)):
-            return .double(a * Double(b))
-        case let (.string(s), .int(n)):
-            return .string(String(repeating: s, count: n))
-        case let (.int(n), .string(s)):
-            return .string(String(repeating: s, count: n))
-        default:
-            throw JinjaError.runtime("Cannot multiply values of these types (\(left) and \(right))")
-        }
-    }
-
-    static func divideValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .double(Double(a) / Double(b))
-        case let (.double(a), .double(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .double(a / b)
-        case let (.int(a), .double(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .double(Double(a) / b)
-        case let (.double(a), .int(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .double(a / Double(b))
-        default:
-            throw JinjaError.runtime("Cannot divide non-numeric values (\(left) and \(right))")
-        }
-    }
-
-    static func moduloValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
-            return .int(a % b)
-        default:
-            throw JinjaError.runtime("Modulo operation requires integers (\(left) and \(right))")
-        }
-    }
-
-    static func floorDivideValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .int(a / b)  // Integer division in Swift already floors
-        case let (.double(a), .double(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .int(Int(floor(a / b)))
-        case let (.int(a), .double(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .int(Int(floor(Double(a) / b)))
-        case let (.double(a), .int(b)):
-            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
-            return .int(Int(floor(a / Double(b))))
-        default:
-            throw JinjaError.runtime(
-                "Cannot floor divide non-numeric values (\(left) and \(right))")
-        }
-    }
-
-    static func powerValues(_ left: Value, _ right: Value) throws -> Value {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            guard b >= 0 else {
-                return .double(pow(Double(a), Double(b)))
-            }
-            return .int(Int(pow(Double(a), Double(b))))
-        case let (.double(a), .double(b)):
-            return .double(pow(a, b))
-        case let (.int(a), .double(b)):
-            return .double(pow(Double(a), b))
-        case let (.double(a), .int(b)):
-            return .double(pow(a, Double(b)))
-        default:
-            throw JinjaError.runtime(
-                "Cannot raise non-numeric values to a power (\(left) and \(right))")
-        }
-    }
-
-    static func valuesEqual(_ left: Value, _ right: Value) -> Bool {
-        switch (left, right) {
-        case let (.string(a), .string(b)):
-            return a == b
-        case let (.int(a), .int(b)):
-            return a == b
-        case let (.double(a), .double(b)):
-            return a == b
-        case let (.boolean(a), .boolean(b)):
-            return a == b
-        case (.null, .null):
-            return true
-        case (.undefined, .undefined):
-            return true
-        default:
-            return false
-        }
-    }
-
-    static func compareValues(_ left: Value, _ right: Value) throws -> Int {
-        switch (left, right) {
-        case let (.int(a), .int(b)):
-            return a < b ? -1 : a > b ? 1 : 0
-        case let (.double(a), .double(b)):
-            return a < b ? -1 : a > b ? 1 : 0
-        case let (.string(a), .string(b)):
-            return a < b ? -1 : a > b ? 1 : 0
-        default:
-            throw JinjaError.runtime(
-                "Cannot compare values of different types (\(left) and \(right))")
-        }
-    }
-
-    static func valueInCollection(_ value: Value, _ collection: Value) throws -> Bool {
-        switch collection {
-        case .undefined:
-            return false
-        case .null:
-            return false
-        case let .array(items):
-            return items.contains { valuesEqual(value, $0) }
-        case let .string(str):
-            guard case let .string(substr) = value else { return false }
-            guard !substr.isEmpty else { return true }  // '' in 'abc' -> true
-            return str.contains(substr)
-        case let .object(dict):
-            guard case let .string(key) = value else { return false }
-            return dict.keys.contains(key)
-
-        default:
-            throw JinjaError.runtime(
-                "'in' operator requires iterable on right side (\(collection))")
         }
     }
 }
