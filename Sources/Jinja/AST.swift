@@ -147,9 +147,6 @@ public indirect enum Expression: Hashable, Codable, Sendable {
 
     /// `is` test (`foo is divisibleby(2)`)
     case test(Expression, String, [Expression], negated: Bool)
-
-    /// Select expression for conditional evaluation (`select(foo, test)`)
-    case select(Expression, test: Expression)
 }
 
 /// A control flow statement that affects template execution.

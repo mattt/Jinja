@@ -343,9 +343,6 @@ public enum Interpreter {
             default:
                 throw JinjaError.runtime("Slice requires array or string")
             }
-
-        default:
-            throw JinjaError.runtime("Unimplemented expression type")
         }
     }
 
