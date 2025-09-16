@@ -2,7 +2,7 @@
 ///
 /// Tokens represent the smallest meaningful units of a Jinja template,
 /// such as keywords, operators, literals, and delimiters.
-public struct Token: Hashable, Codable, Sendable {
+public struct Token: Hashable, Sendable {
     /// The specific type of token representing different syntactic elements.
     public enum Kind: CaseIterable, Hashable, Codable, Sendable {
         /// Plain text content outside of Jinja template constructs.
@@ -129,8 +129,38 @@ public struct Token: Hashable, Codable, Sendable {
     public let kind: Kind
 
     /// The raw text content of this token from the source.
-    public let value: String
+    public let value: Substring
 
     /// The character position of this token in the original source text.
     public let position: Int
+
+    /// Initialize a token with a string or substring value.
+    public init<S: StringProtocol>(kind: Kind, value: S, position: Int) {
+        self.kind = kind
+        self.value = Substring(value)
+        self.position = position
+    }
+}
+
+// MARK: - Codable
+
+extension Token: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind, value, position
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decode(Kind.self, forKey: .kind)
+        let stringValue = try container.decode(String.self, forKey: .value)
+        value = Substring(stringValue)
+        position = try container.decode(Int.self, forKey: .position)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(String(value), forKey: .value)
+        try container.encode(position, forKey: .position)
+    }
 }

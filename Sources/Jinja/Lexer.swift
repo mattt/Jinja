@@ -32,67 +32,71 @@ public enum Lexer: Sendable {
         -> [Token]
     {
         let preprocessed = preprocess(source)
-        let utf8 = Array(preprocessed.utf8)
-        return try utf8.withUnsafeBufferPointer { buffer in
-            var tokens: [Token] = []
-            tokens.reserveCapacity(preprocessed.count / 4)
+        var tokens: [Token] = []
+        tokens.reserveCapacity(preprocessed.count / 4)
 
-            var position = 0
-            var inTag = false
-            var curlyBracketDepth = 0
+        var position = preprocessed.startIndex
+        var inTag = false
+        var curlyBracketDepth = 0
 
-            while position < buffer.count {
-                if inTag {
-                    position = Self.skipWhitespace(buffer, at: position)
-                    if position >= buffer.count {
-                        break
-                    }
-                }
-
-                let (token, newPosition) = try Self.extractTokenFromBuffer(
-                    buffer, at: position, inTag: inTag, curlyBracketDepth: curlyBracketDepth)
-
-                switch token.kind {
-                case .openExpression, .openStatement:
-                    inTag = true
-                    curlyBracketDepth = 0
-                case .closeExpression, .closeStatement:
-                    inTag = false
-                case .openBrace:
-                    curlyBracketDepth += 1
-                case .closeBrace:
-                    curlyBracketDepth -= 1
-                default:
+        while position < preprocessed.endIndex {
+            if inTag {
+                position = skipWhitespace(in: preprocessed, at: position)
+                if position >= preprocessed.endIndex {
                     break
                 }
+            }
 
-                if token.kind == .text, token.value.isEmpty {
-                    position = newPosition
-                    continue
-                }
+            let (token, newPosition) = try extractToken(
+                from: preprocessed, at: position, inTag: inTag, curlyBracketDepth: curlyBracketDepth
+            )
 
-                tokens.append(token)
+            switch token.kind {
+            case .openExpression, .openStatement:
+                inTag = true
+                curlyBracketDepth = 0
+            case .closeExpression, .closeStatement:
+                inTag = false
+            case .openBrace:
+                curlyBracketDepth += 1
+            case .closeBrace:
+                curlyBracketDepth -= 1
+            default:
+                break
+            }
+
+            if token.kind == .text, token.value.isEmpty {
                 position = newPosition
-
-                if token.kind == .eof {
-                    break
-                }
+                continue
             }
 
-            if tokens.isEmpty || tokens.last?.kind != .eof {
-                tokens.append(Token(kind: .eof, value: "", position: position))
-            }
+            tokens.append(token)
+            position = newPosition
 
-            return tokens
+            if token.kind == .eof {
+                break
+            }
         }
+
+        if tokens.isEmpty || tokens.last?.kind != .eof {
+            let charPosition = preprocessed.distance(from: preprocessed.startIndex, to: position)
+            tokens.append(Token(kind: .eof, value: "", position: charPosition))
+        }
+
+        return tokens
     }
 
     private static func skipWhitespace(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) -> Int {
+        in source: String, at position: String.Index
+    ) -> String.Index {
         var pos = position
-        while pos < buffer.count, [0x20, 0x09, 0x0A, 0x0D].contains(buffer[pos]) {
-            pos += 1
+        while pos < source.endIndex {
+            let char = source[pos]
+            if char.isWhitespace {
+                pos = source.index(after: pos)
+            } else {
+                break
+            }
         }
         return pos
     }
@@ -110,233 +114,315 @@ public enum Lexer: Sendable {
         return result
     }
 
-    private static func extractTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, inTag: Bool,
+    private static func extractToken(
+        from source: String, at position: String.Index, inTag: Bool,
         curlyBracketDepth: Int = 0
-    ) throws -> (
-        Token, Int
-    ) {
-        guard position < buffer.count else {
-            return (Token(kind: .eof, value: "", position: position), position)
+    ) throws -> (Token, String.Index) {
+        guard position < source.endIndex else {
+            let charPosition = source.distance(from: source.startIndex, to: position)
+            return (Token(kind: .eof, value: "", position: charPosition), position)
         }
 
-        let char = buffer[position]
+        let char = source[position]
+        let charPosition = source.distance(from: source.startIndex, to: position)
 
         // Template delimiters - check for {{, {%, and {#
-        if char == 0x7B, position + 1 < buffer.count {  // '{'
-            let nextChar = buffer[position + 1]
-            if nextChar == 0x7B {  // '{' -> "{{"
-                return (Token(kind: .openExpression, value: "{{", position: position), position + 2)
-            } else if nextChar == 0x25 {  // '%' -> "{%"
-                return (Token(kind: .openStatement, value: "{%", position: position), position + 2)
-            } else if nextChar == 0x23 {  // '#' -> "{#"
-                return try extractCommentTokenFromBuffer(buffer, at: position)
+        if char == "{" {
+            let nextIndex = source.index(after: position)
+            if nextIndex < source.endIndex {
+                let nextChar = source[nextIndex]
+                if nextChar == "{" {  // "{{"
+                    let endIndex = source.index(after: nextIndex)
+                    return (
+                        Token(
+                            kind: .openExpression, value: source[position..<endIndex],
+                            position: charPosition), endIndex
+                    )
+                } else if nextChar == "%" {  // "{%"
+                    let endIndex = source.index(after: nextIndex)
+                    return (
+                        Token(
+                            kind: .openStatement, value: source[position..<endIndex],
+                            position: charPosition), endIndex
+                    )
+                } else if nextChar == "#" {  // "{#"
+                    return try extractCommentToken(from: source, at: position)
+                }
             }
         }
 
         // Check for closing delimiters
-        if char == 0x7D, position + 1 < buffer.count {  // '}'
-            let nextChar = buffer[position + 1]
-            if nextChar == 0x7D && curlyBracketDepth == 0 {  // '}' -> "}}" (only if not inside object literal)
+        if char == "}" {
+            let nextIndex = source.index(after: position)
+            if nextIndex < source.endIndex && source[nextIndex] == "}" && curlyBracketDepth == 0 {
+                let endIndex = source.index(after: nextIndex)
                 return (
-                    Token(kind: .closeExpression, value: "}}", position: position), position + 2
+                    Token(
+                        kind: .closeExpression, value: source[position..<endIndex],
+                        position: charPosition), endIndex
                 )
             }
         }
-        if char == 0x25, position + 1 < buffer.count {  // '%'
-            let nextChar = buffer[position + 1]
-            if nextChar == 0x7D {  // '}' -> "%}"
-                return (Token(kind: .closeStatement, value: "%}", position: position), position + 2)
+        if char == "%" {
+            let nextIndex = source.index(after: position)
+            if nextIndex < source.endIndex && source[nextIndex] == "}" {
+                let endIndex = source.index(after: nextIndex)
+                return (
+                    Token(
+                        kind: .closeStatement, value: source[position..<endIndex],
+                        position: charPosition), endIndex
+                )
             }
         }
 
         if !inTag {
-            return extractTextTokenFromBuffer(buffer, at: position)
+            return extractTextToken(from: source, at: position)
         }
 
         // Single character tokens
+        let nextIndex = source.index(after: position)
         switch char {
-        case 0x28: return (Token(kind: .openParen, value: "(", position: position), position + 1)  // '('
-        case 0x29: return (Token(kind: .closeParen, value: ")", position: position), position + 1)  // ')'
-        case 0x5B:
-            return (Token(kind: .openBracket, value: "[", position: position), position + 1)  // '['
-        case 0x5D:
-            return (Token(kind: .closeBracket, value: "]", position: position), position + 1)  // ']'
-        case 0x7B: return (Token(kind: .openBrace, value: "{", position: position), position + 1)  // '{'
-        case 0x7D: return (Token(kind: .closeBrace, value: "}", position: position), position + 1)  // '}'
-        case 0x2C: return (Token(kind: .comma, value: ",", position: position), position + 1)  // ','
-        case 0x2E: return (Token(kind: .dot, value: ".", position: position), position + 1)  // '.'
-        case 0x3A: return (Token(kind: .colon, value: ":", position: position), position + 1)  // ':'
-        case 0x7C: return (Token(kind: .pipe, value: "|", position: position), position + 1)  // '|'
+        case "(":
+            return (
+                Token(
+                    kind: .openParen, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case ")":
+            return (
+                Token(
+                    kind: .closeParen, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case "[":
+            return (
+                Token(
+                    kind: .openBracket, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case "]":
+            return (
+                Token(
+                    kind: .closeBracket, value: source[position..<nextIndex], position: charPosition
+                ), nextIndex
+            )
+        case "{":
+            return (
+                Token(
+                    kind: .openBrace, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case "}":
+            return (
+                Token(
+                    kind: .closeBrace, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case ",":
+            return (
+                Token(kind: .comma, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case ".":
+            return (
+                Token(kind: .dot, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case ":":
+            return (
+                Token(kind: .colon, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
+        case "|":
+            return (
+                Token(kind: .pipe, value: source[position..<nextIndex], position: charPosition),
+                nextIndex
+            )
         default: break
         }
 
         // Multi-character operators
         for length in [2, 1] {
-            if position + length <= buffer.count {
-                let opBytes = buffer[position..<position + length]
-                let op = String(decoding: opBytes, as: UTF8.self)
+            var endIndex = position
+            for _ in 0..<length {
+                guard endIndex < source.endIndex else { break }
+                endIndex = source.index(after: endIndex)
+            }
+            if endIndex <= source.endIndex {
+                let op = String(source[position..<endIndex])
                 if let tokenKind = operators[op] {
                     return (
-                        Token(kind: tokenKind, value: op, position: position), position + length
+                        Token(
+                            kind: tokenKind, value: source[position..<endIndex],
+                            position: charPosition), endIndex
                     )
                 }
             }
         }
 
         // String literals
-        if char == 0x27 || char == 0x22 {  // "'" or '"'
-            return try extractStringTokenFromBuffer(buffer, at: position, delimiter: char)
+        if char == "'" || char == "\"" {
+            return try extractStringToken(from: source, at: position, delimiter: char)
         }
 
         // Numbers
-        if char >= 0x30 && char <= 0x39 {  // '0'-'9'
-            return extractNumberTokenFromBuffer(buffer, at: position)
+        if char.isNumber {
+            return extractNumberToken(from: source, at: position)
         }
 
         // Identifiers and keywords
-        if (char >= 0x41 && char <= 0x5A) || (char >= 0x61 && char <= 0x7A) || char == 0x5F {  // A-Z, a-z, _
-            return extractIdentifierTokenFromBuffer(buffer, at: position)
+        if char.isLetter || char == "_" {
+            return extractIdentifierToken(from: source, at: position)
         }
 
         throw JinjaError.lexer(
-            "Unexpected character '\(String(decoding: [char], as: UTF8.self))' at position \(position)"
+            "Unexpected character '\(char)' at position \(charPosition)"
         )
     }
 
-    private static func extractTextTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) -> (
-        Token, Int
-    ) {
+    private static func extractTextToken(
+        from source: String, at position: String.Index
+    ) -> (Token, String.Index) {
         var pos = position
+        let startPos = position
 
-        while pos < buffer.count {
-            if pos < buffer.count - 1 {
-                if buffer[pos] == 0x7B
-                    && (buffer[pos + 1] == 0x7B || buffer[pos + 1] == 0x25
-                        || buffer[pos + 1] == 0x23)
-                {  // `{{`, `{%`, or `{#`
+        while pos < source.endIndex {
+            let char = source[pos]
+            let nextIndex = source.index(after: pos)
+
+            if nextIndex <= source.endIndex {
+                if char == "{" && nextIndex < source.endIndex {
+                    let nextChar = source[nextIndex]
+                    if nextChar == "{" || nextChar == "%" || nextChar == "#" {
+                        break
+                    }
+                }
+                if char == "}" && nextIndex < source.endIndex && source[nextIndex] == "}" {
                     break
                 }
-                if buffer[pos] == 0x7D && buffer[pos + 1] == 0x7D {  // `}}`
+                if char == "%" && nextIndex < source.endIndex && source[nextIndex] == "}" {
                     break
                 }
-                if buffer[pos] == 0x25 && buffer[pos + 1] == 0x7D {  // `%}`
-                    break
-                }
-                if buffer[pos] == 0x23 && buffer[pos + 1] == 0x7D {  // `#}`
+                if char == "#" && nextIndex < source.endIndex && source[nextIndex] == "}" {
                     break
                 }
             }
-            pos += 1
+            pos = nextIndex
         }
 
-        let valueBytes = buffer[position..<pos]
-        let value = String(decoding: valueBytes, as: UTF8.self)
-        return (Token(kind: .text, value: value, position: position), pos)
+        let charPosition = source.distance(from: source.startIndex, to: position)
+        return (Token(kind: .text, value: source[startPos..<pos], position: charPosition), pos)
     }
 
-    private static func extractStringTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int, delimiter: UInt8
-    ) throws -> (Token, Int) {
-        var pos = position + 1
+    private static func extractStringToken(
+        from source: String, at position: String.Index, delimiter: Character
+    ) throws -> (Token, String.Index) {
+        var pos = source.index(after: position)
         var value = ""
+        let charPosition = source.distance(from: source.startIndex, to: position)
 
-        while pos < buffer.count {
-            let char = buffer[pos]
+        while pos < source.endIndex {
+            let char = source[pos]
 
             if char == delimiter {
-                return (Token(kind: .string, value: value, position: position), pos + 1)
+                let nextPos = source.index(after: pos)
+                return (Token(kind: .string, value: value, position: charPosition), nextPos)
             }
 
-            if char == 0x5C && pos + 1 < buffer.count {  // '\'
-                pos += 1
-                let escaped = buffer[pos]
-                switch escaped {
-                case 0x6E: value += "\n"  // 'n'
-                case 0x74: value += "\t"  // 't'
-                case 0x72: value += "\r"  // 'r'
-                case 0x62: value += "\u{8}"  // 'b' (backspace)
-                case 0x66: value += "\u{C}"  // 'f' (form feed)
-                case 0x76: value += "\u{B}"  // 'v' (vertical tab)
-                case 0x5C: value += "\\"  // '\'
-                case 0x22: value += "\""  // '"'
-                case 0x27: value += "'"  // "'"
-                default:
-                    // For any other character, just add it as-is (including the backslash in some cases)
-                    value += String(decoding: [escaped], as: UTF8.self)
+            if char == "\\" {
+                pos = source.index(after: pos)
+                if pos < source.endIndex {
+                    let escaped = source[pos]
+                    switch escaped {
+                    case "n": value += "\n"
+                    case "t": value += "\t"
+                    case "r": value += "\r"
+                    case "b": value += "\u{8}"  // backspace
+                    case "f": value += "\u{C}"  // form feed
+                    case "v": value += "\u{B}"  // vertical tab
+                    case "\\": value += "\\"
+                    case "\"": value += "\""
+                    case "'": value += "'"
+                    default:
+                        value += String(escaped)
+                    }
                 }
             } else {
-                value += String(decoding: [char], as: UTF8.self)
+                value += String(char)
             }
 
-            pos += 1
+            pos = source.index(after: pos)
         }
 
-        throw JinjaError.lexer("Unclosed string at position \(position)")
+        throw JinjaError.lexer("Unclosed string at position \(charPosition)")
     }
 
-    private static func extractNumberTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) -> (Token, Int) {
+    private static func extractNumberToken(
+        from source: String, at position: String.Index
+    ) -> (Token, String.Index) {
         var pos = position
         var hasDot = false
+        let startPos = position
 
-        while pos < buffer.count {
-            let char = buffer[pos]
-            if char >= 0x30 && char <= 0x39 {  // '0'-'9'
-                pos += 1
-            } else if char == 0x2E && !hasDot {  // '.'
+        while pos < source.endIndex {
+            let char = source[pos]
+            if char.isNumber {
+                pos = source.index(after: pos)
+            } else if char == "." && !hasDot {
                 hasDot = true
-                pos += 1
+                pos = source.index(after: pos)
             } else {
                 break
             }
         }
 
-        let valueBytes = buffer[position..<pos]
-        let value = String(decoding: valueBytes, as: UTF8.self)
-        return (Token(kind: .number, value: value, position: position), pos)
+        let charPosition = source.distance(from: source.startIndex, to: position)
+        return (Token(kind: .number, value: source[startPos..<pos], position: charPosition), pos)
     }
 
-    private static func extractIdentifierTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) -> (Token, Int) {
+    private static func extractIdentifierToken(
+        from source: String, at position: String.Index
+    ) -> (Token, String.Index) {
         var pos = position
+        let startPos = position
 
-        while pos < buffer.count {
-            let char = buffer[pos]
-            if (char >= 0x41 && char <= 0x5A) || (char >= 0x61 && char <= 0x7A)
-                || (char >= 0x30 && char <= 0x39) || char == 0x5F
-            {  // A-Z, a-z, 0-9, _
-                pos += 1
+        while pos < source.endIndex {
+            let char = source[pos]
+            if char.isLetter || char.isNumber || char == "_" {
+                pos = source.index(after: pos)
             } else {
                 break
             }
         }
 
-        let valueBytes = buffer[position..<pos]
-        let value = String(decoding: valueBytes, as: UTF8.self)
+        let value = String(source[startPos..<pos])
         let tokenKind = keywords[value] ?? .identifier
-        return (Token(kind: tokenKind, value: value, position: position), pos)
+        let charPosition = source.distance(from: source.startIndex, to: position)
+        return (Token(kind: tokenKind, value: source[startPos..<pos], position: charPosition), pos)
     }
 
-    private static func extractCommentTokenFromBuffer(
-        _ buffer: UnsafeBufferPointer<UInt8>, at position: Int
-    ) throws -> (Token, Int) {
-        var pos = position + 2  // Skip the opening {#
+    private static func extractCommentToken(
+        from source: String, at position: String.Index
+    ) throws -> (Token, String.Index) {
+        // Skip the opening {#
+        var pos = source.index(position, offsetBy: 2)
         var value = ""
+        let charPosition = source.distance(from: source.startIndex, to: position)
 
-        while pos < buffer.count {
-            if pos + 1 < buffer.count && buffer[pos] == 0x23 && buffer[pos + 1] == 0x7D {  // '#}'
-                return (Token(kind: .comment, value: value, position: position), pos + 2)
+        while pos < source.endIndex {
+            let char = source[pos]
+            let nextIndex = source.index(after: pos)
+
+            if nextIndex < source.endIndex && char == "#" && source[nextIndex] == "}" {
+                let endPos = source.index(after: nextIndex)
+                return (Token(kind: .comment, value: value, position: charPosition), endPos)
             }
-            value += String(decoding: [buffer[pos]], as: UTF8.self)
-            pos += 1
+
+            value += String(char)
+            pos = nextIndex
         }
 
-        throw JinjaError.lexer("Unclosed comment at position \(position)")
+        throw JinjaError.lexer("Unclosed comment at position \(charPosition)")
     }
 
 }
