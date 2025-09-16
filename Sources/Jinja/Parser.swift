@@ -698,12 +698,10 @@ public struct Parser: Sendable {
     }
 
     @inline(__always)
-    private mutating func match(_ kinds: Token.Kind...) -> Bool {
-        for kind in kinds {
-            if check(kind) {
-                advance()
-                return true
-            }
+    private mutating func match(_ kind: Token.Kind) -> Bool {
+        if check(kind) {
+            advance()
+            return true
         }
         return false
     }
