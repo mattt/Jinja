@@ -40,11 +40,14 @@ public struct Template: Hashable, Sendable {
     public init(_ template: String, with options: Options = .init()) throws {
         var source = template
 
+        // Handle Jinja whitespace control first (more efficient than original 4 regex approach)
+        source = Self.preprocessWhitespaceControl(source)
+
         // Apply lstrip_blocks if enabled
         if options.lstripBlocks {
             // Strip tabs and spaces from the beginning of a line to the start of a block
             // This matches lines that start with spaces/tabs followed by {%, {#, or {-
-            let lines = template.components(separatedBy: .newlines)
+            let lines = source.components(separatedBy: .newlines)
             let leadingWhitespace = /^[ \t]*{[#%]/
             let removeWhitespace = /^[ \t]*/
             source = lines.map { line in
@@ -66,6 +69,70 @@ public struct Template: Hashable, Sendable {
 
         let tokens = try Lexer.tokenize(source)
         self.nodes = try Parser.parse(tokens)
+    }
+
+    private static func preprocessWhitespaceControl(_ template: String) -> String {
+        var result = ""
+        result.reserveCapacity(template.count)
+
+        var i = template.startIndex
+
+        while i < template.endIndex {
+            let char = template[i]
+
+            if char == "{" {
+                let next = template.index(after: i)
+                if next < template.endIndex {
+                    let nextChar = template[next]
+                    if nextChar == "%" || nextChar == "{" {
+                        // Look for {%- or {{-
+                        let afterNext = template.index(after: next)
+                        if afterNext < template.endIndex && template[afterNext] == "-" {
+                            // Strip preceding whitespace
+                            while !result.isEmpty && result.last!.isWhitespace {
+                                result.removeLast()
+                            }
+                            // Add the delimiter without the dash
+                            result += String(template[i..<next])
+                            i = template.index(after: afterNext)
+                            continue
+                        }
+                    }
+                }
+            } else if char == "-" {
+                let next = template.index(after: i)
+                if next < template.endIndex {
+                    let nextChar = template[next]
+                    if nextChar == "}" {
+                        let afterNext = template.index(after: next)
+                        if afterNext < template.endIndex && template[afterNext] == "}" {
+                            // -}} case - add closing delimiter and skip following whitespace
+                            result += "}}"
+                            i = template.index(after: afterNext)
+                            // Skip following whitespace
+                            while i < template.endIndex && template[i].isWhitespace {
+                                i = template.index(after: i)
+                            }
+                            continue
+                        } else {
+                            // -%} case - add closing delimiter and skip following whitespace
+                            result += "%}"
+                            i = template.index(after: next)
+                            // Skip following whitespace
+                            while i < template.endIndex && template[i].isWhitespace {
+                                i = template.index(after: i)
+                            }
+                            continue
+                        }
+                    }
+                }
+            }
+
+            result += String(char)
+            i = template.index(after: i)
+        }
+
+        return result
     }
 
     /// Renders the template with the given context variables.
