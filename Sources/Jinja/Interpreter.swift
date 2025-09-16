@@ -301,37 +301,12 @@ public enum Interpreter {
                             }
                         }
 
-                        // Set loop context variables
-                        let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .int(index + 1),
-                            "index0": .int(index),
-                            "first": .boolean(index == 0),
-                            "last": .boolean(index == items.count - 1),
-                            "length": .int(items.count),
-                            "revindex": .int(items.count - index),
-                            "revindex0": .int(items.count - index - 1),
-                        ]
-
-                        // Add cycle function
-                        let cycleFunction:
-                            @Sendable ([Value], [String: Value], Environment) throws -> Value = {
-                                cycleArgs, _, _ in
-                                guard !cycleArgs.isEmpty else { return .string("") }
-                                let cycleIndex = index % cycleArgs.count
-                                return cycleArgs[cycleIndex]
-                            }
-
-                        var loopObj = loopContext
-                        loopObj["cycle"] = .function(cycleFunction)
-                        childEnv["loop"] = .object(loopObj)
-
-                        // Optional inline test filter for the loop
+                        childEnv["loop"] = makeLoopObject(index: index, totalCount: items.count)
                         if let test = test {
                             let testValue = try evaluateExpression(test, env: childEnv)
                             if !testValue.isTruthy { continue }
                         }
 
-                        // Execute body
                         var shouldBreak = false
                         for node in body {
                             do {
@@ -370,22 +345,7 @@ public enum Interpreter {
                                 childEnv[varNames[i]] = .undefined
                             }
                         }
-                        let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .int(index + 1),
-                            "index0": .int(index),
-                            "first": .boolean(index == 0),
-                            "last": .boolean(index == dict.count - 1),
-                            "length": .int(dict.count),
-                            "revindex": .int(dict.count - index),
-                            "revindex0": .int(dict.count - index - 1),
-                        ]
-                        var loopObj = loopContext
-                        loopObj["cycle"] = .function { args, _, _ in
-                            guard !args.isEmpty else { return .string("") }
-                            let cycleIndex = index % args.count
-                            return args[cycleIndex]
-                        }
-                        childEnv["loop"] = .object(loopObj)
+                        childEnv["loop"] = makeLoopObject(index: index, totalCount: dict.count)
                         if let test = test {
                             let testValue = try evaluateExpression(test, env: childEnv)
                             if !testValue.isTruthy { continue }
@@ -408,22 +368,7 @@ public enum Interpreter {
                                 childEnv[varName] = i == 0 ? item : .undefined
                             }
                         }
-                        let loopContext: OrderedDictionary<String, Value> = [
-                            "index": .int(index + 1),
-                            "index0": .int(index),
-                            "first": .boolean(index == 0),
-                            "last": .boolean(index == chars.count - 1),
-                            "length": .int(chars.count),
-                            "revindex": .int(chars.count - index),
-                            "revindex0": .int(chars.count - index - 1),
-                        ]
-                        var loopObj = loopContext
-                        loopObj["cycle"] = .function { args, _, _ in
-                            guard !args.isEmpty else { return .string("") }
-                            let cycleIndex = index % args.count
-                            return args[cycleIndex]
-                        }
-                        childEnv["loop"] = .object(loopObj)
+                        childEnv["loop"] = makeLoopObject(index: index, totalCount: chars.count)
                         if let test = test {
                             let testValue = try evaluateExpression(test, env: childEnv)
                             if !testValue.isTruthy { continue }
@@ -922,6 +867,26 @@ public enum Interpreter {
         }
 
         throw JinjaError.runtime("Unknown filter: \(filterName)")
+    }
+
+    private static func makeLoopObject(index: Int, totalCount: Int) -> Value {
+        var loopContext: OrderedDictionary<String, Value> = [
+            "index": .int(index + 1),
+            "index0": .int(index),
+            "first": .boolean(index == 0),
+            "last": .boolean(index == totalCount - 1),
+            "length": .int(totalCount),
+            "revindex": .int(totalCount - index),
+            "revindex0": .int(totalCount - index - 1),
+        ]
+
+        loopContext["cycle"] = .function { args, _, _ in
+            guard !args.isEmpty else { return .string("") }
+            let cycleIndex = index % args.count
+            return args[cycleIndex]
+        }
+
+        return .object(loopContext)
     }
 
     private static func evaluateSlice(
