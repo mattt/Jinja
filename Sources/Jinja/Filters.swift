@@ -429,7 +429,7 @@ public enum Filters {
 
     /// Selects items with an attribute that passes a test.
     /// If no test is specified,
-    /// the attribute's value will be evaluated as a boolean.
+    /// the attribute's value will be evaluated as a Boolean.
     @Sendable public static func selectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
@@ -463,7 +463,7 @@ public enum Filters {
 
     /// Rejects items with an attribute that passes a test.
     /// If no test is specified,
-    /// the attribute's value will be evaluated as a boolean.
+    /// the attribute's value will be evaluated as a Boolean.
     @Sendable public static func rejectattr(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {

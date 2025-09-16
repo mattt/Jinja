@@ -5,10 +5,13 @@ import OrderedCollections
 public indirect enum Node: Hashable, Codable, Sendable {
     /// Plain text content to be output directly.
     case text(String)
+
     /// Expression to be evaluated and output.
     case expression(Expression)
+
     /// Control flow statement to be executed.
     case statement(Statement)
+
     /// Comment content to be ignored during execution.
     case comment(String)
 }

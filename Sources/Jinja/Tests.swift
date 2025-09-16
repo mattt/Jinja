@@ -1,7 +1,7 @@
 /// Built-in tests for Jinja template rendering.
 ///
 /// Tests are used with the `is` operator to check conditions about values.
-/// All test functions return a boolean result and follow the same signature pattern,
+/// All test functions return a Boolean result and follow the same signature pattern,
 /// accepting an array of values, optional keyword arguments, and an environment.
 public enum Tests {
     // MARK: - Basic Tests
@@ -76,7 +76,7 @@ public enum Tests {
         return input.isInt || input.isDouble
     }
 
-    /// Tests if the input is a boolean.
+    /// Tests if the input is a Boolean.
     @Sendable public static func boolean(
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Bool {
