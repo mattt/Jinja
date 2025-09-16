@@ -104,21 +104,21 @@ struct GlobalsTests {
 
     @Test("strftime_now with no arguments")
     func strftimeNowNoArguments() throws {
-        #expect(throws: JinjaError.self) {
+        #expect(throws: RuntimeError.self) {
             try Globals.strftimeNow([], [:], env)
         }
     }
 
     @Test("strftime_now with too many arguments")
     func strftimeNowTooManyArguments() throws {
-        #expect(throws: JinjaError.self) {
+        #expect(throws: RuntimeError.self) {
             try Globals.strftimeNow([.string("%Y"), .string("%m")], [:], env)
         }
     }
 
     @Test("strftime_now with non-string argument")
     func strftimeNowNonStringArgument() throws {
-        #expect(throws: JinjaError.self) {
+        #expect(throws: RuntimeError.self) {
             try Globals.strftimeNow([.int(2024)], [:], env)
         }
     }

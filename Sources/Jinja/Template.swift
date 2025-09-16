@@ -36,7 +36,7 @@ public struct Template: Hashable, Sendable {
     /// - Parameters:
     ///   - template: The Jinja template source code to parse
     ///   - options: Configuration options for template parsing
-    /// - Throws: `JinjaError` if the template contains syntax errors
+    /// - Throws: `TokenizationError` or `ParseError` if the template contains syntax errors
     public init(_ template: String, with options: Options = .init()) throws {
         var source = template
 
@@ -74,7 +74,7 @@ public struct Template: Hashable, Sendable {
     ///   - context: Variables and values to use during template rendering
     ///   - environment: Optional environment containing additional variables and settings
     /// - Returns: The rendered template as a string
-    /// - Throws: `JinjaError` if an error occurs during template rendering
+    /// - Throws: `RuntimeError` if an error occurs during template rendering
     public func render(
         _ context: [String: Value],
         environment: Environment? = nil

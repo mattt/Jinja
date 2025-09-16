@@ -27,7 +27,7 @@ public enum Lexer: Sendable {
     ///
     /// - Parameter source: The Jinja template source code to tokenize
     /// - Returns: An array of tokens representing the lexical structure
-    /// - Throws: `JinjaError.lexer` if the source contains invalid syntax
+    /// - Throws: `TokenizationError` if the source contains invalid syntax
     public static func tokenize(_ source: String) throws
         -> [Token]
     {
@@ -199,8 +199,9 @@ public enum Lexer: Sendable {
             return extractIdentifierTokenFromBuffer(buffer, at: position)
         }
 
-        throw JinjaError.lexer(
-            "Unexpected character '\(String(decoding: [char], as: UTF8.self))' at position \(position)"
+        throw TokenizationError(
+            "Unexpected character '\(String(decoding: [char], as: UTF8.self))'",
+            at: position
         )
     }
 
@@ -274,7 +275,7 @@ public enum Lexer: Sendable {
             pos += 1
         }
 
-        throw JinjaError.lexer("Unclosed string at position \(position)")
+        throw TokenizationError("Unclosed string", at: position)
     }
 
     private static func extractNumberTokenFromBuffer(
@@ -336,7 +337,7 @@ public enum Lexer: Sendable {
             pos += 1
         }
 
-        throw JinjaError.lexer("Unclosed comment at position \(position)")
+        throw TokenizationError("Unclosed comment", at: position)
     }
 
 }

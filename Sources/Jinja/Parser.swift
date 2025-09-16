@@ -17,7 +17,7 @@ public struct Parser: Sendable {
     ///
     /// - Parameter tokens: The sequence of tokens to parse
     /// - Returns: An array of parsed AST nodes representing the template
-    /// - Throws: `JinjaError.parser` if the tokens contain syntax errors
+    /// - Throws: `ParseError` if the tokens contain syntax errors
     public static func parse(_ tokens: [Token]) throws -> [Node] {
         var parser = Parser(tokens: tokens)
         var nodes: [Node] = []
@@ -69,7 +69,7 @@ public struct Parser: Sendable {
 
         default:
             if isAtEnd { return .text("") }
-            throw JinjaError.parser("Unexpected token type: \(token.kind)")
+            throw ParseError("Unexpected token type", actual: "\(token.kind)")
         }
     }
 
@@ -132,7 +132,7 @@ public struct Parser: Sendable {
             advance()
             return try parseFilterStatement()
         default:
-            throw JinjaError.parser("Unknown statement: \(keywordToken.value)")
+            throw ParseError("Unknown statement: \(keywordToken.value)")
         }
     }
 
@@ -159,7 +159,7 @@ public struct Parser: Sendable {
                 try consume(.closeStatement, message: "Expected '%}' after endif.")
             }
         } else {
-            throw JinjaError.parser("Unclosed if statement")
+            throw ParseError("Unclosed if statement", expected: ["endif"])
         }
 
         return .if(condition, body, alternate)
@@ -204,7 +204,7 @@ public struct Parser: Sendable {
                 try consume(.closeStatement, message: "Expected '%}' after endfor.")
             }
         } else {
-            throw JinjaError.parser("Unclosed for loop")
+            throw ParseError("Unclosed for loop", expected: ["endfor"])
         }
 
         return .for(loopVar, iterableExpr, body, elseBody, test: testExpr)
@@ -400,7 +400,8 @@ public struct Parser: Sendable {
                     testName = token.value
                     advance()
                 } else {
-                    throw JinjaError.parser("Expected test name but found \(token.kind).")
+                    throw ParseError(
+                        "Expected test name but found \(token.kind).", expected: ["identifier"])
                 }
                 var args: [Expression] = []
                 if match(.openParen) {
@@ -514,7 +515,7 @@ public struct Parser: Sendable {
                 } else if let index = start {
                     expr = .member(expr, index, computed: true)
                 } else {
-                    throw JinjaError.parser("Invalid subscript")
+                    throw ParseError("Invalid subscript")
                 }
                 try consume(.closeBracket, message: "Expected ']' after index.")
             } else if match(.openParen) {
@@ -574,8 +575,9 @@ public struct Parser: Sendable {
                         keyToken = try consume(
                             .identifier, message: "Expected identifier for object key.")
                     } else {
-                        throw JinjaError.parser(
-                            "Expected string literal or identifier for object key. Got \(peek().kind) instead"
+                        throw ParseError(
+                            "Expected string literal or identifier for object key. Got \(peek().kind) instead",
+                            expected: ["string", "identifier"]
                         )
                     }
                     try consume(.colon, message: "Expected ':' after object key.")
@@ -629,7 +631,8 @@ public struct Parser: Sendable {
             let expr = try parsePrimary()
             return .unary(.multiply, expr)
         default:
-            throw JinjaError.parser("Unexpected token for primary expression: \(token.kind)")
+            throw ParseError(
+                "Unexpected token for primary expression: \(token.kind)", actual: "\(token.kind)")
         }
     }
 
@@ -671,7 +674,7 @@ public struct Parser: Sendable {
     private func peekIdentifier() throws -> String {
         let token = peek()
         guard token.kind == .identifier else {
-            throw JinjaError.parser("Expected identifier")
+            throw ParseError("Expected identifier", expected: ["identifier"])
         }
         return token.value
     }
@@ -706,7 +709,7 @@ public struct Parser: Sendable {
     @discardableResult
     private mutating func consume(_ kind: Token.Kind, message: String) throws -> Token {
         if check(kind) { return advance() }
-        throw JinjaError.parser("\(message). Got \(peek().kind) instead")
+        throw ParseError("\(message). Got \(peek().kind) instead", actual: "\(peek().kind)")
     }
 
     private static let allowedAsIdentifier: Set<Token.Kind> = [
@@ -719,11 +722,12 @@ public struct Parser: Sendable {
 
         if Self.allowedAsIdentifier.contains(token.kind) {
             if let name = name, token.value != name {
-                throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
+                throw ParseError(
+                    "Expected identifier '\(name)' but found '\(token.value)'.", expected: [name])
             }
             advance()
             return token.value
         }
-        throw JinjaError.parser("Expected identifier but found \(token.kind).")
+        throw ParseError("Expected identifier but found \(token.kind).", expected: ["identifier"])
     }
 }

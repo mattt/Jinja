@@ -31,11 +31,11 @@ struct TemplateTests {
                 Token(kind: .eof, value: "", position: 2),
             ])
 
-        #expect(throws: JinjaError.self) {
+        #expect(throws: ParseError.self) {
             try Parser.parse(tokens)
         }
 
-        #expect(throws: JinjaError.self) {
+        #expect(throws: ParseError.self) {
             try Template(string).render(context)
         }
     }
@@ -779,7 +779,7 @@ struct TemplateTests {
                     case let .int(x) = args[0],
                     case let .int(y) = args[1]
                 else {
-                    throw JinjaError.runtime("Invalid arguments for add function")
+                    throw RuntimeError("Invalid arguments for add function")
                 }
                 return .int(x + y)
             },
@@ -1967,7 +1967,7 @@ struct TemplateTests {
                     case let .int(x) = args[0],
                     case let .int(y) = args[1]
                 else {
-                    throw JinjaError.runtime("Invalid arguments for add function")
+                    throw RuntimeError("Invalid arguments for add function")
                 }
                 return .int(x + y)
             },
