@@ -255,94 +255,8 @@ public enum Interpreter {
             }
 
         case let .slice(array, start, stop, step):
-            let arrayValue = try evaluateExpression(array, env: env)
-
-            let startIdx: Value? = try start.map { try evaluateExpression($0, env: env) }
-            let stopIdx: Value? = try stop.map { try evaluateExpression($0, env: env) }
-            let stepVal: Value? = try step.map { try evaluateExpression($0, env: env) }
-
-            switch arrayValue {
-            case let .array(items):
-                // Array slice implementation similar to string slicing
-                var sliceStart = 0
-                var sliceEnd = items.count
-                var sliceStep = 1
-
-                if let stepValue = stepVal, case let .int(st) = stepValue {
-                    sliceStep = st
-                }
-
-                if let startValue = startIdx, case let .int(s) = startValue {
-                    sliceStart = s >= 0 ? s : items.count + s
-                } else if sliceStep < 0 {
-                    sliceStart = items.count - 1
-                }
-
-                if let stopValue = stopIdx, case let .int(e) = stopValue {
-                    sliceEnd = e >= 0 ? e : items.count + e
-                } else if sliceStep < 0 {
-                    sliceEnd = -1  // Go to beginning for reverse slice
-                }
-
-                var result: [Value] = []
-                if sliceStep > 0 {
-                    var idx = sliceStart
-                    while idx < sliceEnd && idx >= 0 && idx < items.count {
-                        result.append(items[idx])
-                        idx += sliceStep
-                    }
-                } else if sliceStep < 0 {
-                    var idx = sliceStart
-                    while idx > sliceEnd && idx >= 0 && idx < items.count {
-                        result.append(items[idx])
-                        idx += sliceStep
-                    }
-                }
-                return .array(result)
-
-            case let .string(str):
-                // String slice implementation
-                let chars = Array(str)
-                var sliceStart = 0
-                var sliceEnd = chars.count
-                var sliceStep = 1
-
-                if let stepValue = stepVal, case let .int(st) = stepValue {
-                    sliceStep = st
-                }
-
-                if let startValue = startIdx, case let .int(s) = startValue {
-                    sliceStart = s >= 0 ? s : chars.count + s
-                } else if sliceStep < 0 {
-                    sliceStart = chars.count - 1
-                }
-
-                if let stopValue = stopIdx, case let .int(e) = stopValue {
-                    sliceEnd = e >= 0 ? e : chars.count + e
-                } else if sliceStep < 0 {
-                    sliceEnd = -1  // Go to beginning for reverse slice
-                }
-
-                var result: [Character] = []
-                if sliceStep > 0 {
-                    var idx = sliceStart
-                    while idx < sliceEnd && idx >= 0 && idx < chars.count {
-                        result.append(chars[idx])
-                        idx += sliceStep
-                    }
-                } else if sliceStep < 0 {
-                    var idx = sliceStart
-                    while idx > sliceEnd && idx >= 0 && idx < chars.count {
-                        result.append(chars[idx])
-                        idx += sliceStep
-                    }
-                }
-
-                return .string(String(result))
-
-            default:
-                throw JinjaError.runtime("Slice requires array or string")
-            }
+            let value = try evaluateExpression(array, env: env)
+            return try evaluateSlice(value: value, start: start, stop: stop, step: step, env: env)
         }
     }
 
@@ -1008,6 +922,78 @@ public enum Interpreter {
         }
 
         throw JinjaError.runtime("Unknown filter: \(filterName)")
+    }
+
+    private static func evaluateSlice(
+        value: Value, start: Expression?, stop: Expression?, step: Expression?, env: Environment
+    ) throws -> Value {
+        let startVal = try start.map { try evaluateExpression($0, env: env) }
+        let stopVal = try stop.map { try evaluateExpression($0, env: env) }
+        let stepVal = try step.map { try evaluateExpression($0, env: env) }
+
+        let step: Int
+        if let s = stepVal, case let .int(val) = s {
+            if val == 0 { throw JinjaError.runtime("Slice step cannot be zero") }
+            step = val
+        } else {
+            step = 1
+        }
+
+        switch value {
+        case .array(let items):
+            let count = items.count
+
+            let startIdx: Int
+            if let s = startVal, case let .int(val) = s {
+                startIdx = val >= 0 ? val : count + val
+            } else {
+                startIdx = step > 0 ? 0 : count - 1
+            }
+
+            let stopIdx: Int
+            if let s = stopVal, case let .int(val) = s {
+                stopIdx = val >= 0 ? val : count + val
+            } else {
+                stopIdx = step > 0 ? count : -1
+            }
+
+            var result: [Value] = []
+            for i in stride(from: startIdx, to: stopIdx, by: step) {
+                if i >= 0 && i < count {
+                    result.append(items[i])
+                }
+            }
+            return .array(result)
+
+        case .string(let str):
+            let count = str.count
+
+            let startIdx: Int
+            if let s = startVal, case let .int(val) = s {
+                startIdx = val >= 0 ? val : count + val
+            } else {
+                startIdx = step > 0 ? 0 : count - 1
+            }
+
+            let stopIdx: Int
+            if let s = stopVal, case let .int(val) = s {
+                stopIdx = val >= 0 ? val : count + val
+            } else {
+                stopIdx = step > 0 ? count : -1
+            }
+
+            var result = ""
+            for i in stride(from: startIdx, to: stopIdx, by: step) {
+                if i >= 0 && i < count {
+                    let index = str.index(str.startIndex, offsetBy: i)
+                    result.append(str[index])
+                }
+            }
+            return .string(String(result))
+
+        default:
+            throw JinjaError.runtime("Slice requires array or string")
+        }
     }
 
     // MARK: - Value Operations
