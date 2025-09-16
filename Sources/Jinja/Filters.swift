@@ -13,7 +13,7 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard case let .string(str) = args.first else {
-            throw RuntimeError("upper filter requires string")
+            throw JinjaError.runtime("upper filter requires string")
         }
 
         _ = try resolveCallArguments(
@@ -31,7 +31,7 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard case let .string(str) = args.first else {
-            throw RuntimeError("lower filter requires string")
+            throw JinjaError.runtime("lower filter requires string")
         }
 
         _ = try resolveCallArguments(
@@ -63,7 +63,7 @@ public enum Filters {
         case let .object(obj):
             return .int(obj.count)
         default:
-            throw RuntimeError("length filter requires string, array, or object")
+            throw JinjaError.runtime("length filter requires string, array, or object")
         }
     }
 
@@ -72,7 +72,7 @@ public enum Filters {
         _ args: [Value], kwargs: [String: Value] = [:], env: Environment
     ) throws -> Value {
         guard case let .array(array) = args.first else {
-            throw RuntimeError("join filter requires array")
+            throw JinjaError.runtime("join filter requires array")
         }
 
         let arguments = try resolveCallArguments(
@@ -83,7 +83,7 @@ public enum Filters {
         )
 
         guard case let .string(separator) = arguments["separator"] else {
-            throw RuntimeError("join filter requires string separator")
+            throw JinjaError.runtime("join filter requires string separator")
         }
 
         let strings = array.map { $0.description }
@@ -144,7 +144,7 @@ public enum Filters {
         case let .string(str):
             return str.first.map { .string(String($0)) } ?? .undefined
         default:
-            throw RuntimeError("first filter requires array or string")
+            throw JinjaError.runtime("first filter requires array or string")
         }
     }
 
@@ -169,7 +169,7 @@ public enum Filters {
         case let .string(str):
             return str.last.map { .string(String($0)) } ?? .undefined
         default:
-            throw RuntimeError("last filter requires array or string")
+            throw JinjaError.runtime("last filter requires array or string")
         }
     }
 
@@ -224,7 +224,7 @@ public enum Filters {
         case let .string(str):
             return .string(String(str.reversed()))
         default:
-            throw RuntimeError("reverse filter requires array or string")
+            throw JinjaError.runtime("reverse filter requires array or string")
         }
     }
 
@@ -291,7 +291,7 @@ public enum Filters {
         )
 
         guard case let .string(attribute) = arguments["attribute"] else {
-            throw RuntimeError("groupby filter requires attribute parameter")
+            throw JinjaError.runtime("groupby filter requires attribute parameter")
         }
 
         var groups = OrderedDictionary<Value, [Value]>()
@@ -324,7 +324,7 @@ public enum Filters {
         )
 
         guard case let .int(numSlices) = arguments["numSlices"], numSlices > 0 else {
-            throw RuntimeError("slice filter requires positive integer numSlices parameter")
+            throw JinjaError.runtime("slice filter requires positive integer numSlices parameter")
         }
 
         let fillWith = arguments["fillWith"]!
@@ -391,7 +391,7 @@ public enum Filters {
         )
 
         guard case let .string(testName) = arguments["testName"] else {
-            throw RuntimeError("select filter requires testName parameter")
+            throw JinjaError.runtime("select filter requires testName parameter")
         }
 
         let testArgs = Array(args.dropFirst(2))
@@ -417,7 +417,7 @@ public enum Filters {
         )
 
         guard case let .string(testName) = arguments["testName"] else {
-            throw RuntimeError("reject filter requires testName parameter")
+            throw JinjaError.runtime("reject filter requires testName parameter")
         }
 
         let testArgs = Array(args.dropFirst(2))
@@ -445,7 +445,7 @@ public enum Filters {
         )
 
         guard case let .string(attribute) = arguments["attribute"] else {
-            throw RuntimeError("selectattr filter requires attribute parameter")
+            throw JinjaError.runtime("selectattr filter requires attribute parameter")
         }
 
         let testArgs = Array(args.dropFirst(2))
@@ -479,7 +479,7 @@ public enum Filters {
         )
 
         guard case let .string(attribute) = arguments["attribute"] else {
-            throw RuntimeError("rejectattr filter requires attribute parameter")
+            throw JinjaError.runtime("rejectattr filter requires attribute parameter")
         }
 
         let testArgs = Array(args.dropFirst(2))
@@ -513,7 +513,7 @@ public enum Filters {
         )
 
         guard case let .string(attribute) = arguments["attribute"] else {
-            throw RuntimeError("attr filter requires attribute parameter")
+            throw JinjaError.runtime("attr filter requires attribute parameter")
         }
 
         return try Interpreter.evaluatePropertyMember(obj, attribute)
@@ -780,7 +780,7 @@ public enum Filters {
             if value == .null || value == .undefined { continue }
             // Validate key doesn't contain invalid characters
             if key.contains(" ") || key.contains("/") || key.contains(">") || key.contains("=") {
-                throw RuntimeError("Invalid character in XML attribute key: '\(key)'")
+                throw JinjaError.runtime("Invalid character in XML attribute key: '\(key)'")
             }
             let escapedValue = value.description
                 .replacingOccurrences(of: "&", with: "&amp;")
@@ -896,7 +896,7 @@ public enum Filters {
         case let .double(n):
             return .double(Swift.abs(n))
         default:
-            throw RuntimeError("abs filter requires number or integer")
+            throw JinjaError.runtime("abs filter requires number or integer")
         }
     }
 
@@ -934,7 +934,7 @@ public enum Filters {
         )
 
         guard case let .int(width) = arguments["width"] else {
-            throw RuntimeError("center filter requires width parameter")
+            throw JinjaError.runtime("center filter requires width parameter")
         }
 
         let padCount = width - str.count
@@ -1175,7 +1175,7 @@ public enum Filters {
         guard case let .string(old) = arguments["old"],
             case let .string(new) = arguments["new"]
         else {
-            throw RuntimeError("replace() requires 'old' and 'new' string arguments.")
+            throw JinjaError.runtime("replace() requires 'old' and 'new' string arguments.")
         }
 
         // Handle count parameter - can be positional (3rd arg) or named (count=)
@@ -1279,7 +1279,7 @@ public enum Filters {
         )
 
         guard case let .int(batchSize) = arguments["batchSize"], batchSize > 0 else {
-            throw RuntimeError("batch filter requires positive integer batchSize parameter")
+            throw JinjaError.runtime("batch filter requires positive integer batchSize parameter")
         }
 
         let fillWith = arguments["fillWith"]!

@@ -23,7 +23,7 @@ struct TestsTests {
 
     @Test("defined test with empty values")
     func definedWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.defined([], kwargs: [:], env: env)
         }
     }
@@ -42,7 +42,7 @@ struct TestsTests {
 
     @Test("undefined test with empty values")
     func undefinedWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.undefined([], kwargs: [:], env: env)
         }
     }
@@ -61,7 +61,7 @@ struct TestsTests {
 
     @Test("none test with empty values")
     func noneWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.none([], kwargs: [:], env: env)
         }
     }
@@ -80,7 +80,7 @@ struct TestsTests {
 
     @Test("string test with empty values")
     func stringWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.string([], kwargs: [:], env: env)
         }
     }
@@ -105,7 +105,7 @@ struct TestsTests {
 
     @Test("number test with empty values")
     func numberWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.number([], kwargs: [:], env: env)
         }
     }
@@ -130,7 +130,7 @@ struct TestsTests {
 
     @Test("boolean test with empty values")
     func booleanWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.boolean([], kwargs: [:], env: env)
         }
     }
@@ -163,7 +163,7 @@ struct TestsTests {
 
     @Test("iterable test with empty values")
     func iterableWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.iterable([], kwargs: [:], env: env)
         }
     }
@@ -208,7 +208,7 @@ struct TestsTests {
 
     @Test("even test with empty values")
     func evenWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.even([], kwargs: [:], env: env)
         }
     }
@@ -245,7 +245,7 @@ struct TestsTests {
 
     @Test("odd test with empty values")
     func oddWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.odd([], kwargs: [:], env: env)
         }
     }
@@ -291,14 +291,14 @@ struct TestsTests {
 
     @Test("divisibleby test with insufficient arguments")
     func divisiblebyWithInsufficientArguments() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.divisibleby([.int(10)], kwargs: [:], env: env)
         }
     }
 
     @Test("divisibleby test with empty values")
     func divisiblebyWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.divisibleby([], kwargs: [:], env: env)
         }
     }
@@ -364,14 +364,14 @@ struct TestsTests {
 
     @Test("equalto test with insufficient arguments")
     func equaltoWithInsufficientArguments() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.eq([.int(42)], kwargs: [:], env: env)
         }
     }
 
     @Test("equalto test with empty values")
     func equaltoWithEmptyValues() throws {
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             try Tests.eq([], kwargs: [:], env: env)
         }
     }

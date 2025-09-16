@@ -32,7 +32,7 @@ public enum Value: Sendable {
     /// Supported types include strings, numbers, booleans, arrays, dictionaries, and macros.
     ///
     /// - Parameter value: The Swift value to convert
-    /// - Throws: `RuntimeError` if the value type cannot be converted
+    /// - Throws: `JinjaError.runtime` if the value type cannot be converted
     public init(any value: Any?) throws {
         switch value {
         case nil:
@@ -59,7 +59,8 @@ public enum Value: Sendable {
         case let macro as Macro:
             self = .macro(macro)
         default:
-            throw RuntimeError("Cannot convert value of type \(type(of: value)) to Jinja Value")
+            throw JinjaError.runtime(
+                "Cannot convert value of type \(type(of: value)) to Jinja Value")
         }
     }
 

@@ -32,7 +32,7 @@ struct ValueTests {
             Issue.record("Expected object value")
         }
 
-        #expect(throws: RuntimeError.self) {
+        #expect(throws: JinjaError.self) {
             _ = try Value(any: NSObject())
         }
     }

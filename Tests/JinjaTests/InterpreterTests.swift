@@ -21,7 +21,7 @@ struct InterpreterTests {
 
         @Test("Floor division by zero throws error")
         func floorDivisionByZero() throws {
-            #expect(throws: RuntimeError.self) {
+            #expect(throws: JinjaError.self) {
                 try Interpreter.evaluateBinaryValues(.floorDivide, .int(10), .int(0))
             }
         }

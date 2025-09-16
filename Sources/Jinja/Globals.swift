@@ -29,7 +29,7 @@ public enum Globals: Sendable {
     ///   - args: Function arguments. First argument should be the error message (optional).
     ///   - kwargs: Keyword arguments (unused).
     ///   - env: The current environment.
-    /// - Throws: TemplateException with the provided message or a default message.
+    /// - Throws: JinjaError.runtime with the provided message or a default message.
     /// - Returns: Never returns a value as it always throws.
     @discardableResult
     public static func raiseException(
@@ -69,7 +69,7 @@ public enum Globals: Sendable {
         switch args.count {
         case 1:
             guard case let .int(stopValue) = args[0] else {
-                throw RuntimeError("range() stop argument must be an integer")
+                throw JinjaError.runtime("range() stop argument must be an integer")
             }
             start = 0
             stop = stopValue
@@ -78,7 +78,7 @@ public enum Globals: Sendable {
             guard case let .int(startValue) = args[0],
                 case let .int(stopValue) = args[1]
             else {
-                throw RuntimeError("range() arguments must be integers")
+                throw JinjaError.runtime("range() arguments must be integers")
             }
             start = startValue
             stop = stopValue
@@ -88,17 +88,17 @@ public enum Globals: Sendable {
                 case let .int(stopValue) = args[1],
                 case let .int(stepValue) = args[2]
             else {
-                throw RuntimeError("range() arguments must be integers")
+                throw JinjaError.runtime("range() arguments must be integers")
             }
             start = startValue
             stop = stopValue
             step = stepValue
         default:
-            throw RuntimeError("range() takes 1 to 3 arguments")
+            throw JinjaError.runtime("range() takes 1 to 3 arguments")
         }
 
         guard step != 0 else {
-            throw RuntimeError("range() step argument must not be zero")
+            throw JinjaError.runtime("range() step argument must not be zero")
         }
 
         var result: [Value] = []
@@ -146,7 +146,7 @@ public enum Globals: Sendable {
             case let .int(min) = arguments["min"]!,
             case let .int(max) = arguments["max"]!
         else {
-            throw RuntimeError("Invalid arguments for lipsum()")
+            throw JinjaError.runtime("Invalid arguments for lipsum()")
         }
 
         let words = [
@@ -250,7 +250,7 @@ public enum Globals: Sendable {
         _ args: [Value], _ kwargs: [String: Value], _ env: Environment
     ) throws -> Value {
         guard !args.isEmpty else {
-            throw RuntimeError("cycler() requires at least one argument")
+            throw JinjaError.runtime("cycler() requires at least one argument")
         }
 
         let cyclerInstance = Cycler(items: args)
@@ -309,7 +309,7 @@ public enum Globals: Sendable {
         )
 
         guard case let .string(separator) = arguments["sep"]! else {
-            throw RuntimeError("joiner separator must be a string")
+            throw JinjaError.runtime("joiner separator must be a string")
         }
 
         let joinerInstance = Joiner(separator: separator)
@@ -349,11 +349,11 @@ public enum Globals: Sendable {
         _ args: [Value], _ kwargs: [String: Value], _ env: Environment
     ) throws -> Value {
         guard args.count == 1 else {
-            throw RuntimeError("strftime_now takes exactly 1 argument")
+            throw JinjaError.runtime("strftime_now takes exactly 1 argument")
         }
 
         guard case let .string(format) = args[0] else {
-            throw RuntimeError("strftime_now format argument must be a string")
+            throw JinjaError.runtime("strftime_now format argument must be a string")
         }
 
         let date = Date()

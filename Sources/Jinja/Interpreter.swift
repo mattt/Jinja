@@ -111,7 +111,7 @@ public enum Interpreter {
     ///   - nodes: The AST nodes to interpret and render
     ///   - environment: The execution environment containing variables
     /// - Returns: The rendered template output as a string
-    /// - Throws: `RuntimeError` if an error occurs during interpretation
+    /// - Throws: `JinjaError` if an error occurs during interpretation
     public static func interpret(_ nodes: [Node], environment: Environment) throws -> String {
         // Use the fast path with synchronous environment
         let env = Environment(initial: environment.variables)
@@ -226,7 +226,7 @@ public enum Interpreter {
                 return try evaluateComputedMember(objectValue, propertyValue)
             } else {
                 guard case let .identifier(propertyName) = property else {
-                    throw RuntimeError("Property access requires identifier")
+                    throw JinjaError.runtime("Property access requires identifier")
                 }
                 return try evaluatePropertyMember(objectValue, propertyName)
             }
@@ -280,7 +280,7 @@ public enum Interpreter {
                     if case let .array(items) = value {
                         argValues.append(contentsOf: items)
                     } else {
-                        throw RuntimeError("Cannot unpack non-array value")
+                        throw JinjaError.runtime("Cannot unpack non-array value")
                     }
                 } else {
                     argValues.append(try evaluateExpression(argExpr, env: env))
@@ -296,7 +296,7 @@ public enum Interpreter {
                 return try callMacro(
                     macro: macro, arguments: argValues, keywordArguments: kwargs, env: env)
             default:
-                throw RuntimeError("Cannot call non-function value")
+                throw JinjaError.runtime("Cannot call non-function value")
             }
 
         case let .slice(array, start, stop, step):
@@ -386,11 +386,11 @@ public enum Interpreter {
                 return .string(String(result))
 
             default:
-                throw RuntimeError("Slice requires array or string")
+                throw JinjaError.runtime("Slice requires array or string")
             }
 
         default:
-            throw RuntimeError("Unimplemented expression type")
+            throw JinjaError.runtime("Unimplemented expression type")
         }
     }
 
@@ -566,7 +566,7 @@ public enum Interpreter {
                     }
                 }
             default:
-                throw RuntimeError("Cannot iterate over non-iterable value")
+                throw JinjaError.runtime("Cannot iterate over non-iterable value")
             }
 
         case let .set(target, value, body):
@@ -610,7 +610,7 @@ public enum Interpreter {
                 let bodyEnv = Environment(parent: env)
                 for (paramName, value) in zip(callerParameters ?? [], callerArgs) {
                     guard case let .identifier(paramName) = paramName else {
-                        throw RuntimeError("Caller parameter must be an identifier")
+                        throw JinjaError.runtime("Caller parameter must be an identifier")
                     }
                     bodyEnv[paramName] = value
                 }
@@ -632,7 +632,7 @@ public enum Interpreter {
                     env: callTimeEnv)
                 buffer.write(result.description)
             default:
-                throw RuntimeError("Cannot call non-function value")
+                throw JinjaError.runtime("Cannot call non-function value")
             }
 
         case let .filter(filterExpr, body):
@@ -651,7 +651,7 @@ public enum Interpreter {
                     name, [.string(renderedBody)], kwargs: [:], env: env)
                 buffer.write(filteredValue.description)
             } else {
-                throw RuntimeError("Invalid filter expression in filter statement")
+                throw JinjaError.runtime("Invalid filter expression in filter statement")
             }
 
         case .break:
@@ -691,10 +691,10 @@ public enum Interpreter {
             env[name] = value
         case .tuple(let expressions):
             guard case let .array(values) = value else {
-                throw RuntimeError("Cannot unpack non-array value for tuple assignment.")
+                throw JinjaError.runtime("Cannot unpack non-array value for tuple assignment.")
             }
             guard expressions.count == values.count else {
-                throw RuntimeError(
+                throw JinjaError.runtime(
                     "Tuple assignment mismatch: \(expressions.count) variables and \(values.count) values."
                 )
             }
@@ -708,7 +708,7 @@ public enum Interpreter {
             if computed {
                 let propertyValue = try evaluateExpression(propertyExpr, env: env)
                 guard case let .string(key) = propertyValue else {
-                    throw RuntimeError("Computed property key must be a string")
+                    throw JinjaError.runtime("Computed property key must be a string")
                 }
                 if case var .object(dict) = objectValue {
                     dict[key] = value
@@ -719,7 +719,7 @@ public enum Interpreter {
                 }
             } else {
                 guard case let .identifier(propertyName) = propertyExpr else {
-                    throw RuntimeError("Property assignment requires identifier")
+                    throw JinjaError.runtime("Property assignment requires identifier")
                 }
                 if case var .object(dict) = objectValue {
                     dict[propertyName] = value
@@ -730,7 +730,7 @@ public enum Interpreter {
                 }
             }
         default:
-            throw RuntimeError("Invalid target for assignment: \(target)")
+            throw JinjaError.runtime("Invalid target for assignment: \(target)")
         }
     }
 
@@ -830,7 +830,7 @@ public enum Interpreter {
             return .boolean(!value.isTruthy)
         case .multiply:
             // This should not be evaluated directly - it's only used for unpacking in calls
-            throw RuntimeError("Unpacking operator can only be used in function calls")
+            throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         case .minus:
             switch value {
             case let .double(n):
@@ -838,14 +838,14 @@ public enum Interpreter {
             case let .int(i):
                 return .int(-i)
             default:
-                throw RuntimeError("Cannot negate non-numeric value")
+                throw JinjaError.runtime("Cannot negate non-numeric value")
             }
         case .plus:
             switch value {
             case .double, .int:
                 return value
             default:
-                throw RuntimeError("Cannot apply unary plus to non-numeric value")
+                throw JinjaError.runtime("Cannot apply unary plus to non-numeric value")
             }
         }
     }
@@ -998,7 +998,7 @@ public enum Interpreter {
                 let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
                     args, _, _ in
                     guard !args.isEmpty else {
-                        throw RuntimeError("get() requires at least 1 argument")
+                        throw JinjaError.runtime("get() requires at least 1 argument")
                     }
 
                     let key: String
@@ -1036,7 +1036,7 @@ public enum Interpreter {
             return try testFunction(argValues, [:], env)
         }
 
-        throw RuntimeError("Unknown test: \(testName)")
+        throw JinjaError.runtime("Unknown test: \(testName)")
     }
 
     static func evaluateFilter(
@@ -1055,7 +1055,7 @@ public enum Interpreter {
             return try filterFunction(argValues, kwargs, env)
         }
 
-        throw RuntimeError("Unknown filter: \(filterName)")
+        throw JinjaError.runtime("Unknown filter: \(filterName)")
     }
 
     // MARK: - Value Operations
@@ -1079,7 +1079,7 @@ public enum Interpreter {
         case let (.array(a), .array(b)):
             return .array(a + b)
         default:
-            throw RuntimeError("Cannot add values of different types (\(left) and \(right))")
+            throw JinjaError.runtime("Cannot add values of different types (\(left) and \(right))")
         }
     }
 
@@ -1094,7 +1094,7 @@ public enum Interpreter {
         case let (.double(a), .int(b)):
             return .double(a - Double(b))
         default:
-            throw RuntimeError("Cannot subtract non-numeric values (\(left) and \(right))")
+            throw JinjaError.runtime("Cannot subtract non-numeric values (\(left) and \(right))")
         }
     }
 
@@ -1113,55 +1113,55 @@ public enum Interpreter {
         case let (.int(n), .string(s)):
             return .string(String(repeating: s, count: n))
         default:
-            throw RuntimeError("Cannot multiply values of these types (\(left) and \(right))")
+            throw JinjaError.runtime("Cannot multiply values of these types (\(left) and \(right))")
         }
     }
 
     static func divideValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
         case let (.int(a), .int(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .double(Double(a) / Double(b))
         case let (.double(a), .double(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .double(a / b)
         case let (.int(a), .double(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .double(Double(a) / b)
         case let (.double(a), .int(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .double(a / Double(b))
         default:
-            throw RuntimeError("Cannot divide non-numeric values (\(left) and \(right))")
+            throw JinjaError.runtime("Cannot divide non-numeric values (\(left) and \(right))")
         }
     }
 
     static func moduloValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
         case let (.int(a), .int(b)):
-            guard b != 0 else { throw RuntimeError("Modulo by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
             return .int(a % b)
         default:
-            throw RuntimeError("Modulo operation requires integers (\(left) and \(right))")
+            throw JinjaError.runtime("Modulo operation requires integers (\(left) and \(right))")
         }
     }
 
     static func floorDivideValues(_ left: Value, _ right: Value) throws -> Value {
         switch (left, right) {
         case let (.int(a), .int(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .int(a / b)  // Integer division in Swift already floors
         case let (.double(a), .double(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .int(Int(floor(a / b)))
         case let (.int(a), .double(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .int(Int(floor(Double(a) / b)))
         case let (.double(a), .int(b)):
-            guard b != 0 else { throw RuntimeError("Division by zero") }
+            guard b != 0 else { throw JinjaError.runtime("Division by zero") }
             return .int(Int(floor(a / Double(b))))
         default:
-            throw RuntimeError(
+            throw JinjaError.runtime(
                 "Cannot floor divide non-numeric values (\(left) and \(right))")
         }
     }
@@ -1180,7 +1180,7 @@ public enum Interpreter {
         case let (.double(a), .int(b)):
             return .double(pow(a, Double(b)))
         default:
-            throw RuntimeError(
+            throw JinjaError.runtime(
                 "Cannot raise non-numeric values to a power (\(left) and \(right))")
         }
     }
@@ -1213,7 +1213,7 @@ public enum Interpreter {
         case let (.string(a), .string(b)):
             return a < b ? -1 : a > b ? 1 : 0
         default:
-            throw RuntimeError(
+            throw JinjaError.runtime(
                 "Cannot compare values of different types (\(left) and \(right))")
         }
     }
@@ -1235,7 +1235,7 @@ public enum Interpreter {
             return dict.keys.contains(key)
 
         default:
-            throw RuntimeError(
+            throw JinjaError.runtime(
                 "'in' operator requires iterable on right side (\(collection))")
         }
     }
