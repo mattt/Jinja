@@ -709,14 +709,15 @@ public struct Parser: Sendable {
         throw JinjaError.parser("\(message). Got \(peek().kind) instead")
     }
 
+    private static let allowedAsIdentifier: Set<Token.Kind> = [
+        .identifier, .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue,
+    ]
+
     @discardableResult
     private mutating func consumeIdentifier(_ name: String? = nil) throws -> String {
         let token = peek()
-        let allowedAsIdentifier: Set<Token.Kind> = [
-            .identifier, .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue,
-        ]
 
-        if allowedAsIdentifier.contains(token.kind) {
+        if Self.allowedAsIdentifier.contains(token.kind) {
             if let name = name, token.value != name {
                 throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
             }
