@@ -1,5 +1,5 @@
 /// Tokenizes Jinja template source code into a sequence of tokens.
-public enum Lexer: Sendable {
+public struct Lexer: Sendable {
     private static let keywords: [String: Token.Kind] = [
         "if": .`if`, "else": .`else`, "elif": .elif, "endif": .endif,
         "for": .`for`, "endfor": .endfor, "in": .`in`, "not": .not,
@@ -22,35 +22,46 @@ public enum Lexer: Sendable {
         "==": .equal, "!=": .notEqual, "<": .less, "<=": .lessEqual,
         ">": .greater, ">=": .greaterEqual, "=": .equals, "|": .pipe,
     ]
+    
+    // Instance properties to hold lexer state
+    private let source: String
+    private var position: String.Index
+    private var inTag: Bool
+    private var curlyBracketDepth: Int
+    private var stripNextWhitespace: Bool
+    
+    private init(source: String) {
+        self.source = source
+        self.position = source.startIndex
+        self.inTag = false
+        self.curlyBracketDepth = 0
+        self.stripNextWhitespace = false
+    }
 
     /// Tokenizes a template source string into an array of tokens.
     ///
     /// - Parameter source: The Jinja template source code to tokenize
     /// - Returns: An array of tokens representing the lexical structure
     /// - Throws: `JinjaError.lexer` if the source contains invalid syntax
-    public static func tokenize(_ source: String) throws
-        -> [Token]
-    {
+    public static func tokenize(_ source: String) throws -> [Token] {
+        var lexer = Lexer(source: source)
+        return try lexer.tokenize()
+    }
+    
+    /// Instance method to tokenize the source string.
+    private mutating func tokenize() throws -> [Token] {
         var tokens: [Token] = []
         tokens.reserveCapacity(source.count / 4)
 
-        var position = source.startIndex
-        var inTag = false
-        var curlyBracketDepth = 0
-        var stripNextWhitespace = false
-
         while position < source.endIndex {
             if inTag {
-                position = skipWhitespace(in: source, at: position)
+                skipWhitespace()
                 if position >= source.endIndex {
                     break
                 }
             }
 
-            let (token, newPosition, shouldStripWhitespace) = try extractToken(
-                from: source, at: position, inTag: inTag, curlyBracketDepth: curlyBracketDepth,
-                stripNextWhitespace: stripNextWhitespace
-            )
+            let (token, shouldStripWhitespace) = try extractToken()
 
             switch token.kind {
             case .openExpression, .openStatement:
@@ -68,12 +79,10 @@ public enum Lexer: Sendable {
             }
 
             if token.kind == .text, token.value.isEmpty {
-                position = newPosition
                 continue
             }
 
             tokens.append(token)
-            position = newPosition
 
             if token.kind == .eof {
                 break
@@ -88,31 +97,21 @@ public enum Lexer: Sendable {
         return tokens
     }
 
-    private static func skipWhitespace(
-        in source: String, at position: String.Index
-    ) -> String.Index {
-        var pos = position
-        while pos < source.endIndex {
-            let char = source[pos]
+    private mutating func skipWhitespace() {
+        while position < source.endIndex {
+            let char = source[position]
             if char.isWhitespace {
-                pos = source.index(after: pos)
+                position = source.index(after: position)
             } else {
                 break
             }
         }
-        return pos
     }
 
-    private static func extractToken(
-        from source: String,
-        at position: String.Index,
-        inTag: Bool,
-        curlyBracketDepth: Int = 0,
-        stripNextWhitespace: Bool = false
-    ) throws -> (Token, String.Index, Bool) {
+    private mutating func extractToken() throws -> (Token, Bool) {
         guard position < source.endIndex else {
             let charPosition = source.distance(from: source.startIndex, to: position)
-            return (Token(kind: .eof, value: "", position: charPosition), position, false)
+            return (Token(kind: .eof, value: "", position: charPosition), false)
         }
 
         let char = source[position]
@@ -128,15 +127,15 @@ public enum Lexer: Sendable {
 
                     // Check if there's a following "-" for whitespace stripping
                     var hasStripLeft = false
-                    var finalEndIndex = endIndex
                     if endIndex < source.endIndex && source[endIndex] == "-" {
                         hasStripLeft = true
-                        finalEndIndex = source.index(after: endIndex)
+                        position = source.index(after: endIndex)
+                    } else {
+                        position = endIndex
                     }
 
                     return (
                         Token(kind: .openExpression, value: "{{", position: charPosition),
-                        finalEndIndex,
                         hasStripLeft
                     )
                 } else if nextChar == "%" {  // "{%" or "{%-"
@@ -144,20 +143,20 @@ public enum Lexer: Sendable {
 
                     // Check if there's a following "-" for whitespace stripping
                     var hasStripLeft = false
-                    var finalEndIndex = endIndex
                     if endIndex < source.endIndex && source[endIndex] == "-" {
                         hasStripLeft = true
-                        finalEndIndex = source.index(after: endIndex)
+                        position = source.index(after: endIndex)
+                    } else {
+                        position = endIndex
                     }
 
                     return (
                         Token(kind: .openStatement, value: "{%", position: charPosition),
-                        finalEndIndex,
                         hasStripLeft
                     )
                 } else if nextChar == "#" {  // "{#"
-                    let (token, newPos) = try extractCommentToken(from: source, at: position)
-                    return (token, newPos, false)
+                    let (token, shouldStrip) = try extractCommentToken()
+                    return (token, shouldStrip)
                 }
             }
         }
@@ -173,10 +172,9 @@ public enum Lexer: Sendable {
                         && curlyBracketDepth == 0
                     {
                         // "-}}" - expression close with right strip
-                        let endIndex = source.index(after: afterNext)
+                        position = source.index(after: afterNext)
                         return (
                             Token(kind: .closeExpression, value: "}}", position: charPosition),
-                            endIndex,
                             true
                         )
                     }
@@ -184,10 +182,9 @@ public enum Lexer: Sendable {
                     let afterNext = source.index(after: nextIndex)
                     if afterNext < source.endIndex && source[afterNext] == "}" {
                         // "-%}" - statement close with right strip
-                        let endIndex = source.index(after: afterNext)
+                        position = source.index(after: afterNext)
                         return (
                             Token(kind: .closeStatement, value: "%}", position: charPosition),
-                            endIndex,
                             true
                         )
                     }
@@ -198,10 +195,9 @@ public enum Lexer: Sendable {
         if char == "}" {
             let nextIndex = source.index(after: position)
             if nextIndex < source.endIndex && source[nextIndex] == "}" && curlyBracketDepth == 0 {
-                let endIndex = source.index(after: nextIndex)
+                position = source.index(after: nextIndex)
                 return (
                     Token(kind: .closeExpression, value: "}}", position: charPosition),
-                    endIndex,
                     false
                 )
             }
@@ -209,103 +205,62 @@ public enum Lexer: Sendable {
         if char == "%" {
             let nextIndex = source.index(after: position)
             if nextIndex < source.endIndex && source[nextIndex] == "}" {
-                let endIndex = source.index(after: nextIndex)
+                position = source.index(after: nextIndex)
                 return (
                     Token(kind: .closeStatement, value: "%}", position: charPosition),
-                    endIndex,
                     false
                 )
             }
         }
 
         if !inTag {
-            let (token, newPos) = extractTextToken(
-                from: source, at: position, stripLeadingWhitespace: stripNextWhitespace)
-            return (token, newPos, false)
+            let (token, shouldStrip) = extractTextToken(stripLeadingWhitespace: stripNextWhitespace)
+            return (token, shouldStrip)
         }
 
         // Single character tokens
         let nextIndex = source.index(after: position)
         switch char {
         case "(":
-            return (
-                Token(
-                    kind: .openParen, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .openParen, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case ")":
-            return (
-                Token(
-                    kind: .closeParen, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .closeParen, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case "[":
-            return (
-                Token(
-                    kind: .openBracket, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .openBracket, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case "]":
-            return (
-                Token(
-                    kind: .closeBracket, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .closeBracket, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case "{":
-            return (
-                Token(
-                    kind: .openBrace, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .openBrace, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case "}":
-            return (
-                Token(
-                    kind: .closeBrace, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .closeBrace, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case ",":
-            return (
-                Token(
-                    kind: .comma, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .comma, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case ".":
-            return (
-                Token(
-                    kind: .dot, value: String(source[position..<nextIndex]), position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .dot, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case ":":
-            return (
-                Token(
-                    kind: .colon, value: String(source[position..<nextIndex]),
-                    position: charPosition),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .colon, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         case "|":
-            return (
-                Token(
-                    kind: .pipe, value: String(source[position..<nextIndex]), position: charPosition
-                ),
-                nextIndex,
-                false
-            )
+            let token = Token(kind: .pipe, value: String(source[position..<nextIndex]), position: charPosition)
+            position = nextIndex
+            return (token, false)
         default: break
         }
 
@@ -330,33 +285,30 @@ public enum Lexer: Sendable {
                     }
                 }
 
-                if let tokenKind = operators[op] {
-                    return (
-                        Token(kind: tokenKind, value: op, position: charPosition),
-                        endIndex,
-                        false
-                    )
+                if let tokenKind = Self.operators[op] {
+                    let token = Token(kind: tokenKind, value: op, position: charPosition)
+                    position = endIndex
+                    return (token, false)
                 }
             }
         }
 
         // String literals
         if char == "'" || char == "\"" {
-            let (token, newPos) = try extractStringToken(
-                from: source, at: position, delimiter: char)
-            return (token, newPos, false)
+            let (token, shouldStrip) = try extractStringToken(delimiter: char)
+            return (token, shouldStrip)
         }
 
         // Numbers
         if char.isNumber {
-            let (token, newPos) = extractNumberToken(from: source, at: position)
-            return (token, newPos, false)
+            let (token, shouldStrip) = extractNumberToken()
+            return (token, shouldStrip)
         }
 
         // Identifiers and keywords
         if char.isLetter || char == "_" {
-            let (token, newPos) = extractIdentifierToken(from: source, at: position)
-            return (token, newPos, false)
+            let (token, shouldStrip) = extractIdentifierToken()
+            return (token, shouldStrip)
         }
 
         throw JinjaError.lexer(
@@ -364,25 +316,21 @@ public enum Lexer: Sendable {
         )
     }
 
-    private static func extractTextToken(
-        from source: String,
-        at position: String.Index,
-        stripLeadingWhitespace: Bool = false
-    ) -> (Token, String.Index) {
-        var pos = position
+    private mutating func extractTextToken(stripLeadingWhitespace: Bool = false) -> (Token, Bool) {
+        let startPosition = position
         var startPos = position
 
         // Skip leading whitespace if requested
         if stripLeadingWhitespace {
-            while pos < source.endIndex && source[pos].isWhitespace {
-                pos = source.index(after: pos)
+            while position < source.endIndex && source[position].isWhitespace {
+                position = source.index(after: position)
             }
-            startPos = pos
+            startPos = position
         }
 
-        while pos < source.endIndex {
-            let char = source[pos]
-            let nextIndex = source.index(after: pos)
+        while position < source.endIndex {
+            let char = source[position]
+            let nextIndex = source.index(after: position)
 
             if nextIndex <= source.endIndex {
                 if char == "{" && nextIndex < source.endIndex {
@@ -401,34 +349,31 @@ public enum Lexer: Sendable {
                     break
                 }
             }
-            pos = nextIndex
+            position = nextIndex
         }
 
-        let charPosition = source.distance(from: source.startIndex, to: position)
-        return (
-            Token(kind: .text, value: String(source[startPos..<pos]), position: charPosition), pos
-        )
+        let charPosition = source.distance(from: source.startIndex, to: startPosition)
+        return (Token(kind: .text, value: String(source[startPos..<position]), position: charPosition), false)
     }
 
-    private static func extractStringToken(
-        from source: String, at position: String.Index, delimiter: Character
-    ) throws -> (Token, String.Index) {
-        var pos = source.index(after: position)
+    private mutating func extractStringToken(delimiter: Character) throws -> (Token, Bool) {
+        let startPosition = position
+        position = source.index(after: position)
         var value = ""
-        let charPosition = source.distance(from: source.startIndex, to: position)
+        let charPosition = source.distance(from: source.startIndex, to: startPosition)
 
-        while pos < source.endIndex {
-            let char = source[pos]
+        while position < source.endIndex {
+            let char = source[position]
 
             if char == delimiter {
-                let nextPos = source.index(after: pos)
-                return (Token(kind: .string, value: value, position: charPosition), nextPos)
+                position = source.index(after: position)
+                return (Token(kind: .string, value: value, position: charPosition), false)
             }
 
             if char == "\\" {
-                pos = source.index(after: pos)
-                if pos < source.endIndex {
-                    let escaped = source[pos]
+                position = source.index(after: position)
+                if position < source.endIndex {
+                    let escaped = source[position]
                     switch escaped {
                     case "n": value += "\n"
                     case "t": value += "\t"
@@ -447,77 +392,68 @@ public enum Lexer: Sendable {
                 value += String(char)
             }
 
-            pos = source.index(after: pos)
+            position = source.index(after: position)
         }
 
         throw JinjaError.lexer("Unclosed string at position \(charPosition)")
     }
 
-    private static func extractNumberToken(
-        from source: String,
-        at position: String.Index
-    ) -> (Token, String.Index) {
-        var pos = position
-        var hasDot = false
+    private mutating func extractNumberToken() -> (Token, Bool) {
         let startPos = position
+        var hasDot = false
+        let charPosition = source.distance(from: source.startIndex, to: position)
 
-        while pos < source.endIndex {
-            let char = source[pos]
+        while position < source.endIndex {
+            let char = source[position]
             if char.isNumber {
-                pos = source.index(after: pos)
+                position = source.index(after: position)
             } else if char == "." && !hasDot {
                 hasDot = true
-                pos = source.index(after: pos)
+                position = source.index(after: position)
             } else {
                 break
             }
         }
 
-        let charPosition = source.distance(from: source.startIndex, to: position)
-        return (Token(kind: .number, value: source[startPos..<pos], position: charPosition), pos)
+        return (Token(kind: .number, value: String(source[startPos..<position]), position: charPosition), false)
     }
 
-    private static func extractIdentifierToken(
-        from source: String, at position: String.Index
-    ) -> (Token, String.Index) {
-        var pos = position
+    private mutating func extractIdentifierToken() -> (Token, Bool) {
         let startPos = position
+        let charPosition = source.distance(from: source.startIndex, to: position)
 
-        while pos < source.endIndex {
-            let char = source[pos]
+        while position < source.endIndex {
+            let char = source[position]
             if char.isLetter || char.isNumber || char == "_" {
-                pos = source.index(after: pos)
+                position = source.index(after: position)
             } else {
                 break
             }
         }
 
-        let value = String(source[startPos..<pos])
-        let tokenKind = keywords[value] ?? .identifier
-        let charPosition = source.distance(from: source.startIndex, to: position)
-        return (Token(kind: tokenKind, value: source[startPos..<pos], position: charPosition), pos)
+        let value = String(source[startPos..<position])
+        let tokenKind = Self.keywords[value] ?? .identifier
+        return (Token(kind: tokenKind, value: value, position: charPosition), false)
     }
 
-    private static func extractCommentToken(
-        from source: String,
-        at position: String.Index
-    ) throws -> (Token, String.Index) {
+    private mutating func extractCommentToken() throws -> (Token, Bool) {
+        let startPosition = position
         // Skip the opening {#
-        var pos = source.index(position, offsetBy: 2)
+        position = source.index(position, offsetBy: 2)
         var value = ""
-        let charPosition = source.distance(from: source.startIndex, to: position)
+        let charPosition = source.distance(from: source.startIndex, to: startPosition)
 
-        while pos < source.endIndex {
-            let char = source[pos]
-            let nextIndex = source.index(after: pos)
+        while position < source.endIndex {
+            let char = source[position]
+            let nextIndex = source.index(after: position)
 
             if nextIndex < source.endIndex && char == "#" && source[nextIndex] == "}" {
-                let endPos = source.index(after: nextIndex)
-                return (Token(kind: .comment, value: value, position: charPosition), endPos)
+                position = source.index(after: nextIndex)
+                return (Token(kind: .comment, value: value, position: charPosition), false)
             }
 
             value += String(char)
-            pos = nextIndex
+            position = nextIndex
         }
 
         throw JinjaError.lexer("Unclosed comment at position \(charPosition)")
