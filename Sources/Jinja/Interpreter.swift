@@ -86,23 +86,6 @@ enum ControlFlow: Error, Sendable {
     case `continue`
 }
 
-/// Buffer for accumulating rendered output.
-private struct Buffer: TextOutputStream {
-    var parts: [String] = []
-
-    init() {
-        parts.reserveCapacity(128)
-    }
-
-    mutating func write(_ string: String) {
-        parts.append(string)
-    }
-
-    func build() -> String {
-        parts.joined()
-    }
-}
-
 /// Executes parsed Jinja template nodes to produce rendered output.
 public enum Interpreter {
     /// Interprets nodes and renders them to a string using the given environment.
@@ -111,19 +94,20 @@ public enum Interpreter {
     ///   - nodes: The AST nodes to interpret and render
     ///   - environment: The execution environment containing variables
     /// - Returns: The rendered template output as a string
-    /// - Throws: `JinjaError` if an error occurs during interpretation
+    /// - Throws: `RuntimeError` if an error occurs during interpretation
     public static func interpret(_ nodes: [Node], environment: Environment) throws -> String {
         // Use the fast path with synchronous environment
         let env = Environment(initial: environment.variables)
-        var buffer: any TextOutputStream = Buffer()
+        var buffer = ""
+        buffer.reserveCapacity(1024)
         try interpret(nodes, env: env, into: &buffer)
-        return (buffer as! Buffer).build()
+        return buffer
     }
 
     // MARK: -
 
     static func interpret(
-        _ nodes: [Node], env: Environment, into buffer: inout (any TextOutputStream)
+        _ nodes: [Node], env: Environment, into buffer: inout String
     )
         throws
     {
@@ -133,13 +117,13 @@ public enum Interpreter {
     }
 
     static func interpretNode(
-        _ node: Node, env: Environment, into buffer: inout (any TextOutputStream)
+        _ node: Node, env: Environment, into buffer: inout String
     )
         throws
     {
         switch node {
         case let .text(content):
-            buffer.write(content)
+            buffer.append(content)
 
         case .comment:
             // Comments are ignored during execution
@@ -147,7 +131,7 @@ public enum Interpreter {
 
         case let .expression(expr):
             let value = try evaluateExpression(expr, env: env)
-            buffer.write(value.description)
+            buffer.append(value.description)
 
         case let .statement(stmt):
             try executeStatementWithOutput(stmt, env: env, into: &buffer)
@@ -396,7 +380,7 @@ public enum Interpreter {
 
     /// Synchronous statement execution with output
     static func executeStatementWithOutput(
-        _ statement: Statement, env: Environment, into buffer: inout (any TextOutputStream)
+        _ statement: Statement, env: Environment, into buffer: inout String
     )
         throws
     {
@@ -574,9 +558,9 @@ public enum Interpreter {
                 let evaluatedValue = try evaluateExpression(valueExpr, env: env)
                 try assign(target: target, value: evaluatedValue, env: env)
             } else {
-                var bodyBuffer: any TextOutputStream = Buffer()
+                var bodyBuffer = ""
                 try interpret(body, env: env, into: &bodyBuffer)
-                let renderedBody = (bodyBuffer as! Buffer).build()
+                let renderedBody = bodyBuffer
                 let valueToAssign = Value.string(renderedBody)
                 try assign(target: target, value: valueToAssign, env: env)
             }
@@ -614,9 +598,9 @@ public enum Interpreter {
                     }
                     bodyEnv[paramName] = value
                 }
-                var bodyBuffer: any TextOutputStream = Buffer()
+                var bodyBuffer = ""
                 try interpret(body, env: bodyEnv, into: &bodyBuffer)
-                return .string((bodyBuffer as! Buffer).build())
+                return .string(bodyBuffer)
             }
 
             let finalArgs = try args.map { try evaluateExpression($0, env: env) }
@@ -625,31 +609,31 @@ public enum Interpreter {
             switch callableValue {
             case .function(let function):
                 let result = try function(finalArgs, finalKwargs, callTimeEnv)
-                buffer.write(result.description)
+                buffer.append(result.description)
             case .macro(let macro):
                 let result = try callMacro(
                     macro: macro, arguments: finalArgs, keywordArguments: finalKwargs,
                     env: callTimeEnv)
-                buffer.write(result.description)
+                buffer.append(result.description)
             default:
                 throw JinjaError.runtime("Cannot call non-function value")
             }
 
         case let .filter(filterExpr, body):
-            var bodyBuffer: any TextOutputStream = Buffer()
+            var bodyBuffer = ""
             try interpret(body, env: env, into: &bodyBuffer)
-            let renderedBody = (bodyBuffer as! Buffer).build()
+            let renderedBody = bodyBuffer
 
             if case let .filter(_, name, args, _) = filterExpr {
                 var filterArgs = [Value.string(renderedBody)]
                 filterArgs.append(contentsOf: try args.map { try evaluateExpression($0, env: env) })
                 // TODO: Handle kwargs in filters if necessary
                 let filteredValue = try evaluateFilter(name, filterArgs, kwargs: [:], env: env)
-                buffer.write(filteredValue.description)
+                buffer.append(filteredValue.description)
             } else if case let .identifier(name) = filterExpr {
                 let filteredValue = try evaluateFilter(
                     name, [.string(renderedBody)], kwargs: [:], env: env)
-                buffer.write(filteredValue.description)
+                buffer.append(filteredValue.description)
             } else {
                 throw JinjaError.runtime("Invalid filter expression in filter statement")
             }
@@ -668,9 +652,9 @@ public enum Interpreter {
                 let evaluatedValue = try evaluateExpression(valueExpr, env: env)
                 try assign(target: target, value: evaluatedValue, env: env)
             } else {
-                var bodyBuffer: any TextOutputStream = Buffer()
+                var bodyBuffer = ""
                 try interpret(body, env: env, into: &bodyBuffer)
-                let renderedBody = (bodyBuffer as! Buffer).build()
+                let renderedBody = bodyBuffer
                 let valueToAssign = Value.string(renderedBody)
                 try assign(target: target, value: valueToAssign, env: env)
             }
@@ -774,9 +758,9 @@ public enum Interpreter {
             macroEnv[key] = value
         }
 
-        var macroBuffer: any TextOutputStream = Buffer()
+        var macroBuffer = ""
         try interpret(macro.body, env: macroEnv, into: &macroBuffer)
-        return .string((macroBuffer as! Buffer).build())
+        return .string(macroBuffer)
     }
 
     static func evaluateBinaryValues(
