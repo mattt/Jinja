@@ -50,11 +50,11 @@ public struct Parser: Sendable {
         switch token.kind {
         case .text:
             advance()
-            return .text(token.value)
+            return .text(String(token.value))
 
         case .comment:
             advance()
-            return .comment(token.value)
+            return .comment(String(token.value))
 
         case .openExpression:
             try consume(.openExpression, message: "Expected '{{'.")
@@ -397,7 +397,7 @@ public struct Parser: Sendable {
                 if token.kind == .identifier {
                     testName = try consumeIdentifier()
                 } else if token.kind == .boolean || token.kind == .null {
-                    testName = token.value
+                    testName = String(token.value)
                     advance()
                 } else {
                     throw JinjaError.parser("Expected test name but found \(token.kind).")
@@ -528,13 +528,13 @@ public struct Parser: Sendable {
         switch token.kind {
         case .string:
             advance()
-            return .string(token.value)
+            return .string(String(token.value))
         case .number:
             advance()
             if token.value.contains(".") {
-                return .number(Double(token.value) ?? 0.0)
+                return .number(Double(String(token.value)) ?? 0.0)
             } else {
-                return .integer(Int(token.value) ?? 0)
+                return .integer(Int(String(token.value)) ?? 0)
             }
         case .boolean:
             advance()
@@ -574,7 +574,7 @@ public struct Parser: Sendable {
                     }
                     try consume(.colon, message: "Expected ':' after object key.")
                     let value = try parseExpression()
-                    pairs[keyToken.value] = value
+                    pairs[String(keyToken.value)] = value
                     if !check(.closeBrace) && !match(.comma) {
                         break
                     }
@@ -612,11 +612,11 @@ public struct Parser: Sendable {
 
         case .identifier:
             advance()
-            return .identifier(token.value)
+            return .identifier(String(token.value))
         // Handle context-specific keywords that can be used as identifiers in expressions
         case .if, .for, .in, .and, .or, .not, .is, .else, .set, .break, .continue:
             advance()
-            return .identifier(token.value)
+            return .identifier(String(token.value))
         case .multiply:
             // Handle unpacking operator *
             advance()
@@ -642,7 +642,7 @@ public struct Parser: Sendable {
                     advance()  // consume identifier
                     advance()  // consume equals
                     let value = try parseExpression()
-                    kwargs[lookahead.value] = value
+                    kwargs[String(lookahead.value)] = value
                 } else {
                     let arg = try parseExpression()
                     args.append(arg)
@@ -717,7 +717,7 @@ public struct Parser: Sendable {
                 throw JinjaError.parser("Expected identifier '\(name)' but found '\(token.value)'.")
             }
             advance()
-            return token.value
+            return String(token.value)
         }
         throw JinjaError.parser("Expected identifier but found \(token.kind).")
     }
