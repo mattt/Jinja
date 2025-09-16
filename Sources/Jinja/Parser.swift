@@ -657,10 +657,12 @@ public struct Parser: Sendable {
 
     // MARK: - Helpers
 
+    @inline(__always)
     private var isAtEnd: Bool {
         current >= tokens.count || peek().kind == .eof
     }
 
+    @inline(__always)
     private func peek() -> Token {
         guard current < tokens.count else {
             return Token(kind: .eof, value: "", position: tokens.last?.position ?? 0)
@@ -668,6 +670,7 @@ public struct Parser: Sendable {
         return tokens[current]
     }
 
+    @inline(__always)
     private func peekIdentifier() throws -> String {
         let token = peek()
         guard token.kind == .identifier else {
@@ -677,11 +680,13 @@ public struct Parser: Sendable {
     }
 
     @discardableResult
+    @inline(__always)
     private mutating func advance() -> Token {
         if !isAtEnd { current += 1 }
         return previous()
     }
 
+    @inline(__always)
     private func previous() -> Token {
         guard current > 0 else {
             return Token(kind: .eof, value: "", position: 0)
@@ -689,6 +694,7 @@ public struct Parser: Sendable {
         return tokens[current - 1]
     }
 
+    @inline(__always)
     private func check(_ kind: Token.Kind) -> Bool {
         isAtEnd ? false : peek().kind == kind
     }
