@@ -54,7 +54,7 @@ public indirect enum Expression: Hashable, Codable, Sendable {
         /// Numeric identity operator.
         case plus = "+"
         /// Unpacking operator.
-        case multiply = "*"
+        case splat = "*"
     }
     /// Unary operation with operator and operand.
     case unary(UnaryOp, Expression)

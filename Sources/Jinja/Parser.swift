@@ -621,7 +621,7 @@ public struct Parser: Sendable {
             // Handle unpacking operator *
             advance()
             let expr = try parsePrimary()
-            return .unary(.multiply, expr)
+            return .unary(.splat, expr)
         default:
             throw JinjaError.parser("Unexpected token for primary expression: \(token.kind)")
         }

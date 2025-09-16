@@ -229,7 +229,7 @@ public enum Interpreter {
             // Handle unpacking in arguments
             var argValues: [Value] = []
             for argExpr in argsExpr {
-                if case let .unary(.multiply, expr) = argExpr {
+                if case let .unary(.splat, expr) = argExpr {
                     // Unpack the array/tuple
                     let value = try evaluateExpression(expr, env: env)
                     if case let .array(items) = value {
@@ -710,7 +710,7 @@ public enum Interpreter {
             default:
                 throw JinjaError.runtime("Cannot apply unary plus to non-numeric value")
             }
-        case .multiply:
+        case .splat:
             // This should not be evaluated directly - it's only used for unpacking in calls
             throw JinjaError.runtime("Unpacking operator can only be used in function calls")
         }
